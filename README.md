@@ -49,6 +49,40 @@ and the same part names. Pick one size for a board; parts do not mix.
 - **Bushing.** A printed ring that replaces a bearing where a gear only turns
   now and then.
 
+## Add-ons (phase 4a)
+
+Everything here rides on the same three interfaces: the six peg holes in a
+gear's face, a bolt pin with bearings, or the sockets themselves.
+
+- **Crank.** A 2 mm hub ring pegs into the top face of any gear under the
+  knob; beyond the knob the arm is a full level thick and carries a press-fit
+  socket for a post at the throw (20 to 80 mm). The long post (`POSTH`) with
+  the `HANDLE` makes a hand crank; the post with a 10 mm spacer and a link
+  makes a crank-rocker. A `CAP` presses into the top of every post. Cranks and
+  pointers print upside down (pegs up), which is how the app renders them.
+- **Pointer and dial knob.** The pointer is a hub ring with a flat arm. The
+  dial knob replaces the knob on that pin: a disc with clock numbers and 60
+  ticks under the grip. The pointer runs under the disc and shows past its
+  rim, so it reads without parallax and any gear can carry one.
+- **Pulleys.** `P20` to `P80` are grooved wheels on the gear hub (bearing,
+  peg holes), sized like gears, so `P40` over `P20` is 2:1. Any centre
+  distance works with a rubber band or O-ring; cross the band to reverse.
+- **Links.** `L2` to `L6` are bars with bearing seats one grid step apart,
+  one level thick. A link pivots on a pin like a gear does, or on a crank
+  post; the `JOINT` post joins two links to each other (a bearing in each,
+  a 3 mm spacer between, a cap on top).
+- **Ratchet and pawl.** The ratchet is a 12 tooth sawtooth wheel on the gear
+  hub. The pawl clamps on a pin two sockets away along the grid (the knob
+  boss and the spacer under it grip it) and a printed leaf spring carries
+  the tooth: the wheel turns clockwise past it and locks the other way.
+  `PAWL-L` is the mirror image for a wheel that must lock clockwise.
+- **N20 motor.** The mount bolts into the sockets at (−1, 2) and (1, 2) from
+  the motor socket with two 1-level bolts and knobs, and holds an N20
+  gearmotor upside down over the socket with its shaft down into a 20T
+  `PINION` (D bore, no bearing) at level 1, 2 or 3. Nothing can sit on the
+  two sockets between the legs. Use a 100:1 to 300:1 N20 at 5 or 6 V; a USB
+  power bank with a USB-to-DC lead or a 4 x AA box runs it.
+
 ## Files
 
 ```
@@ -59,6 +93,8 @@ scad/lib/board.scad    tiles, sockets, dovetail edges
 scad/lib/gear.scad     gears, compound gears, coupler halves, face patterns
 scad/lib/pin.scad      knob, spacers, bushing
 scad/lib/coupon.scad   the fit test coupon
+scad/lib/addons.scad   crank, posts, handle, cap, pointer, dial knob, pulley, link, ratchet, pawl
+scad/lib/motor.scad    N20 motor mount and pinion
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog for one or both sizes
@@ -115,7 +151,17 @@ one compound part, any other pair takes two coupler halves. The bill of
 materials counts tiles, gears, knobs, spacers, bolts by length, nuts and
 bearings; "Download kit zip" renders every distinct part for your size and
 profile. The whole layout lives in the link, so it can be bookmarked or sent.
-"Load 1:16 example" is the plan's gate: two 20:80 stages on three pins.
+"1:16 example" is the plan's gate: two 20:80 stages on three pins.
+
+The add-ons are placeable too. An empty level takes a gear, a pulley, a
+ratchet wheel, a pawl or a rocker; the top item of a pin can carry a crank
+(pick its throw) or a pointer with its dial knob. A pulley takes a band to
+any other pulley on its level. A rocker is a link pivoting on its pin, driven
+by the crank on another pin through a coupler link; the tester solves the
+four-bar every frame and warns when the lengths cannot follow the crank. An
+empty socket can take an N20 motor; its pinion becomes the input and its
+mount's legs and block are checked against everything around them. "Add-ons
+sampler" loads a board with all of them.
 
 ## First print: the fit test coupon
 
@@ -138,5 +184,9 @@ the fit overrides in the web app) and print the coupon again.
   and the catalog render them print-ready (flipped).
 - Gears, spacers, bushings, coupler halves: flat side down, 3 walls. Couplers
   print pegs up.
-- Knobs: boss down, 3 walls.
+- Knobs and the dial knob: boss down, 3 walls.
+- Cranks and pointers: pegs up (the app renders them that way). Posts, the
+  joint and the handle stand up; the cap prints head down.
+- Pawls: flat; PETG flexes best, PLA works for the small deflection.
+- Motor mount: legs down; the short tongue over the pinion is a 17 mm bridge.
 - Everything prints without supports.
