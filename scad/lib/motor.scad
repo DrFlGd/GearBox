@@ -14,6 +14,7 @@
 include <standard.scad>
 include <gear.scad>
 
+NEMA_SHAFT_D = 5;
 N20_W = 12; N20_H = 10; N20_HOLE_PITCH = 9; N20_SHAFT_D = 3; N20_SHAFT_L = 10;
 N20_WALL = 1.6;
 MOUNT_PLATE_T = 2.5;
@@ -54,9 +55,10 @@ module motor_mount(level = 1) {
 }
 
 // 20T pinion with a D bore for the 3 mm motor shaft, no bearing.
-module pinion(teeth = 20) {
-    d = N20_SHAFT_D + 0.15;
-    flat = 1.25 + 0.1;   // the D flat is 0.5 mm into a 3 mm shaft
+module pinion(teeth = 20, shaft = "n20") {
+    nema = shaft == "nema17";
+    d = (nema ? NEMA_SHAFT_D : N20_SHAFT_D) + 0.15;
+    flat = nema ? 2.0 + 0.1 : 1.25 + 0.1;   // NEMA 17: 0.5 mm flat on a 5 mm shaft; N20: 0.25 on 3 mm
     difference() {
         gear_blank(teeth);
         translate([0, 0, -EPS]) linear_extrude(GEAR_T + 2 * EPS) intersection() {

@@ -27,7 +27,7 @@ spacer_h = 3;      // [1:0.5:10]
 /* [Add-ons] */
 throw = 40;        // [20:10:80] crank: post distance from the axis, mm
 post_h = 11;       // [8:1:40] post height above the crank arm; 11 carries a bearing, 28 a handle
-level = 1;         // [1:1:3] motor mount: level of the pinion; rack: level of the teeth; yoke, slider post: level of the crank gear
+level = 1;         // [1:1:3] motor mounts: level of the pinion; rack: level of the teeth; yoke, slider post: level of the crank gear; ring: level of the planets
 pulley_n = 40;     // [20:10:80] pulley diameter as a tooth count: MOD x n mm
 holes = 3;         // [2:1:6] link: bearing seats, one grid step apart
 flip_pawl = false; // pawl for a ratchet that locks the other way
@@ -42,6 +42,10 @@ keep = "half";     // [half, quarter] partial gear: how much of the rim has teet
 d_steps = 3;       // [2:1:4] quick return: grid steps from the crank pin to the lever pivot
 cw = true;         // anchor for an escape wheel that runs clockwise (seen from above); false mirrors it
 
+/* [Drives] */
+span = 4;          // [2:1:4] shaft bracket: sockets between its housings
+shaft = "n20";     // [n20, nema17] pinion: which motor shaft it fits
+
 /* [Print profile] */
 profile = "PETG"; // [PLA, PETG, ABS]
 // single fit overrides, e.g. [["bearing_bore_d", 22.2]]; the web app writes these
@@ -55,6 +59,7 @@ include <lib/coupon.scad>
 include <lib/addons.scad>
 include <lib/motor.scad>
 include <lib/mechanisms.scad>
+include <lib/drives.scad>
 
 // turn a part that hangs pegs below z = 0 upside down for printing
 module print_flip(on, h) { if (on) translate([0, 0, h]) mirror([0, 0, 1]) children(); else children(); }
@@ -80,7 +85,7 @@ else if (part == "link")        link(holes);
 else if (part == "ratchet")     ratchet();
 else if (part == "pawl")        pawl(flip_pawl);
 else if (part == "motor_mount") motor_mount(level);
-else if (part == "pinion")      pinion();
+else if (part == "pinion")      pinion(20, shaft);
 else if (part == "rail")        rail(rail_n);
 else if (part == "carriage")    print_flip(flip, BASE_TOP) carriage();
 else if (part == "rack")        print_flip(flip, rack_top(level)) rack_carriage(rack_len, level);
@@ -99,4 +104,13 @@ else if (part == "spring")      spring();
 else if (part == "winch")       winch();
 else if (part == "winch_flange") winch_flange();
 else if (part == "hook")        hook();
+else if (part == "ring")        print_flip(flip, ring_top(level)) ring(level);
+else if (part == "carrier")     carrier();
+else if (part == "bracket")     bracket(span);
+else if (part == "bevel")       bevel_pin(teeth);
+else if (part == "bevel_shaft") bevel_shaft();
+else if (part == "worm")        worm_part(span);
+else if (part == "worm_gear")   worm_gear_part(teeth);
+else if (part == "nema_mount")  nema_mount(level);
+else if (part == "flywheel")    flywheel();
 else assert(false, str("unknown part: ", part));

@@ -132,6 +132,37 @@ bolts to the board and carries a sliding carriage.
 - **Winch.** `WINCH` is a two-level drum with a bottom flange on two
   bearings, `WFLANGE` presses on top, `HOOK` goes on the string.
 
+## Drives (phase 4c)
+
+- **Planetary set.** `CARRIER` is a 60T gear with four posts on its top face;
+  two standard `G20` planets ride the posts on bearings, each kept on by a
+  `CAP`. A plain `G20` sun sits on the same pin one level up, inside the
+  `RING-L2` (or `RING-L3`) 60T ring gear whose legs bolt into the sockets
+  four steps away on either side with knobs. Sun in, carrier out: 4:1, same
+  direction. Drive the sun through a gear joined on top of it (couplers);
+  the carrier meshes like any 60T (a 20T four sockets away, a 40T on a
+  3-4-5 diagonal).
+- **Shaft bracket.** `BRACKET` is a bar along a socket row with a bearing
+  housing at each end; the bar's bolt heads sit flush in hex pockets
+  (tighten with a socket, the nuts are in the board). A 4-level bolt through
+  the housings' bearings is a horizontal shaft at the middle of level 4.
+- **Bevel pair.** `BEVEL` (`BEVEL40`) is a 20T (40T) spur gear with a tall hub and a 20T bevel
+  on top, on a pin two sockets before the first housing; it fills its pin.
+  `BEVEL-S` is the mate on the shaft, with a hub back to the housing and a
+  nut pocket that keys and clamps it. The spur below is driven like any 20T.
+- **Worm.** `WORM` fills the gap between the housings, keyed to the shaft by
+  a nut in its hub, and turns `WG20` (two rows from the shaft) or `WG40`
+  (three rows) on level 4, one tooth per turn: 20:1 or 40:1, self-locking.
+  Print it standing, slowly, with cooling.
+- **NEMA 17.** `NEMA17` bolts into the sockets at (−2, 0) and (2, 0) from the
+  motor socket and carries a plate the stepper screws onto from below (four
+  M3 x 8), shaft down into `PINION5` (5 mm D bore) at level 1, 2 or 3. Any
+  stepper driver works; a 12 V supply and an A4988 or TMC2209 is the usual
+  pair.
+- **Flywheel.** `FLYWHEEL` is a disc on the gear hub with eight nut pockets
+  around the rim: drop in nuts for the mass. It smooths a crank's or an
+  escapement's drive.
+
 ## Files
 
 ```
@@ -145,6 +176,7 @@ scad/lib/coupon.scad   the fit test coupon
 scad/lib/addons.scad   crank, posts, handle, cap, pointer, dial knob, pulley, link, ratchet, pawl
 scad/lib/motor.scad    N20 motor mount and pinion
 scad/lib/mechanisms.scad  rail, carriages, rack, yoke, cams, Geneva, partial gears, quick return, escapement, spring, winch
+scad/lib/drives.scad   planetary ring and carrier, shaft bracket, bevel pair, worm and worm gear, NEMA 17 mount, flywheel
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog for one or both sizes
@@ -224,6 +256,13 @@ Geneva wheel indexes and dwells, the escape wheel steps, the follower rides
 its cam, the partial gear drives in bursts. "Mechanisms sampler" loads a
 board with most of them.
 
+The drives too: a planet carrier takes its sun on the level above and its
+ring gear's legs are checked against the pins around it; a shaft bracket is a
+fixture like the rail, finding its bevel gear and its worm gear and turning
+them at the right ratio; NEMA 17 motors sit on a socket with their own leg
+pattern; flywheels are plain discs. "Drives sampler" chains a NEMA 17, a
+planetary set, a bevel pair, a worm and a flywheel.
+
 ## First print: the fit test coupon
 
 Print the fit test kit for your size (`COUPON`, two `CPL`, `K`, `S3`, `BS`) in
@@ -254,4 +293,7 @@ the fit overrides in the web app) and print the coupon again.
   that way); the slider post, the Geneva driver and the winch stand up.
 - Spring: flat, PETG, 100 percent infill, 2 walls; it is a 1.2 mm band
   (1.0 mm in M1.5).
+- Ring gear legs up (the app renders it that way), carrier and flywheel
+  flat, bevel gears teeth up (the shaft bevel hub down), worm standing, the
+  bracket on its bar, the NEMA 17 mount legs down.
 - Everything prints without supports.

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
-  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, emptyLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, newId, pinById, springMinTeeth, std, topLevel,
-  type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type Pin, type Teeth,
+  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
+  type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type MotorType, type Pin, type Teeth,
 } from "./model";
 import { analyze, billOfMaterials, key, label, ratioText } from "./rules";
 import { decodeLayout, encodeLayout } from "./share";
@@ -31,13 +31,14 @@ const KINDS: { id: ItemKind; label: string; needsCrank?: boolean }[] = [
   { id: "rocker", label: "Rocker (linkage)", needsCrank: true }, { id: "qrlever", label: "Quick-return lever", needsCrank: true },
   { id: "cam", label: "Cam" }, { id: "follower", label: "Cam follower" }, { id: "geneva", label: "Geneva driver" }, { id: "genevaWheel", label: "Geneva wheel" },
   { id: "escwheel", label: "Escape wheel" }, { id: "anchor", label: "Anchor" }, { id: "winch", label: "Winch drum" },
+  { id: "carrier", label: "Planet carrier (planetary set)" }, { id: "bevel", label: "Bevel gear (to a shaft bracket)" }, { id: "wormgear", label: "Worm gear (on a shaft bracket)" }, { id: "flywheel", label: "Flywheel" },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];
 /** Kinds that turn on their bearing (they can be the input and carry a topper). */
-const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch"]);
+const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch", "carrier", "bevel", "wormgear", "flywheel"]);
 /** Kinds posed by a partner rather than by the train. */
 const POSED: Partial<Record<ItemKind, string>> = { rocker: "oscillates with its crank", pawl: "fixed to the board", follower: "rides its cam", anchor: "rocks with its escape wheel", qrlever: "swings with its crank post" };
-const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "cam", "escwheel", "genevaWheel"]);
+const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "cam", "escwheel", "genevaWheel", "flywheel", "wormgear"]);
 const DIRS = ["+x (right)", "+y (up the board)", "−x (left)", "−y (down)"];
 
 /** Phase 3 + 4: build a train on a virtual board, check it, animate it, print it. */
@@ -109,23 +110,29 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
     if (newKind === "anchor") item.anchorCw = true;
     if (newKind === "ratchet" || newKind === "pawl" || newKind === "follower" || newKind === "escwheel" || newKind === "winch" || newKind === "cam" || newKind === "anchor" || newKind === "rocker" || newKind === "qrlever" || newKind === "genevaWheel") item.teeth = 20;
     if (newKind === "geneva") item.teeth = 40;
+    if (newKind === "carrier") { item.teeth = 60; item.legs = "y"; }
+    if (newKind === "flywheel") item.teeth = 20;
+    if (newKind === "wormgear" || newKind === "bevel") item.teeth = newTeeth === 20 ? 20 : 40;
     if (selPin) updatePin(selPin.id, p => ({ ...p, gears: [...p.gears, item] }));
     else setLayout(l => ({ ...l, pins: [...l.pins, { id: newId(), x: selected.i, y: selected.j, gears: [item] }] }));
   };
-  const addMotor = () => {
+  const addMotor = (type: MotorType) => {
     if (!selected || selPin) return;
     const id = newId();
-    setLayout(l => ({ ...l, pins: [...l.pins, { id, x: selected.i, y: selected.j, gears: [{ level: 1, teeth: 20, joined: false }], motor: { dir: 0 } }], input: l.input ?? { pin: id, level: 1 } }));
+    setLayout(l => ({ ...l, pins: [...l.pins, { id, x: selected.i, y: selected.j, gears: [{ level: 1, teeth: 20, joined: false }], motor: { dir: 0, type } }], input: l.input ?? { pin: id, level: 1 } }));
   };
-  const addRail = () => {
+  const addFixture = (kind: "rail" | "bracket") => {
     if (!selected || selPin) return;
     const id = newId();
-    const f: Fixture = { id, kind: "rail", x: selected.i, y: selected.j, dir: 0, n: 4, carriage: null };
+    const f: Fixture = kind === "rail" ? { id, kind: "rail", x: selected.i, y: selected.j, dir: 0, n: 4, carriage: null } : { id, kind: "bracket", x: selected.i, y: selected.j, dir: 0, span: 4 };
     setLayout(l => ({ ...l, fixtures: [...(l.fixtures ?? []), f] }));
     setSelected(null); setSelectedFixture(id);
   };
   const updateFixture = (id: string, f: (x: Fixture) => Fixture | null) => setLayout(l => tidy({ ...l, fixtures: (l.fixtures ?? []).flatMap(x => (x.id === id ? (f(x) ? [f(x)!] : []) : [x])) }));
+  type RailFixture = Extract<Fixture, { kind: "rail" }>;
+  const updateRail = (id: string, f: (x: RailFixture) => RailFixture) => updateFixture(id, x => (x.kind === "rail" ? f(x) : x));
   const setCarriage = (id: string, kind: string) => updateFixture(id, x => {
+    if (x.kind !== "rail") return x;
     const level = x.carriage && "level" in x.carriage ? x.carriage.level : 1;
     const c: Carriage | null = kind === "rack" ? { kind: "rack", len: 2, level } : kind === "yoke" ? { kind: "yoke", level, throw: 20, reach: 3 } : kind === "slider" ? { kind: "slider", level, link: 4 } : null;
     return { ...x, carriage: c };
@@ -169,6 +176,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
   const pulleysAt = (level: number, except: string) => layout.pins.filter(p => p.id !== except && p.gears.some(g => g.level === level && kindOf(g) === "pulley"));
   const bandOf = (pinId: string, level: number) => (layout.bands ?? []).find(b => (b.a.pin === pinId && b.a.level === level) || (b.b.pin === pinId && b.b.level === level));
   const carriageText = (f: typeof analysis.fixtures[number]) => {
+    if (f.fixture.kind === "bracket") return `shaft bracket, ${f.drive ? "turned by a bevel gear" : "no bevel gear"}${f.wormGear ? `, worm turns a ${f.wormGear.gear.teeth}T worm gear` : ""}`;
     const c = f.fixture.carriage;
     if (!c) return "empty rail";
     const travel = `${(f.range[1] - f.range[0]).toFixed(0)} mm travel`;
@@ -199,6 +207,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <button type="button" onClick={() => load(exampleLayout(size))}>1:16 example</button>
             <button type="button" onClick={() => load(addonsLayout(size))}>Add-ons sampler</button>
             <button type="button" onClick={() => load(mechanismsLayout(size))}>Mechanisms sampler</button>
+            <button type="button" onClick={() => load(drivesLayout(size))}>Drives sampler</button>
             <button type="button" onClick={() => load(emptyLayout(size))}>Clear</button>
           </div>
         </div>
@@ -225,7 +234,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             {hoverGear && hoverKey ? (
               <><b>{label(hoverGear)}</b> level {hoverGear.level}: {POSED[kindOf(hoverGear)] ?? ratioText(analysis.speed.get(hoverKey) ?? 0)}</>
             ) : hoverFixture ? (
-              <><b>Slider rail</b> over {hoverFixture.fixture.n} sockets: {carriageText(hoverFixture)}</>
+              hoverFixture.fixture.kind === "rail" ? <><b>Slider rail</b> over {hoverFixture.fixture.n} sockets: {carriageText(hoverFixture)}</> : <><b>Shaft bracket</b>: {carriageText(hoverFixture)}</>
             ) : analysis.problems.length ? (
               <span className="err">{analysis.problems.length} problem{analysis.problems.length > 1 ? "s" : ""}: {analysis.problems[0].text}</span>
             ) : !layout.input ? (
@@ -240,7 +249,24 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
       </main>
 
       <aside className="panel">
-        {selFix ? (
+        {selFix?.kind === "bracket" ? (
+          <>
+            <h2>Shaft bracket at socket {selFix.x + 1}, {selFix.y + 1}</h2>
+            <div className="form">
+              <div className="row">
+                <label className="field"><span className="field-label">Runs toward</span>
+                  <select value={selFix.dir} onChange={e => updateFixture(selFix.id, x => ({ ...x, dir: Number(e.target.value) as Fixture["dir"] }))}>{DIRS.map((t, i) => <option key={i} value={i}>{t}</option>)}</select>
+                </label>
+                <label className="field"><span className="field-label">Housings apart</span>
+                  <select value={selFix.span} onChange={e => updateFixture(selFix.id, x => ({ ...x, span: Number(e.target.value) }))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} sockets</option>)}</select>
+                </label>
+              </div>
+              <p className="hint">The bracket's bar bolts into the sockets between its two housings; a bolt through the housings' bearings is the shaft, at the middle of level 4. A bevel gear on a pin two sockets before the first housing, on the bracket's row, turns the shaft through its mate. A worm gear on level 4 beside the middle of the bar (20T two rows out, 40T three) is turned by the worm on the shaft.</p>
+              <button type="button" className="link" onClick={() => { updateFixture(selFix.id, () => null); setSelectedFixture(null); }}>Remove bracket</button>
+              {analysis.problems.filter(p => p.fixture === selFix.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
+            </div>
+          </>
+        ) : selFix ? (
           <>
             <h2>Slider rail at socket {selFix.x + 1}, {selFix.y + 1}</h2>
             <div className="form">
@@ -260,26 +286,26 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
               {selFix.carriage && (
                 <div className="row">
                   <label className="field"><span className="field-label">{selFix.carriage.kind === "rack" ? "Teeth at level" : "Crank gear on level"}</span>
-                    <select value={selFix.carriage.level} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...x.carriage!, level: Number(e.target.value) } }))}>{[1, 2].map(n => <option key={n} value={n}>level {n}</option>)}</select>
+                    <select value={selFix.carriage.level} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...x.carriage!, level: Number(e.target.value) } }))}>{[1, 2].map(n => <option key={n} value={n}>level {n}</option>)}</select>
                   </label>
                   {selFix.carriage.kind === "rack" && (
                     <label className="field"><span className="field-label">Length</span>
-                      <select value={selFix.carriage.len} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "rack" }), len: Number(e.target.value) } }))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} steps · {n * d.grid} mm</option>)}</select>
+                      <select value={selFix.carriage.len} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "rack" }), len: Number(e.target.value) } }))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} steps · {n * d.grid} mm</option>)}</select>
                     </label>
                   )}
                   {selFix.carriage.kind === "yoke" && (
                     <>
                       <label className="field"><span className="field-label">Crank throw</span>
-                        <select value={selFix.carriage.throw} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), throw: Number(e.target.value) } }))}>{[20, 30, 40].map(n => <option key={n} value={n}>{n} mm</option>)}</select>
+                        <select value={selFix.carriage.throw} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), throw: Number(e.target.value) } }))}>{[20, 30, 40].map(n => <option key={n} value={n}>{n} mm</option>)}</select>
                       </label>
                       <label className="field"><span className="field-label">Reach</span>
-                        <select value={selFix.carriage.reach} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), reach: Number(e.target.value) } }))}>{[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} steps</option>)}</select>
+                        <select value={selFix.carriage.reach} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), reach: Number(e.target.value) } }))}>{[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} steps</option>)}</select>
                       </label>
                     </>
                   )}
                   {selFix.carriage.kind === "slider" && (
                     <label className="field"><span className="field-label">Link holes</span>
-                      <select value={selFix.carriage.link} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "slider" }), link: Number(e.target.value) } }))}>{[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+                      <select value={selFix.carriage.link} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "slider" }), link: Number(e.target.value) } }))}>{[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
                     </label>
                   )}
                 </div>
@@ -296,24 +322,30 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p>
             <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part, any other pair gets two coupler halves.</p>
             <p className="hint">Add-ons: a pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p>
+            <p className="hint">Drives: a planet carrier (a 60T gear with four posts) takes a plain 20T sun on the level above it, inside a ring gear whose legs bolt in four sockets away on either side; sun in, carrier out, 4:1. A bevel gear on level 1 turns a shaft bracket's shaft; the worm on the shaft turns a worm gear on level 4. A NEMA 17 sits on a socket with its mount's legs at (−2, 0) and (2, 0). A flywheel is a heavy disc on any pin.</p>
             <p className="hint">Mechanisms: a cam wants its follower two sockets away on its level. A Geneva driver (a 40T with a post and a locking crescent one level up) indexes a Geneva wheel three sockets away, one level above it. An escape wheel wants its anchor two sockets away. A quick-return lever on a crank's row, two levels above its gear, swings with the crank post. A partial gear drives in bursts. A wind-up spring sits on a plain gear of {springMinTeeth(layout.size)}T or more. A slider rail bolts to the board and carries a rack, a scotch yoke or a crank slider.</p>
             {analysis.problems.length > 0 && <ul className="problems">{analysis.problems.map((p, i) => <li key={i} className="err">{p.text}</li>)}</ul>}
           </>
         ) : (
           <>
-            <h2>Socket {selected.i + 1}, {selected.j + 1} {selPin && <span className="muted">{selPin.motor ? "N20 motor" : `pin, ${d.bolt} × ${d.bolt_lengths[String(Math.max(1, topLevel(selPin)))]} mm`}</span>}</h2>
+            <h2>Socket {selected.i + 1}, {selected.j + 1} {selPin && <span className="muted">{selPin.motor ? (motorType(selPin) === "nema17" ? "NEMA 17 motor" : "N20 motor") : `pin, ${d.bolt} × ${d.bolt_lengths[String(Math.max(1, topLevel(selPin)))]} mm`}</span>}</h2>
             {selPin?.motor && (
               <div className="form">
+                <label className="field"><span className="field-label">Motor</span>
+                  <select value={motorType(selPin)} onChange={e => updatePin(selPin.id, p => ({ ...p, motor: { ...p.motor!, type: e.target.value as MotorType } }))}>
+                    <option value="n20">N20 gearmotor, legs at (−1, 2) and (1, 2)</option><option value="nema17">NEMA 17 stepper, legs at (−2, 0) and (2, 0)</option>
+                  </select>
+                </label>
                 <label className="field"><span className="field-label">Pinion level</span>
                   <select value={selPin.gears[0]?.level ?? 1} onChange={e => updatePin(selPin.id, p => ({ ...p, gears: [{ ...p.gears[0], level: Number(e.target.value) }] }))}>{[1, 2, 3].map(n => <option key={n} value={n}>level {n}</option>)}</select>
                 </label>
                 <label className="field"><span className="field-label">Legs toward</span>
-                  <select value={selPin.motor.dir} onChange={e => updatePin(selPin.id, p => ({ ...p, motor: { dir: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}>
-                    {["+y (up the board)", "−x (left)", "−y (down)", "+x (right)"].map((t, i) => <option key={i} value={i}>{t}</option>)}
+                  <select value={selPin.motor.dir} onChange={e => updatePin(selPin.id, p => ({ ...p, motor: { ...p.motor!, dir: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}>
+                    {(motorType(selPin) === "nema17" ? ["±x (left and right)", "±y (up and down)", "±x (left and right)", "±y (up and down)"] : ["+y (up the board)", "−x (left)", "−y (down)", "+x (right)"]).map((t, i) => <option key={i} value={i}>{t}</option>)}
                   </select>
                 </label>
                 <label className="check"><input type="radio" name="input" checked={layout.input?.pin === selPin.id} onChange={() => setInput(selPin.id, selPin.gears[0].level)} /> input</label>
-                <p className="hint">The 20T pinion meshes like any gear; nothing can sit between the mount's legs.</p>
+                <p className="hint">The 20T pinion meshes like any gear; nothing can sit under the mount's legs and arms.</p>
               </div>
             )}
             {!selPin?.motor && [1, 2, 3, 4].slice(0, MAX_LEVEL).map(level => {
@@ -369,6 +401,22 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                           </select>
                         )}
                         {kind === "winch" && <span className="muted">Winch drum, two levels</span>}
+                        {kind === "carrier" && (
+                          <select value={g.legs ?? "y"} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, legs: e.target.value as "x" | "y" }))}>
+                            <option value="y">Planet carrier, ring legs up and down</option><option value="x">Planet carrier, ring legs left and right</option>
+                          </select>
+                        )}
+                        {kind === "bevel" && (
+                          <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
+                            <option value={20}>Bevel gear on a 20T spur</option><option value={40}>Bevel gear on a 40T spur</option>
+                          </select>
+                        )}
+                        {kind === "wormgear" && (
+                          <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
+                            <option value={20}>Worm gear 20T, two rows from the shaft</option><option value={40}>Worm gear 40T, three rows from the shaft</option>
+                          </select>
+                        )}
+                        {kind === "flywheel" && <span className="muted">Flywheel, {2 * d.grid - 2.5} mm radius</span>}
                         {kind === "qrlever" && <span className="muted">Quick-return lever</span>}
                         <button type="button" onClick={() => updatePin(selPin!.id, p => { const gears = p.gears.filter(x => x.level !== level); return gears.length ? { ...p, gears } : null; })}>Remove</button>
                       </div>
@@ -432,14 +480,14 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                   ) : (
                     <div className="row">
                       <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={kd.needsCrank && !crankPins.length}>{kd.label}</option>)}</select>
-                      {(newKind === "gear" || newKind === "pulley" || newKind === "partial") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{TEETH.map(t => <option key={t} value={t}>{newKind === "pulley" ? `P${t}` : `${t} teeth`}</option>)}</select>}
+                      {(newKind === "gear" || newKind === "pulley" || newKind === "partial" || newKind === "wormgear" || newKind === "bevel") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{(newKind === "wormgear" || newKind === "bevel" ? [20, 40] as Teeth[] : TEETH).map(t => <option key={t} value={t}>{newKind === "pulley" ? `P${t}` : `${t} teeth`}</option>)}</select>}
                       <button type="button" onClick={() => addItem(level)}>Add</button>
                     </div>
                   )}
                 </div>
               );
             })}
-            {!selPin && <div className="form"><div className="row"><button type="button" onClick={addMotor}>Put an N20 motor here</button><button type="button" onClick={addRail}>Start a slider rail here</button></div></div>}
+            {!selPin && <div className="form"><div className="row"><button type="button" onClick={() => addMotor("n20")}>Put an N20 motor here</button><button type="button" onClick={() => addMotor("nema17")}>Put a NEMA 17 here</button></div><div className="row"><button type="button" onClick={() => addFixture("rail")}>Start a slider rail here</button><button type="button" onClick={() => addFixture("bracket")}>Start a shaft bracket here</button></div></div>}
             {selPin && <button type="button" className="link" onClick={() => { updatePin(selPin.id, () => null); setSelected(null); }}>Remove pin</button>}
             {analysis.problems.filter(p => p.pin === selPin?.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
           </>
