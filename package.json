@@ -1,20 +1,35 @@
 {
   "name": "gearbox",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Modular gear board: OpenSCAD part library, catalog and render tools",
+  "description": "Modular gear board: OpenSCAD part library, catalog, render tools and the in-browser part generator",
   "type": "module",
   "scripts": {
+    "dev": "vite --config app/vite.config.ts",
+    "build": "tsc -p app && vite build --config app/vite.config.ts",
+    "preview": "vite preview --config app/vite.config.ts",
+    "typecheck": "tsc -p app",
     "render": "node tools/render-catalog.mjs",
     "render:all": "node tools/render-catalog.mjs --profile PLA && node tools/render-catalog.mjs --profile PETG && node tools/render-catalog.mjs --profile ABS",
     "part": "node tools/render.mjs scad/gearbox.scad",
     "stats": "node tools/stl-stats.mjs"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "openscad-wasm-prebuilt": "1.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "three": "^0.170.0"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5"
   }
 }

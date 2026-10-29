@@ -1,9 +1,15 @@
 # GearBox
 
 A modular, 3D printed gear board: interlocking tiles with a 20 mm grid of pin
-sockets, module 2 gears riding on 608 bearings, and a web app (coming) that
-generates parts and tests layouts. The plan lives in
+sockets, module 2 gears riding on 608 bearings, and a web app that generates
+the parts in your browser. The plan lives in
 [Gear Board Generator Plan](https://claude.ai/artifact/VEH5Cni2EtvSYfoMdG2Zfw).
+
+**Part generator: https://drflgd.github.io/GearBox/** – pick a part, set its
+options and print profile, and download STL, 3MF or OBJ. Everything renders
+in the browser (OpenSCAD compiled to WebAssembly), nothing is uploaded.
+Ready-made STLs for every catalog part are on the
+[releases page](https://github.com/DrFlGd/GearBox/releases/latest).
 
 ## The standard
 
@@ -40,12 +46,14 @@ tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
+app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
+.github/workflows      render check on every PR, Pages deploy on main, release on demand
 ```
 
 ## Rendering
 
 No OpenSCAD install needed: the tools run the same WebAssembly build the web
-app will use (OpenSCAD 2025.01, Manifold backend).
+app uses (OpenSCAD 2025.01, Manifold backend).
 
 ```sh
 git clone --recurse-submodules https://github.com/DrFlGd/GearBox
@@ -58,6 +66,21 @@ npm run part -- -o out/G40.3mf -D 'part="gear"' -D teeth=40 -D 'face="spokes"'
 In desktop OpenSCAD, open `scad/gearbox.scad` and use the customizer. BOSL2
 must be on your library path: either install it in your OpenSCAD libraries
 folder or set `OPENSCADPATH` to this repo's `lib` folder.
+
+### The web app
+
+```sh
+npm run dev       # http://localhost:5173/GearBox/
+npm run build     # static site in dist/, deployed to GitHub Pages by .github/workflows/pages.yml
+```
+
+The app embeds `scad/` and the parts of BOSL2 it needs at build time, so a
+change to the library shows up in the app on the next build. The engine
+(`openscad-wasm-prebuilt`, 11 MB) is served as one file from `engine/` and
+loaded by the render worker. A part's options live in the URL hash, so a link
+like `https://drflgd.github.io/GearBox/#part=gear&teeth=60` opens that part.
+The fit overrides in the profile panel are the keys of
+`scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
 ## First print: the fit test coupon
 
