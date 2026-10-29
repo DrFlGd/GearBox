@@ -19,10 +19,10 @@ jobs:
       - run: npm ci
       - name: Type-check and build the web app
         run: npm run build
-      - name: Render every catalog part (PETG profile) and check sizes
+      - name: Render every catalog part in both sizes (PETG profile) and check sizes
         run: npm run render -- --profile PETG --out out
       - uses: actions/upload-artifact@v4
         with:
           name: parts-PETG
-          path: out/PETG/*.stl
+          path: out/**/PETG/*.stl
           retention-days: 14

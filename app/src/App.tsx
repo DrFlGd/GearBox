@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderClient } from "./engine/client";
 import type { RenderResult } from "./engine/protocol";
 import {
-  PART_KINDS, PROFILES, catalog, catalogPart, defines, meshesWith, parseTolerances, partKind, validate,
-  type Overrides, type Params, type ParamValue, type Profile,
+  PART_KINDS, PROFILES, SIZES, catalog, catalogPart, defines, meshesWith, parseTolerances, partKind, validate,
+  type Overrides, type Params, type ParamValue, type Profile, type Size,
 } from "./parts";
 import { parseBinaryStl, meshTo3mf } from "./export/threemf";
 import { meshToObj } from "./export/obj";
@@ -18,14 +18,16 @@ const REPO = "https://github.com/DrFlGd/GearBox";
 const LS_KEY = "gearbox.settings";
 
 type Selection = { kindId: string; params: Params };
-type Settings = { profile: Profile; overrides: Overrides; auto: boolean };
+type Settings = { size: Size; profile: Profile; overrides: Overrides; auto: boolean };
 type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; seconds: number; messages: string[]; log: string[] };
 
 function loadSettings(): Settings {
   try {
     const s = JSON.parse(localStorage.getItem(LS_KEY) ?? "{}");
-    return { profile: PROFILES.includes(s.profile) ? s.profile : "PETG", overrides: s.overrides ?? {}, auto: s.auto ?? true };
-  } catch { return { profile: "PETG", overrides: {}, auto: true }; }
+    const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const hs = h.get("size");
+    return { size: SIZES.includes(hs as Size) ? (hs as Size) : SIZES.includes(s.size) ? s.size : "M2", profile: PROFILES.includes(s.profile) ? s.profile : "PETG", overrides: s.overrides ?? {}, auto: s.auto ?? true };
+  } catch { return { size: "M2", profile: "PETG", overrides: {}, auto: true }; }
 }
 
 /** Selection from the URL hash (#part=gear&teeth=40), so a part can be linked. */
@@ -61,7 +63,8 @@ export default function App() {
   const matchingPreset = catalog.parts.find(p => p.params.part === kind.id && Object.entries(sel.params).every(([k, v]) => (p.params[k] ?? kind.defaults[k]) === v));
   const name = matchingPreset?.name ?? kind.name(sel.params);
   const problem = validate(kind.id, sel.params);
-  const defs = useMemo(() => defines(kind.id, sel.params, settings.profile, settings.overrides), [kind.id, sel.params, settings.profile, settings.overrides]);
+  const defs = useMemo(() => defines(kind.id, sel.params, settings.size, settings.profile, settings.overrides), [kind.id, sel.params, settings.size, settings.profile, settings.overrides]);
+  const std = catalog.standards[settings.size];
   const defsKey = defs.join("\n");
 
   useEffect(() => {
@@ -74,10 +77,11 @@ export default function App() {
 
   useEffect(() => {
     const h = new URLSearchParams();
+    h.set("size", settings.size);
     h.set("part", kind.id);
     for (const [k, v] of Object.entries(sel.params)) if (v !== kind.defaults[k]) h.set(k, String(v));
     history.replaceState(null, "", "#" + h.toString());
-  }, [sel, kind]);
+  }, [sel, kind, settings.size]);
 
   const doRender = useCallback(async () => {
     const c = client.current!;
@@ -101,7 +105,7 @@ export default function App() {
 
   const mesh = useMemo(() => (render.stl ? parseBinaryStl(render.stl) : null), [render.stl]);
   const size = mesh ? mesh.bbox.max.map((m, i) => m - mesh.bbox.min[i]) : null;
-  const fileBase = `${render.name}-${settings.profile}`;
+  const fileBase = `${render.name}-${settings.size}-${settings.profile}`;
 
   const setParam = (key: string, value: ParamValue) => setSel(s => ({ ...s, params: { ...s.params, [key]: value } }));
   const pickKind = (id: string) => { const k = partKind(id)!; setSel({ kindId: id, params: { ...k.defaults } }); };
@@ -121,6 +125,12 @@ export default function App() {
     <div className="app">
       <header className="top">
         <h1><span className="logo" aria-hidden>⚙</span> GearBox <span className="muted">part generator</span></h1>
+        <div className="segmented sizes" role="radiogroup" aria-label="Size" title={std.title}>
+          {SIZES.map(sz => (
+            <button key={sz} type="button" role="radio" aria-checked={settings.size === sz} className={settings.size === sz ? "on" : ""} disabled={kitBusy}
+              onClick={() => setSettings(s => ({ ...s, size: sz }))}>{sz} <span className="muted">{catalog.standards[sz].bolt} · {catalog.standards[sz].bearing.split(" ")[0]}</span></button>
+          ))}
+        </div>
         <nav>
           <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
           <a href={`${REPO}/releases/latest`} target="_blank" rel="noreferrer">Download all parts</a>
@@ -145,7 +155,7 @@ export default function App() {
             {catalog.parts.map(p => <option key={p.name} value={p.name}>{p.name} · {p.title}</option>)}
           </select>
           <h2>Kits</h2>
-          <KitPanel profile={settings.profile} overrides={settings.overrides} disabled={kitBusy || engine !== "ready"} onBusy={b => { setKitBusy(b); if (b && client.current!.busy) client.current!.cancel(); }}
+          <KitPanel size={settings.size} profile={settings.profile} overrides={settings.overrides} disabled={kitBusy || engine !== "ready"} onBusy={b => { setKitBusy(b); if (b && client.current!.busy) client.current!.cancel(); }}
             render={defs => client.current!.render(defs)} />
         </aside>
 
@@ -175,19 +185,20 @@ export default function App() {
               <button type="button" disabled={!mesh || busy} onClick={() => download(meshToObj(mesh!, render.name), `${fileBase}.obj`, "model/obj")}>OBJ</button>
             </span>
           </div>
-          <Viewer stl={render.stl} busy={busy} />
+          <Viewer stl={render.stl} busy={busy} grid={std.grid} />
           <LogPanel lines={render.status === "rendering" ? liveLog.current : render.log} messages={render.messages} />
         </main>
 
         <aside className="panel">
-          <h2>{kind.title} <code>{name}</code></h2>
+          <h2>{kind.title} <code>{name}</code> <span className="muted">{settings.size}</span></h2>
           <p className="blurb">{kind.blurb}</p>
           <ParamForm params={kind.params} values={sel.params} onChange={setParam} />
           {problem && <p className="err">{problem}</p>}
           {(kind.id === "gear" || kind.id === "compound") && Number.isFinite(teeth) && (
-            <p className="hint">Meshes with: {meshesWith(teeth).map(t => `${t}T`).join(", ")} at 20 mm multiples of pin spacing.</p>
+            <p className="hint">Meshes with: {meshesWith(teeth).map(t => `${t}T`).join(", ")}. Pitch diameter {std.module * teeth} mm, {std.grid} mm grid.</p>
           )}
-          {matchingPreset?.expect?.size && <p className="hint">Catalog size: {matchingPreset.expect.size.join(" × ")} mm</p>}
+          {matchingPreset?.expect?.[settings.size] && <p className="hint">Catalog size: {matchingPreset.expect[settings.size]!.map(v => v.toFixed(1)).join(" × ")} mm</p>}
+          <p className="hint">{std.title}. Bolt lengths: {Object.entries(std.bolt_lengths).map(([l, mm]) => `${l} level${l === "1" ? "" : "s"} ${mm} mm`).join(", ")}.</p>
           <h2>Print profile</h2>
           <ProfilePanel profile={settings.profile} overrides={settings.overrides} rows={tolRows}
             onProfile={p => setSettings(s => ({ ...s, profile: p }))} onOverrides={o => setSettings(s => ({ ...s, overrides: o }))} />

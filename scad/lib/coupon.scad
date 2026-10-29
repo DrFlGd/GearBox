@@ -1,36 +1,37 @@
 // coupon.scad - the fit test coupon. One small print that checks every fit:
-// a bayonet socket, an M8 and an M6 nut pocket, a 608 seat, a 626 seat and a
-// spline socket. Print it with a P1 pin, a cap and a coupler before the kit.
+// two bolt sockets with nut pockets, a dovetail pair, a bearing seat and the
+// coupler peg holes. Print it with two coupler halves, a knob and a spacer.
 
 include <standard.scad>
-include <spline.scad>
+include <gear.scad>
 include <board.scad>
 
 module coupon() {
-    styles = ["bayonet", "M8", "M6"];
-    W = 3 * GRID; H = GRID;
+    W = 2 * GRID; H = GRID;
+    c = fit("slot_clear");
+    block = BEARING[1] + 8 * MOD; // bearing seat block, square
     difference() {
         union() {
-            // a one-row strip of three sockets, same section as a tile
+            // a two-socket strip, same section as a tile, with one male and one female key
             translate([0, 0, SKIRT_H]) cube([W, H, PLATE_T]);
             difference() {
                 cube([W, H, SKIRT_H + EPS]);
                 translate([WALL_T, WALL_T, -EPS]) cube([W - 2 * WALL_T, H - 2 * WALL_T, SKIRT_H + 3 * EPS]);
             }
-            for (k = [1 : 2]) translate([GRID * k - RIB_T / 2, 0, 0]) cube([RIB_T, H, SKIRT_H + EPS]);
-            for (i = [0 : 2]) translate([hole_pos(i), hole_pos(0), SKIRT_H]) socket_boss(styles[i]);
-            // bearing seat block behind the strip: 608 on the left, 626 on the right
-            translate([0, H + 2, 0]) cube([W, 30, GEAR_T]);
+            translate([GRID - RIB_T / 2, 0, 0]) cube([RIB_T, H, SKIRT_H + EPS]);
+            for (i = [0 : 1]) translate([hole_pos(i), hole_pos(0), SKIRT_H]) socket_boss();
+            translate([W, GRID / 2, 0]) rotate(-90) {
+                translate([0, 0, 0.6]) linear_extrude(TILE_H - 0.6) dovetail_2d(-c / 2);
+                translate([0, 0, 0.6]) mirror([0, 0, 1]) linear_extrude(0.6, scale = 0.9) dovetail_2d(-c / 2);
+            }
+            // bearing seat block behind the strip
+            translate([0, H + 2, 0]) cube([block, block, GEAR_T]);
         }
-        for (i = [0 : 2]) translate([hole_pos(i), hole_pos(0), SKIRT_H]) socket_cut(styles[i]);
-        translate([15, H + 2 + 15, 0]) {
-            translate([0, 0, -EPS]) cylinder(d = B608[1] - 2, h = 1 + 2 * EPS);
-            translate([0, 0, 1]) cylinder(d = fit("bearing_bore_d"), h = GEAR_T);
-        }
-        translate([45, H + 2 + 15, 0]) {
-            translate([0, 0, -EPS]) cylinder(d = B626[1] - 2, h = 1 + 2 * EPS);
-            translate([0, 0, 1]) cylinder(d = fit("bearing626_bore_d"), h = GEAR_T);
-            translate([0, 0, GEAR_T]) spline_pockets();
+        for (i = [0 : 1]) translate([hole_pos(i), hole_pos(0), SKIRT_H]) socket_cut();
+        translate([0, GRID / 2, -EPS]) rotate(90) linear_extrude(TILE_H + 2 * EPS) dovetail_2d(c / 2);
+        translate([block / 2, H + 2 + block / 2, 0]) {
+            bearing_seat();
+            translate([0, 0, GEAR_T]) peg_holes();
         }
     }
 }

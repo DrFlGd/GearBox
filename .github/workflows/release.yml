@@ -1,8 +1,9 @@
 name: Release
 
 # Push a tag like v0.1.0, or run this workflow by hand with a version, and it
-# renders every catalog part for each print profile, zips them and publishes a
-# GitHub release with the zips attached (creating the tag if needed).
+# renders every catalog part for both sizes and each print profile, zips them
+# (one zip per size and profile) and publishes a GitHub release with the zips
+# attached (creating the tag if needed).
 on:
   push:
     tags: ["v*"]
@@ -31,11 +32,13 @@ jobs:
       - name: Pick the version
         id: ver
         run: echo "tag=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
-      - name: Render every profile
+      - name: Render every size and profile
         run: |
           for p in PLA PETG ABS; do
             node tools/render-catalog.mjs --profile $p --out out
-            (cd out && zip -qr ../gearbox-${{ steps.ver.outputs.tag }}-stl-$p.zip $p)
+            for s in M2 M1.5; do
+              (cd out/$s && zip -qr ../../gearbox-${{ steps.ver.outputs.tag }}-stl-$s-$p.zip $p)
+            done
           done
       - name: Publish release
         uses: softprops/action-gh-release@v2

@@ -3,10 +3,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
-type Props = { stl: Uint8Array | null; busy: boolean };
+type Props = { stl: Uint8Array | null; busy: boolean; grid: number };
 
 /** three.js view of the current part: orbit, a 20 mm grid that matches the board, auto-fit on each new mesh. */
-export default function Viewer({ stl, busy }: Props) {
+export default function Viewer({ stl, busy, grid }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const state = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
@@ -32,11 +32,11 @@ export default function Viewer({ stl, busy }: Props) {
     const fill = new THREE.DirectionalLight(0xbfd4ff, 0.6);
     fill.position.set(-120, 60, 40);
     scene.add(fill);
-    const grid = new THREE.GridHelper(400, 20, 0x5a6475, 0x323a47);
-    grid.rotation.x = Math.PI / 2;
-    scene.add(grid);
+    const gridHelper = new THREE.GridHelper(400, 20, 0x5a6475, 0x323a47);
+    gridHelper.rotation.x = Math.PI / 2;
+    scene.add(gridHelper);
     scene.add(new THREE.AxesHelper(20));
-    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, grid, fitted: false };
+    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, grid: gridHelper, fitted: false };
     state.current = s;
 
     const resize = () => {
@@ -61,6 +61,18 @@ export default function Viewer({ stl, busy }: Props) {
       state.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const s = state.current;
+    if (!s) return;
+    s.scene.remove(s.grid);
+    s.grid.dispose();
+    const g = new THREE.GridHelper(grid * 20, 20, 0x5a6475, 0x323a47);
+    g.rotation.x = Math.PI / 2;
+    g.position.z = s.grid.position.z;
+    s.scene.add(g);
+    s.grid = g;
+  }, [grid]);
 
   useEffect(() => {
     const s = state.current;
