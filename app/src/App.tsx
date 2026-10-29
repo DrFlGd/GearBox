@@ -8,6 +8,7 @@ import {
 import { parseBinaryStl, meshTo3mf } from "./export/threemf";
 import { meshToObj } from "./export/obj";
 import { download } from "./download";
+import { buildPrintPlate, plateTo3mf, plateToStl, type PrintPlate } from "./plate";
 import Viewer from "./components/Viewer";
 import ParamForm from "./components/ParamForm";
 import ProfilePanel from "./components/ProfilePanel";
@@ -56,6 +57,8 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [render, setRender] = useState<RenderState>({ status: "idle", name: "", stl: null, seconds: 0, messages: [], log: [] });
   const [kitBusy, setKitBusy] = useState(false);
+  const [plateProgress, setPlateProgress] = useState<string | null>(null);
+  const plateCache = useRef<{ key: string; plate: PrintPlate } | null>(null);
   const [mode, setMode] = useState<"parts" | "layout">(() => (new URLSearchParams(location.hash.replace(/^#/, "")).get("mode") === "layout" ? "layout" : "parts"));
   const liveLog = useRef<string[]>([]);
   const [, bump] = useState(0);
@@ -214,7 +217,40 @@ export default function App() {
           <p className="blurb">{kind.blurb}</p>
           <ParamForm params={kind.params} values={sel.params} onChange={setParam} />
           {problem && <p className="err">{problem}</p>}
-          <div className="download-box">
+          {kind.id === "assembly" && (() => {
+            const kitId = String(sel.params.kit), kit = catalog.kits[kitId];
+            if (!kit) return null;
+            const key = [kitId, settings.size, settings.profile, JSON.stringify(settings.overrides)].join("|");
+            const base = `gearbox-${kitId}-print-${settings.size}-${settings.profile}`;
+            const getPlate = async () => {
+              if (plateCache.current?.key === key) return plateCache.current.plate;
+              const counts = kit.parts.reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
+              const items = Object.entries(counts).flatMap(([n, qty]) => { const cp = catalogPart(n); return cp ? [{ name: n, title: cp.title, qty, params: cp.params }] : []; });
+              setKitBusy(true);
+              try {
+                const plate = await buildPrintPlate({ items, size: settings.size, profile: settings.profile, overrides: settings.overrides, render: d => client.current!.render(d), onProgress: t => setPlateProgress(`Rendering ${t}`) });
+                plateCache.current = { key, plate };
+                setPlateProgress(plate.failed.length ? `Failed to render: ${plate.failed.join(", ")}` : `${plate.placed.length} parts on ${plate.plates} plate${plate.plates > 1 ? "s" : ""} (220 mm bed)`);
+                return plate;
+              } finally { setKitBusy(false); }
+            };
+            return (
+              <div className="download-box">
+                <button type="button" className="primary" disabled={kitBusy || engine !== "ready"} onClick={async () => { const p = await getPlate(); download(plateTo3mf(p, kit.title), `${base}.3mf`, "model/3mf"); }}>
+                  {kitBusy && plateProgress ? plateProgress : "Download parts laid out for printing (3MF)"}
+                </button>
+                <span className="row">
+                  <button type="button" disabled={kitBusy || engine !== "ready"} onClick={async () => { const p = await getPlate(); download(plateToStl(p), `${base}.stl`, "model/stl"); }}>Print layout STL</button>
+                  <span className="muted small">{!kitBusy && plateProgress ? plateProgress + ". " : ""}Every printed part of the kit, flat in its print orientation and spaced apart: one object per part in the 3MF; in the STL use your slicer's split to objects. Board tiles are left out; print them from the Board group.</span>
+                </span>
+                <span className="row">
+                  <button type="button" disabled={!render.stl || busy} onClick={() => download(render.stl!, `${fileBase}.stl`, "model/stl")}>Assembled view STL</button>
+                  <span className="muted small">the assembly as shown, for looking at, not for printing</span>
+                </span>
+              </div>
+            );
+          })()}
+          {kind.id !== "assembly" && <div className="download-box">
             <button type="button" className="primary" disabled={!render.stl || busy} onClick={() => download(render.stl!, `${fileBase}.stl`, "model/stl")}>
               {render.stl && !busy ? `Download ${fileBase}.stl` : busy ? "Rendering…" : "Render first, then download"}
             </button>
@@ -223,7 +259,7 @@ export default function App() {
               <button type="button" disabled={!mesh || busy} onClick={() => download(meshToObj(mesh!, render.name), `${fileBase}.obj`, "model/obj")}>OBJ</button>
               <span className="muted small">this one part, as rendered above; kits and the whole catalog are in the left column</span>
             </span>
-          </div>
+          </div>}
           {kind.id === "assembly" && catalog.kits[String(sel.params.kit)] && (() => {
             const kit = catalog.kits[String(sel.params.kit)];
             const counts = kit.parts.reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
@@ -235,7 +271,6 @@ export default function App() {
                 </ul>
                 <h3>Hardware <span className="muted small">(steel grey in the view)</span></h3>
                 <ul>{kit.hardware.map((h, i) => <li key={i}>{h}</li>)}</ul>
-                <p className="muted small">The download above is the whole assembly as one mesh, for looking at. Print the parts one by one from the kit zip.</p>
               </div>
             );
           })()}

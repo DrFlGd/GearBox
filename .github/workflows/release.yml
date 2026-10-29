@@ -1,9 +1,11 @@
 name: Release
 
 # Push a tag like v0.1.0, or run this workflow by hand with a version, and it
-# renders every catalog part for both sizes and each print profile, zips them
-# (one zip per size and profile) and publishes a GitHub release with the zips
-# attached (creating the tag if needed).
+# publishes a GitHub release (creating the tag if needed) with one STL zip per
+# size and print profile attached. The zips are rendered fresh only when a part
+# source changed since the previous release (the OpenSCAD library, the catalog,
+# BOSL2, the render tools or the engine version); otherwise the previous
+# release's zips are carried over under the new version. `parts` forces either.
 on:
   push:
     tags: ["v*"]
@@ -13,6 +15,12 @@ on:
         description: "Version tag to release, e.g. v0.1.0"
         required: true
         type: string
+      parts:
+        description: "STL zips: auto (render only if a part source changed), render, or reuse the previous release's"
+        required: false
+        default: auto
+        type: choice
+        options: [auto, render, reuse]
 
 permissions:
   contents: write
@@ -24,6 +32,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,7 +41,30 @@ jobs:
       - name: Pick the version
         id: ver
         run: echo "tag=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - name: Render or reuse the STL zips
+        id: parts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          MODE: ${{ inputs.parts || 'auto' }}
+        run: |
+          prev=$(gh api "repos/${{ github.repository }}/releases?per_page=20" --jq '.[] | select(.draft | not) | .tag_name' | grep -vx "$TAG" | head -1 || true)
+          mode=$MODE
+          if [ "$mode" = auto ]; then
+            if [ -n "$prev" ] && git diff --quiet "$prev" HEAD -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/stl-stats.mjs package-lock.json; then mode=reuse; else mode=render; fi
+          fi
+          if [ "$mode" = reuse ]; then
+            if [ -n "$prev" ] && gh release download "$prev" -p 'gearbox-*-stl-*.zip' && ls gearbox-*-stl-*.zip >/dev/null 2>&1; then
+              for f in gearbox-"$prev"-stl-*.zip; do mv "$f" "${f/$prev/$TAG}"; done
+              echo "note=STL zips: no part changed since $prev, so these are the same parts as $prev." >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "No zips to reuse from '$prev', rendering instead."
+          fi
+          echo "render=true" >> "$GITHUB_OUTPUT"
+          echo "note=STL zips: every catalog part rendered fresh for this release." >> "$GITHUB_OUTPUT"
       - name: Render every size and profile
+        if: steps.parts.outputs.render == 'true'
         run: |
           for p in PLA PETG ABS; do
             node tools/render-catalog.mjs --profile $p --out out
@@ -46,5 +78,6 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: ${{ steps.ver.outputs.tag }}
+          body: ${{ steps.parts.outputs.note }}
           generate_release_notes: true
           files: gearbox-*.zip

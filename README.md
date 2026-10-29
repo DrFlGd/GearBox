@@ -213,7 +213,7 @@ tools/render-catalog.mjs  render and check the whole catalog for one or both siz
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
 app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
-.github/workflows      render check on every PR, Pages deploy on main, release on demand
+.github/workflows      build on every PR (plus the full catalog render when a part source changed), Pages deploy on main, release on demand (zips re-rendered only when parts changed)
 ```
 
 ## Rendering
@@ -324,7 +324,7 @@ a drop of CA glue keeps them in.
 The **Assembly** part in the generator shows a whole kit put together on its
 tiles, with the purchased hardware (bolts, nuts, bearings, dowel pins,
 screws, magnets) in steel grey, assembled or exploded. Its panel lists the
-kit's printed parts and hardware. Every kit in the catalog has one.
+kit's printed parts and hardware. Every kit in the catalog has one. Its download lays the kit's printed parts out for printing: each part flat in its print orientation, spaced apart on 220 mm plates, as a 3MF with one object per part (or one STL of separate bodies). The assembled view downloads separately, for looking at.
 
 ## First print: the fit test coupon
 

@@ -1,5 +1,9 @@
 name: Render catalog
 
+# Every PR and push to main type-checks and builds the app. The full catalog
+# render (every part in both sizes, sizes checked) only runs when something a
+# part is made from changed: the OpenSCAD library, the catalog, BOSL2, the
+# render tools or the pinned engine version.
 on:
   push:
     branches: [main]
@@ -12,6 +16,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          fetch-depth: 0
+      - name: Did any part source change?
+        id: parts
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then git fetch -q --no-tags origin "${{ github.base_ref }}"; range="FETCH_HEAD...HEAD"; else range="${{ github.event.before }}..HEAD"; fi
+          if git diff --quiet "$range" -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/stl-stats.mjs package-lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"; echo "No part source changed ($range): skipping the catalog render."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -20,8 +34,10 @@ jobs:
       - name: Type-check and build the web app
         run: npm run build
       - name: Render every catalog part in both sizes (PETG profile) and check sizes
+        if: steps.parts.outputs.changed == 'true'
         run: npm run render -- --profile PETG --out out
       - uses: actions/upload-artifact@v4
+        if: steps.parts.outputs.changed == 'true'
         with:
           name: parts-PETG
           path: out/**/PETG/*.stl
