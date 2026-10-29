@@ -13,6 +13,7 @@ import ParamForm from "./components/ParamForm";
 import ProfilePanel from "./components/ProfilePanel";
 import LogPanel from "./components/LogPanel";
 import KitPanel from "./components/KitPanel";
+import LayoutMode from "./layout/LayoutMode";
 
 const REPO = "https://github.com/DrFlGd/GearBox";
 const LS_KEY = "gearbox.settings";
@@ -55,6 +56,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [render, setRender] = useState<RenderState>({ status: "idle", name: "", stl: null, seconds: 0, messages: [], log: [] });
   const [kitBusy, setKitBusy] = useState(false);
+  const [mode, setMode] = useState<"parts" | "layout">(() => (new URLSearchParams(location.hash.replace(/^#/, "")).get("mode") === "layout" ? "layout" : "parts"));
   const liveLog = useRef<string[]>([]);
   const [, bump] = useState(0);
   const tolRows = useMemo(() => parseTolerances(), []);
@@ -76,12 +78,13 @@ export default function App() {
   useEffect(() => { localStorage.setItem(LS_KEY, JSON.stringify(settings)); }, [settings]);
 
   useEffect(() => {
+    if (mode !== "parts") return;
     const h = new URLSearchParams();
     h.set("size", settings.size);
     h.set("part", kind.id);
     for (const [k, v] of Object.entries(sel.params)) if (v !== kind.defaults[k]) h.set(k, String(v));
     history.replaceState(null, "", "#" + h.toString());
-  }, [sel, kind, settings.size]);
+  }, [sel, kind, settings.size, mode]);
 
   const doRender = useCallback(async () => {
     const c = client.current!;
@@ -96,12 +99,12 @@ export default function App() {
   // Auto-render: the first time the engine is ready, and after each change (debounced).
   const lastRendered = useRef("");
   useEffect(() => {
-    if (engine !== "ready" || kitBusy || problem) return;
+    if (engine !== "ready" || kitBusy || problem || mode !== "parts") return;
     if (!settings.auto && lastRendered.current !== "") return;
     if (lastRendered.current === defsKey) return;
     const t = setTimeout(() => { lastRendered.current = defsKey; void doRender(); }, lastRendered.current ? 500 : 0);
     return () => clearTimeout(t);
-  }, [engine, defsKey, settings.auto, kitBusy, problem, doRender]);
+  }, [engine, defsKey, settings.auto, kitBusy, problem, doRender, mode]);
 
   const mesh = useMemo(() => (render.stl ? parseBinaryStl(render.stl) : null), [render.stl]);
   const size = mesh ? mesh.bbox.max.map((m, i) => m - mesh.bbox.min[i]) : null;
@@ -124,7 +127,11 @@ export default function App() {
   return (
     <div className="app">
       <header className="top">
-        <h1><span className="logo" aria-hidden>⚙</span> GearBox <span className="muted">part generator</span></h1>
+        <h1><span className="logo" aria-hidden>⚙</span> GearBox</h1>
+        <div className="segmented modes" role="tablist">
+          <button type="button" role="tab" aria-selected={mode === "parts"} className={mode === "parts" ? "on" : ""} onClick={() => setMode("parts")}>Parts</button>
+          <button type="button" role="tab" aria-selected={mode === "layout"} className={mode === "layout" ? "on" : ""} onClick={() => setMode("layout")}>Layout</button>
+        </div>
         <div className="segmented sizes" role="radiogroup" aria-label="Size" title={std.title}>
           {SIZES.map(sz => (
             <button key={sz} type="button" role="radio" aria-checked={settings.size === sz} className={settings.size === sz ? "on" : ""} disabled={kitBusy}
@@ -138,6 +145,10 @@ export default function App() {
         </nav>
       </header>
 
+      {mode === "layout" ? (
+        <LayoutMode size={settings.size} profile={settings.profile} overrides={settings.overrides} engineReady={engine === "ready"}
+          render={defs => client.current!.render(defs)} />
+      ) : (
       <div className="layout">
         <aside className="sidebar">
           <h2>Parts</h2>
@@ -205,6 +216,7 @@ export default function App() {
           <p className="hint">Renders run in your browser with OpenSCAD compiled to WebAssembly. Nothing is uploaded.</p>
         </aside>
       </div>
+      )}
     </div>
   );
 }

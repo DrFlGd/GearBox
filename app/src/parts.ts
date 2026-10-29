@@ -100,7 +100,7 @@ export const partKind = (id: string) => PART_KINDS.find(k => k.id === id);
 
 export const SIZES = ["M2", "M1.5"] as const;
 export type Size = (typeof SIZES)[number];
-export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; bolt_lengths: Record<string, number> };
+export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number> };
 export type CatalogPart = { name: string; title: string; group: string; params: Params; expect?: Partial<Record<Size, number[]>> };
 export type Kit = { title: string; parts: string[]; hardware: string[] };
 export type Catalog = { standards: Record<Size, Standard>; mesh_rule: string; profiles: string[]; parts: CatalogPart[]; kits: Record<string, Kit> };
