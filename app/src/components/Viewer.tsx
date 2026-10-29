@@ -3,14 +3,15 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
-type Props = { stl: Uint8Array | null; busy: boolean; grid: number };
+/** `hardware`: a second mesh drawn in steel grey (an assembly's bolts, bearings, pins and magnets). */
+type Props = { stl: Uint8Array | null; hardware?: Uint8Array | null; busy: boolean; grid: number };
 
 /** three.js view of the current part: orbit, a 20 mm grid that matches the board, auto-fit on each new mesh. */
-export default function Viewer({ stl, busy, grid }: Props) {
+export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const state = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
-    mesh: THREE.Mesh | null; grid: THREE.GridHelper; fitted: boolean;
+    mesh: THREE.Mesh | null; hw: THREE.Mesh | null; grid: THREE.GridHelper; fitted: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function Viewer({ stl, busy, grid }: Props) {
     gridHelper.rotation.x = Math.PI / 2;
     scene.add(gridHelper);
     scene.add(new THREE.AxesHelper(20));
-    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, grid: gridHelper, fitted: false };
+    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, hw: null as THREE.Mesh | null, grid: gridHelper, fitted: false };
     state.current = s;
 
     const resize = () => {
@@ -106,6 +107,18 @@ export default function Viewer({ stl, busy, grid }: Props) {
     s.fitted = true;
     s.grid.position.z = Math.min(0, bb.min.z);
   }, [stl]);
+
+  useEffect(() => {
+    const s = state.current;
+    if (!s) return;
+    if (s.hw) { s.scene.remove(s.hw); s.hw.geometry.dispose(); s.hw = null; }
+    if (!hardware || hardware.byteLength <= 84) return;
+    const geometry = new STLLoader().parse(hardware.buffer.slice(hardware.byteOffset, hardware.byteOffset + hardware.byteLength) as ArrayBuffer);
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.65, roughness: 0.35, flatShading: true }));
+    s.scene.add(mesh);
+    s.hw = mesh;
+  }, [hardware]);
 
   return (
     <div className={"viewer" + (busy ? " busy" : "")} ref={host}>

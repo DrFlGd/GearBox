@@ -37,7 +37,7 @@ function ring_top(level) = drv_z(level) + GEAR_T;
 
 // The ring over the planets at `level` (2 or 3; the carrier is one level below).
 // Prints upside down, legs up.
-module ring(level = 2) {
+module planet_ring(level = 2) {
     assert(level >= 2 && level <= 3, "the ring sits over the planets at level 2 or 3");
     z0 = drv_z(level);
     bolt = BOLT[0] + fit("bolt_clear");
@@ -54,7 +54,9 @@ module ring(level = 2) {
 }
 
 // Carrier: a 60T gear with four planet posts. The post shoulder reaches through
-// the 2 mm gap to the planet's bearing; a cap on each post keeps the planet on.
+// the 2 mm gap to the planet's bearing; a cap keyed by a steel dowel pin into each
+// post top keeps the planet on and stays inside the 2 mm gap above it (a nut
+// would stand into the next level).
 module carrier() {
     hp = 3 + BEARING[2];
     difference() {
@@ -67,9 +69,8 @@ module carrier() {
             }
         }
         bearing_seat();
-        mirror([0, 0, 1]) peg_holes();
-        translate([0, 0, GEAR_T]) peg_holes();
-        for (i = [0 : 3]) rotate(i * 90) translate([PLN_R, 0, GEAR_T + hp - 5]) cylinder(d = CAP_D, h = 5 + EPS);
+        face_joints(GEAR_T, gear_rr(PLN_CARRIER));
+        for (i = [0 : 3]) rotate(i * 90) translate([PLN_R, 0, GEAR_T + hp - PIN_L + 1.5 + 0.3]) cylinder(d = CAP_D, h = PIN_L, $fn = 32);
         for (i = [0 : 3]) rotate(45 + i * 90) translate([18 * MOD, 0, -EPS]) cylinder(d = 8 * MOD, h = GEAR_T + 2 * EPS);
     }
 }
@@ -126,7 +127,7 @@ module bevel_pin(teeth = 20) {
         }
         bearing_seat();
         translate([0, 0, BEARING[2] + 0.5]) cylinder(d = BOLT[0] + 1 + fit("bore_clear"), h = 100);
-        mirror([0, 0, 1]) peg_holes();
+        mirror([0, 0, 1]) pin_holes();
     }
 }
 
@@ -171,8 +172,7 @@ module worm_gear_part(teeth = 20) {
     difference() {
         worm_gear(mod = MOD, teeth = teeth, worm_diam = WORM_D, thickness = GEAR_T, profile_shift = 0, pressure_angle = PA, backlash = fit("backlash"), anchor = BOTTOM);
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        face_joints(GEAR_T, gear_rr(teeth) - 1);
     }
 }
 
@@ -211,8 +211,7 @@ module flywheel() {
     difference() {
         cylinder(r = FLY_R, h = GEAR_T);
         bearing_seat();
-        mirror([0, 0, 1]) peg_holes();
-        translate([0, 0, GEAR_T]) peg_holes();
+        face_joints(GEAR_T, FLY_R - 3 - af / cos(30));
         for (i = [0 : 7]) rotate(22.5 + i * 45) translate([rp, 0, GEAR_T - depth]) cylinder(d = af / cos(30), h = depth + EPS, $fn = 6);
     }
 }

@@ -34,43 +34,71 @@ and the same part names. Pick one size for a board; parts do not mix.
 - **Tile.** A flat plate with a plain hole at every grid point and a captive
   hex nut pocket under each hole. It prints top face down, so the top gets the
   bed finish and nothing needs support. Push nuts into the pockets from below.
-  Dovetail keys on every edge alternate male and female, so any edge mates
-  with any other edge.
+  Dovetail keys on every edge are laid out so that each edge is its own
+  mirror image with male and female swapped: any edge mates with any other
+  edge of the same length, either way round. (Tiles from before v0.8.0 with
+  an even number of keys per edge, such as `B4x4`, did not mate; reprint
+  them.)
 - **Pin.** A hex bolt dropped down through the gear stack into the nut,
   tightened by hand with a printed knob. A 2 mm base spacer sits on the plate
   under the first bearing; a 3 mm spacer sits between bearings; the knob's
   boss is the last spacer. Spacers press only the bearing inner races, so
   every gear turns freely.
-- **Gear.** One bearing pressed into the hub, six peg holes on each face.
-- **Coupler.** Two identical flat rings with three pegs each. Drop one on the
-  lower gear pegs down, the other on top flipped and turned 60 degrees: the
-  pegs pass through each other's holes into the gears, and the two gears turn
-  as one. Compound gears (60T over 20T etc.) are one part and need no coupler.
+- **Gear.** One bearing pressed into the hub, six dowel pin holes on each
+  face, and on gears of 30T and up six M3 screw holes as well (see below).
+- **Joining two gears.** Steel dowel pins, not printed pegs: three pins sit
+  in the pin holes of the lower gear's top face and the upper gear drops onto
+  them, so the two turn as one. On 30T and bigger gears three M3 socket head
+  screws clamp the pair: every other screw hole has a counterbore for the
+  head on top and a hex pocket for the nut underneath, so turn the upper gear
+  60 degrees and each screw goes down through a counterbore into the nut
+  pocket of the gear below. The printed `JRING` joint ring fills the 2 mm
+  gap between the gears so the screws clamp on plastic, not on the bearings.
+  Compound gears (60T over 20T etc.) are one part and need neither.
 - **Bushing.** A printed ring that replaces a bearing where a gear only turns
   now and then.
 
+### Hardware for the interface
+
+| | **M2** | **M1.5** |
+|---|---|---|
+| Joint dowel pins (3 per joined pair) | 3 x 8 mm | 2 x 6 mm |
+| Hub dowel pins (3 per crank or pointer) | 3 x 6 mm | 2 x 4 mm |
+| Joint screws (3 per pair, 30T and up) | M3 x 14 socket head + M3 nut | M3 x 12 socket head + M3 nut |
+| Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut |
+| Shaft bracket shaft | M8 x 100 | M6 x 80 |
+| Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm |
+
+Hardened steel dowel pins (ISO 8734 / DIN 6325) are cheap in assortment
+boxes. The pin holes are a slip fit in gear faces and a press fit where a
+pin stays put (hub rings, post tops); both are in the print profile.
+
 ## Add-ons (phase 4a)
 
-Everything here rides on the same three interfaces: the six peg holes in a
+Everything here rides on the same three interfaces: the pin holes in a
 gear's face, a bolt pin with bearings, or the sockets themselves.
 
-- **Crank.** A 2 mm hub ring pegs into the top face of any gear under the
-  knob; beyond the knob the arm is a full level thick and carries a press-fit
-  socket for a post at the throw (20 to 80 mm). The long post (`POSTH`) with
-  the `HANDLE` makes a hand crank; the post with a 10 mm spacer and a link
-  makes a crank-rocker. A `CAP` presses into the top of every post. Cranks and
-  pointers print upside down (pegs up), which is how the app renders them.
+- **Crank.** A thin hub ring sits on the top face of any gear under the knob,
+  keyed by three short dowel pins pressed into the ring; beyond the knob the
+  arm is a full level thick. The crank post is a bolt from the kit: its head
+  sits in a hex pocket under the arm at the throw (20 to 80 mm) and the shank
+  stands up. With the `SH` handle spacer, the `HANDLE` grip over it and a nut
+  on top (`M8 x 45`) it is a hand crank; with a bearing and a link or a slot
+  over it (`M8 x 25`) it drives a rocker, a lever or a carriage. Cranks and
+  pointers print upside down (hub ring up), which is how the app renders
+  them.
 - **Pointer and dial knob.** The pointer is a hub ring with a flat arm. The
   dial knob replaces the knob on that pin: a disc with clock numbers and 60
   ticks under the grip. The pointer runs under the disc and shows past its
   rim, so it reads without parallax and any gear can carry one.
 - **Pulleys.** `P20` to `P80` are grooved wheels on the gear hub (bearing,
-  peg holes), sized like gears, so `P40` over `P20` is 2:1. Any centre
+  pin holes), sized like gears, so `P40` over `P20` is 2:1. Any centre
   distance works with a rubber band or O-ring; cross the band to reverse.
 - **Links.** `L2` to `L6` are bars with bearing seats one grid step apart,
   one level thick. A link pivots on a pin like a gear does, or on a crank
   post; the `JOINT` post joins two links to each other (a bearing in each,
-  a 3 mm spacer between, a cap on top).
+  a 3 mm spacer between, a `CAP` on top keyed by a dowel pin pressed into
+  the post).
 - **Ratchet and pawl.** The ratchet is a 12 tooth sawtooth wheel on the gear
   hub. The pawl clamps on a pin two sockets away along the grid (the knob
   boss and the spacer under it grip it) and a printed leaf spring carries
@@ -136,10 +164,10 @@ bolts to the board and carries a sliding carriage.
 
 - **Planetary set.** `CARRIER` is a 60T gear with four posts on its top face;
   two standard `G20` planets ride the posts on bearings, each kept on by a
-  `CAP`. A plain `G20` sun sits on the same pin one level up, inside the
+  `CAP` keyed by a dowel pin. A plain `G20` sun sits on the same pin one level up, inside the
   `RING-L2` (or `RING-L3`) 60T ring gear whose legs bolt into the sockets
   four steps away on either side with knobs. Sun in, carrier out: 4:1, same
-  direction. Drive the sun through a gear joined on top of it (couplers);
+  direction. Drive the sun through a gear joined on top of it (dowel pins);
   the carrier meshes like any 60T (a 20T four sockets away, a 40T on a
   3-4-5 diagonal).
 - **Shaft bracket.** `BRACKET` is a bar along a socket row with a bearing
@@ -170,13 +198,15 @@ scad/gearbox.scad      one entry point for every part (desktop customizer or -D 
 scad/lib/standard.scad both sizes: every shared dimension
 scad/lib/tolerances.scad  print profiles: PLA, PETG, ABS; every clearance in one table
 scad/lib/board.scad    tiles, sockets, dovetail edges
-scad/lib/gear.scad     gears, compound gears, coupler halves, face patterns
+scad/lib/gear.scad     gears, compound gears, dowel pin and M3 screw joints, magnet pockets, face patterns
 scad/lib/pin.scad      knob, spacers, bushing
 scad/lib/coupon.scad   the fit test coupon
 scad/lib/addons.scad   crank, posts, handle, cap, pointer, dial knob, pulley, link, ratchet, pawl
 scad/lib/motor.scad    N20 motor mount and pinion
 scad/lib/mechanisms.scad  rail, carriages, rack, yoke, cams, Geneva, partial gears, quick return, escapement, spring, winch
 scad/lib/drives.scad   planetary ring and carrier, shaft bracket, bevel pair, worm and worm gear, NEMA 17 mount, flywheel
+scad/lib/magnets.scad  magnetic gears and the face coupling's barrier
+scad/lib/assembly.scad every kit put together, with its hardware, for the Assembly part
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog for one or both sizes
@@ -195,7 +225,7 @@ app uses (OpenSCAD 2025.01, Manifold backend).
 git clone --recurse-submodules https://github.com/DrFlGd/GearBox
 npm install
 npm run render -- --profile PETG              # every part, both sizes, to out/<size>/PETG/*.stl
-npm run render -- --size M1.5 --only COUPON,CPL,K,S3,BS   # just the M1.5 fit test kit
+npm run render -- --size M1.5 --only COUPON,K,S3,BS   # just the M1.5 fit test kit
 npm run part -- -o out/G40.stl -D 'size="M1.5"' -D 'part="gear"' -D teeth=40 -D 'face="spokes"'
 ```
 
@@ -213,7 +243,8 @@ npm run build     # static site in dist/, deployed to GitHub Pages by .github/wo
 The app embeds `scad/` and the parts of BOSL2 it needs at build time, so a
 change to the library shows up in the app on the next build. The engine
 (`openscad-wasm-prebuilt`, 11 MB) is served as one file from `engine/` and
-loaded by the render worker. A part's options live in the URL hash, so a link
+loaded by the render worker. Every part, catalog or custom, downloads from the panel as STL, 3MF or OBJ
+once it has rendered. A part's options live in the URL hash, so a link
 like `https://drflgd.github.io/GearBox/#size=M1.5&part=gear&teeth=60` opens
 that part. The fit overrides in the profile panel are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
@@ -229,9 +260,10 @@ the same level mesh when their tooth counts add up to a multiple of 20 and
 their pins are that many twentieths of the grid apart (20T+20T two sockets,
 20T+80T five sockets, or a 3-4-5 diagonal). Joining a stacked gear to the one
 below carries motion between levels: a bigger gear under a smaller one is
-one compound part, any other pair takes two coupler halves. The bill of
-materials counts tiles, gears, knobs, spacers, bolts by length, nuts and
-bearings; "Download kit zip" renders every distinct part for your size and
+one compound part, any other pair is pinned, and screwed too when both are
+30T or more; two plain 40T or bigger gears can be joined by magnets instead.
+The bill of materials counts tiles, gears, knobs, spacers, bolts by length,
+nuts, bearings, dowel pins, M3 screws and magnets; "Download kit zip" renders every distinct part for your size and
 profile. The whole layout lives in the link, so it can be bookmarked or sent.
 "1:16 example" is the plan's gate: two 20:80 stages on three pins.
 
@@ -263,17 +295,49 @@ them at the right ratio; NEMA 17 motors sit on a socket with their own leg
 pattern; flywheels are plain discs. "Drives sampler" chains a NEMA 17, a
 planetary set, a bevel pair, a worm and a flywheel.
 
+Magnetic gears mesh with each other at the same distances as the toothed
+gears they stand for and collide with toothed ones; "Magnets sampler" has a
+pair of them and a magnetic face coupling.
+
+## Magnets (phase 5a)
+
+Disc magnets drive without contact. Press each one into its pocket with the
+poles as the dots show (the dotted pockets take north up, or north outward);
+a drop of CA glue keeps them in.
+
+- **Magnetic gears.** `MG12`, `MG16`, `MG20` and `MG24` are discs with that
+  many magnets standing on edge in the rim, poles alternating. Two of them
+  turn each other across a 1 mm air gap like spur gears of 2.5 times their
+  magnet count (`MG16` behaves as a 40T), so the usual spacing rule applies:
+  two `MG16` sit four sockets apart. They slip instead of stalling, which
+  makes them a torque limiter, and they run through a thin sheet of plastic
+  or acrylic.
+- **Magnetic face coupling.** `G40-MT` has six magnets in its top face,
+  `G40-MB` six in its bottom face. Stack them on one pin with `MAGB`, the
+  barrier, between their bearings: the barrier is a spacer with a thin flange
+  that fills the gap and stands still. Turn the lower gear and the upper one
+  follows through the wall. Any gear of 40T or more can carry the magnets
+  (`magnets = "top"` or `"bottom"` in the generator).
+
+## Assemblies
+
+The **Assembly** part in the generator shows a whole kit put together on its
+tiles, with the purchased hardware (bolts, nuts, bearings, dowel pins,
+screws, magnets) in steel grey, assembled or exploded. Its panel lists the
+kit's printed parts and hardware. Every kit in the catalog has one.
+
 ## First print: the fit test coupon
 
-Print the fit test kit for your size (`COUPON`, two `CPL`, `K`, `S3`, `BS`) in
-your material with the matching profile, and have one bolt, one nut and one
-bearing to hand. Check, in order:
+Print the fit test kit for your size (`COUPON`, `K`, `S3`, `BS`) in your
+material with the matching profile, and have one bolt, one nut, one bearing,
+one dowel pin and one magnet to hand. Check, in order:
 
 1. The bearing presses into the seat by hand and stays.
 2. A nut pushes into either pocket from below and does not turn.
 3. The bolt drops through a hole, the spacers slide over it, and the knob's hex pocket grips its head.
-4. One coupler half's pegs drop into the holes around the bearing seat with a little play; the two halves nest into each other.
-5. The male dovetail of a second coupon (or a tile) slides into the female slot without force and without slop.
+4. The dowel pin slides into the holes around the bearing seat with a little play (slip fit), and presses firmly into the hole in the strip (press fit).
+5. The magnet presses into its pocket in the strip and stays.
+6. The male dovetail of a second coupon (or a tile) slides into the female slot without force and without slop.
 
 If a fit is off, change that one value in `scad/lib/tolerances.scad` (or use
 the fit overrides in the web app) and print the coupon again.
@@ -282,11 +346,10 @@ the fit overrides in the web app) and print the coupon again.
 
 - Tiles: top face down, 0.2 mm layers, 3 walls, 20 percent infill. The web app
   and the catalog render them print-ready (flipped).
-- Gears, spacers, bushings, coupler halves: flat side down, 3 walls. Couplers
-  print pegs up.
+- Gears, spacers, bushings, the joint ring: flat side down, 3 walls.
 - Knobs and the dial knob: boss down, 3 walls.
-- Cranks and pointers: pegs up (the app renders them that way). Posts, the
-  joint and the handle stand up; the cap prints head down.
+- Cranks and pointers: hub ring up (the app renders them that way). The
+  joint, the handle and its spacer stand up; the cap prints flat.
 - Pawls: flat; PETG flexes best, PLA works for the small deflection.
 - Motor mount: legs down; the short tongue over the pinion is a 17 mm bridge.
 - Rails flat; carriages, racks and yokes upside down (the app renders them

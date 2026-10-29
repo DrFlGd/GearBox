@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Screenshot STL files with three.js in headless Chromium (Playwright).
 //   node tools/preview.mjs out/G40.stl out/P1.stl --out out/previews
+//   node tools/preview.mjs out/crank-printed.stl+out/crank-hardware.stl   (second file in steel grey)
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
@@ -23,13 +24,19 @@ const html = `<!doctype html><html><body style="margin:0;background:#f4f4f4"><ca
 <script type="module">
 import * as THREE from './three.js';
 import { STLLoader } from './stlloader.js';
-window.renderStl = (b64, angle) => {
-  const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
-  const geo = new STLLoader().parse(buf); geo.computeVertexNormals(); geo.computeBoundingBox();
-  const bb = geo.boundingBox, size = new THREE.Vector3(); bb.getSize(size); const center = new THREE.Vector3(); bb.getCenter(center);
+window.renderStl = (list, angle) => {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0xf4f4f4);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xd9452b, metalness: 0.05, roughness: 0.6 });
-  const mesh = new THREE.Mesh(geo, mat); mesh.position.sub(center); scene.add(mesh);
+  const bb = new THREE.Box3(); const meshes = [];
+  list.forEach((b64, i) => {
+    if (!b64) return;
+    const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+    const geo = new STLLoader().parse(buf); geo.computeVertexNormals(); geo.computeBoundingBox();
+    bb.union(geo.boundingBox);
+    const mat = new THREE.MeshStandardMaterial(i === 0 ? { color: 0xd9452b, metalness: 0.05, roughness: 0.6 } : { color: 0x9aa3ad, metalness: 0.6, roughness: 0.35 });
+    meshes.push(new THREE.Mesh(geo, mat));
+  });
+  const size = new THREE.Vector3(); bb.getSize(size); const center = new THREE.Vector3(); bb.getCenter(center);
+  for (const m of meshes) { m.position.sub(center); scene.add(m); }
   scene.add(new THREE.HemisphereLight(0xffffff, 0x666666, 1.2));
   const dl = new THREE.DirectionalLight(0xffffff, 1.5); dl.position.set(1, -1.5, 2); scene.add(dl);
   const r = size.length() / 2;
@@ -60,9 +67,9 @@ page.on("pageerror", e => console.error("page error:", e.message));
 await page.goto(`http://127.0.0.1:${port}/_viewer.html`);
 await page.waitForFunction(() => window.ready);
 for (const f of files) {
-  const b64 = fs.readFileSync(f).toString("base64");
-  const size = await page.evaluate(([b, a]) => window.renderStl(b, a), [b64, 0.9]);
-  const png = path.join(outDir, path.basename(f, ".stl") + ".png");
+  const list = f.split("+").map(x => (fs.existsSync(x) && fs.statSync(x).size > 84 ? fs.readFileSync(x).toString("base64") : ""));
+  const size = await page.evaluate(([b, a]) => window.renderStl(b, a), [list, 0.9]);
+  const png = path.join(outDir, path.basename(f.split("+")[0], ".stl") + ".png");
   await page.screenshot({ path: png });
   console.log(`${png}  ${size.map(v => v.toFixed(1)).join(" x ")}`);
 }

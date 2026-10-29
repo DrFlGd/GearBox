@@ -65,6 +65,6 @@ module pinion(teeth = 20, shaft = "n20") {
             circle(d = d, $fn = 32);
             translate([-d, -d]) square([2 * d, d + flat]);
         }
-        translate([0, 0, GEAR_T]) peg_holes();
+        translate([0, 0, GEAR_T]) pin_holes();
     }
 }

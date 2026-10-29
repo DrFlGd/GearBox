@@ -6,7 +6,7 @@
 //
 // Both sizes share the tooth counts (20 to 80 in tens), the mesh rule (two
 // gears mesh when their tooth counts add up to a multiple of 20) and the
-// 2 mm gap between stacked gears that the coupler halves fill.
+// 2 mm gap between stacked gears that three steel dowel pins bridge.
 
 include <tolerances.scad>
 
@@ -17,7 +17,7 @@ SMALL = is_undef(size) ? false : size == "M1.5";
 MOD    = SMALL ? 1.5 : 2;   // module, mm
 GRID   = MOD * 10;          // hole pitch: a 20T gear spans two grid steps
 GEAR_T = SMALL ? 7 : 8;     // gear face width: bearing width + 1 mm ledge
-LEVEL  = GEAR_T + 2;        // vertical pitch between gear levels (2 mm gap for a coupler)
+LEVEL  = GEAR_T + 2;        // vertical pitch between gear levels (2 mm gap between stacked gears)
 PA     = 20;                // pressure angle, degrees
 
 // Hardware ----------------------------------------------------------------------
@@ -46,16 +46,24 @@ KNOB_BOSS_H   = SPACER_H;           // the knob's boss is the last spacer
 KNOB_FLOOR    = SMALL ? 2 : 2.5;    // under the bolt head
 KNOB_H        = KNOB_BOSS_H + KNOB_FLOOR + BOLT[2] + 0.2;
 
-// Coupling: a ring of peg holes in every gear face ---------------------------------
-// Two identical coupler halves (flat rings with three pegs) nest into each other
-// in the gap between two stacked gears and pin them together.
-PEG_N     = 6;                      // holes per face
-PEG_D     = SMALL ? 2.0 : 3.0;      // peg diameter; holes get slot_clear
-PEG_R     = SMALL ? 10.8 : 14.3;    // hole circle radius
-PEG_DEPTH = SMALL ? 2.0 : 2.5;      // hole depth in the gear face
-CPL_T     = 0.9;                    // one half's plate; two halves fill the 2 mm gap with 0.2 to spare
+// Coupling: a ring of pin holes in every gear face ----------------------------------
+// Steel dowel pins (ISO 2338 / DIN 6325) do every face joint. Three joint pins
+// dropped into a gear's top holes reach PIN_DEPTH into the gear above across the
+// 2 mm gap and lock the pair; no printed coupler is needed. Cranks and pointers
+// carry three shorter pins pressed into their hub ring. The legacy two-half
+// peg coupler (CPL) still fits the same holes.
+PIN_N     = 6;                      // holes per face, 60 degrees apart
+PIN_D     = SMALL ? 2.0 : 3.0;      // pin diameter: 2 mm pins for M1.5, 3 mm for M2
+PIN_L     = SMALL ? 6 : 8;          // joint pin length: two PIN_DEPTHs plus the gap, less float
+PIN_HUB_L = SMALL ? 4 : 6;          // hub pin length: HUB_T in the ring plus PIN_DEPTH - 0.1 in the gear
+PIN_R     = SMALL ? 10.8 : 14.3;    // hole circle radius
+PIN_DEPTH = SMALL ? 2.4 : 3.4;      // blind hole depth in a face; both faces leave a web in the middle
+PIN_NAME  = SMALL ? "2 x 6 mm" : "3 x 8 mm";
+PIN_HUB_NAME = SMALL ? "2 x 4 mm" : "3 x 6 mm";
+HUB_T     = PIN_HUB_L - PIN_DEPTH + 0.1;   // hub ring of a crank or pointer: 2.7 / 1.8, under the knob's 3 mm gap
+CPL_T     = 0.9;                    // legacy coupler half plate; two halves fill the 2 mm gap with 0.2 to spare
 CPL_ID    = BEARING[1] + 1.5;       // clears the bearing outer race
-CPL_OD    = SMALL ? 25 : 32;        // stays inside the root circle of a 20T gear
+CPL_OD    = SMALL ? 25 : 32;        // hub ring outer diameter, inside the root circle of a 20T gear
 
 // Derived ---------------------------------------------------------------------
 function gear_pr(teeth)   = MOD * teeth / 2;          // pitch radius

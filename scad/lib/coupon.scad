@@ -1,6 +1,7 @@
 // coupon.scad - the fit test coupon. One small print that checks every fit:
-// two bolt sockets with nut pockets, a dovetail pair, a bearing seat and the
-// coupler peg holes. Print it with two coupler halves, a knob and a spacer.
+// two bolt sockets with nut pockets, a dovetail pair, a bearing seat, the pin
+// holes (slip fit) and a press-fit pin hole, plus a magnet pocket. Print it with
+// a knob and a spacer; try a bolt, a nut, a bearing, a dowel pin and a magnet.
 
 include <standard.scad>
 include <gear.scad>
@@ -31,7 +32,10 @@ module coupon() {
         translate([0, GRID / 2, -EPS]) rotate(90) linear_extrude(TILE_H + 2 * EPS) dovetail_2d(c / 2);
         translate([block / 2, H + 2 + block / 2, 0]) {
             bearing_seat();
-            translate([0, 0, GEAR_T]) peg_holes();
+            translate([0, 0, GEAR_T]) pin_holes();
         }
+        // press-fit pin hole and a magnet pocket in the strip's top, between the sockets
+        translate([W / 2, H / 2 + GRID / 4 + 1, TILE_H - PIN_DEPTH]) cylinder(d = PIN_D + fit("pin_press"), h = PIN_DEPTH + EPS, $fn = 32);
+        translate([W / 2, H / 2 - GRID / 4 - 1, TILE_H]) magnet_pockets(n = 1, r = 0);
     }
 }

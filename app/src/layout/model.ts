@@ -15,13 +15,15 @@ export const MAX_LEVEL = 4;
 export type ItemKind =
   | "gear" | "pulley" | "ratchet" | "pawl" | "rocker"
   | "cam" | "follower" | "geneva" | "genevaWheel" | "partial" | "qrlever" | "escwheel" | "anchor" | "winch"
-  | "carrier" | "bevel" | "wormgear" | "flywheel";
+  | "carrier" | "bevel" | "wormgear" | "flywheel" | "maggear";
 export type Topper = "crank" | "pointer" | "spring";
 export type CamKind = "eccentric" | "heart" | "snail";
 export type Gear = {
   level: number;      // 1..MAX_LEVEL
   teeth: Teeth;
-  joined: boolean;    // turns with the item one level below (coupler pair, or one compound part)
+  joined: boolean;    // turns with the item one level below (dowel pins and M3 screws, or one compound part)
+  /** joined by magnets through a barrier instead of pins: the item below has magnets in its top face, this one in its bottom */
+  coupling?: "magnetic";
   kind?: ItemKind;    // default gear
   topper?: Topper;    // on a gear's top face: a crank (handle or linkage), a pointer with its dial, or the wind-up spring
   throw?: number;     // crank: post distance from the axis, mm
@@ -136,6 +138,29 @@ export function bracketDims(size: Size) {
 export const flyR = (size: Size) => 2 * std(size).grid - 2.5;
 export const NEMA = { w: 42.3, plate: 48, legSteps: 2 };
 export const motorType = (p: Pin): MotorType => p.motor?.type ?? "n20";
+// Phase 5a: magnets, in step with scad/lib/magnets.scad and gear.scad ----------------------
+/** A magnetic gear's `teeth` is the spur gear it behaves like: 2.5 x its pole count. */
+export const MAG_TEETH: Teeth[] = [30, 40, 50, 60];
+export const magPoles = (g: Gear) => Math.round(g.teeth / 2.5);
+export const magnetSize = (size: Size) => (size === "M1.5" ? { d: 4, h: 2 } : { d: 6, h: 3 });
+export const MAGF_N = 6;                 // magnets in each face of a magnetic coupling
+export const MAG_COUPLE_MIN = 40;        // both gears of a face coupling: 40T or more
+/** Radius out to which an item's faces are free for the joint holes (0: pins only, no screws). */
+export function jointR(size: Size, g: Gear): number {
+  const s = std(size), m = s.module, rr = (t: number) => pitchR(size, t) - 1.25 * m;
+  const nutAF = size === "M1.5" ? 10.3 : 13.3;
+  switch (kindOf(g)) {
+    case "gear": case "partial": return rr(g.teeth);
+    case "pulley": return (m * g.teeth + 2) / 2 - 3.2 - 1;
+    case "carrier": return rr(PLN.carrier);
+    case "wormgear": return rr(g.teeth) - 1;
+    case "flywheel": return flyR(size) - 3 - nutAF / Math.cos(Math.PI / 6);
+    case "maggear": return pitchR(size, g.teeth) - 2.5 - (magnetSize(size).h + 0.2);
+    default: return 0;
+  }
+}
+/** Two items joined with pins also get three M3 screws when both have room for them. */
+export const hasScrews = (size: Size, g: Gear) => jointR(size, g) >= std(size).hardware.screw_min_r;
 
 /** Local z of the bottom of level k above the plate top (same as lvl_z in OpenSCAD). */
 export const lvlZ = (size: Size, k: number) => 2 + (k - 1) * std(size).level;
@@ -161,6 +186,7 @@ export function itemR(size: Size, g: Gear): number {
     case "bevel": return tipR(size, g.teeth) + 0.5;
     case "wormgear": return tipR(size, g.teeth) + 0.5;
     case "flywheel": return flyR(size);
+    case "maggear": return pitchR(size, g.teeth) - 0.5;
   }
 }
 /** Levels an item fills besides its own, with the radius it fills them at. */
@@ -254,6 +280,18 @@ export function mechanismsLayout(size: Size): Layout {
     { id: "rail2", kind: "rail", x: cx + 6, y: 1, dir: 2, n: 4, carriage: { kind: "rack", len: 2, level: 1 } },
   ];
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 5, rows: 3 }, pins, bands: [], fixtures, input: { pin: "c", level: 2 }, rpm: 10 };
+}
+
+/** Phase 5a sampler: a crank turns a 16-magnet gear, which turns another four sockets
+ *  away without touching; that one is pinned and screwed to a 40T, which drives a 20T and,
+ *  through a magnetic face coupling, a 40T with a pointer on the level above. */
+export function magnetsLayout(size: Size): Layout {
+  const pins: Pin[] = [
+    { id: "a", x: 2, y: 3, gears: [{ level: 1, teeth: 40, joined: false, kind: "maggear", topper: "crank", throw: 20 }] },
+    { id: "b", x: 6, y: 3, gears: [{ level: 1, teeth: 40, joined: false, kind: "maggear" }, { level: 2, teeth: 40, joined: true }, { level: 3, teeth: 40, joined: true, coupling: "magnetic", topper: "pointer" }] },
+    { id: "c", x: 9, y: 3, gears: [{ level: 2, teeth: 20, joined: false }] },
+  ];
+  return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 3, rows: 2 }, pins, bands: [], fixtures: [], input: { pin: "a", level: 1 }, rpm: 10 };
 }
 
 /** Phase 4c sampler: a NEMA 17 drives a planetary set (sun in, carrier out, 4:1); the
