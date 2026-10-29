@@ -17,6 +17,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Type-check and build the web app
+        run: npm run build
       - name: Render every catalog part (PETG profile) and check sizes
         run: npm run render -- --profile PETG --out out
       - uses: actions/upload-artifact@v4

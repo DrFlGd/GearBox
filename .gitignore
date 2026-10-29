@@ -1,5 +1,6 @@
 node_modules/
 out/
+dist/
 *.stl
 *.3mf
 .DS_Store
