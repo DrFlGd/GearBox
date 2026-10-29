@@ -1,49 +1,385 @@
 {
-  "standard": {
-    "module": 2,
-    "grid": 20,
-    "level": 10,
-    "gear_thickness": 8,
-    "bearing": "608 (8 x 22 x 7)",
-    "mesh_rule": "two gears mesh when their tooth counts add up to a multiple of 20",
-    "profiles": ["PLA", "PETG", "ABS"]
+  "standards": {
+    "M2": {
+      "title": "M2 · mod 2 · 20 mm grid · M8 bolts · 608 bearings",
+      "module": 2,
+      "grid": 20,
+      "level": 10,
+      "gear_thickness": 8,
+      "bolt": "M8",
+      "bearing": "608 (8 x 22 x 7)",
+      "nut": "M8 DIN 934",
+      "bolt_lengths": {
+        "1": 30,
+        "2": 40,
+        "3": 50
+      }
+    },
+    "M1.5": {
+      "title": "M1.5 · mod 1.5 · 15 mm grid · M6 bolts · 606 bearings",
+      "module": 1.5,
+      "grid": 15,
+      "level": 9,
+      "gear_thickness": 7,
+      "bolt": "M6",
+      "bearing": "606 (6 x 17 x 6)",
+      "nut": "M6 DIN 934",
+      "bolt_lengths": {
+        "1": 25,
+        "2": 35,
+        "3": 40
+      }
+    }
   },
+  "mesh_rule": "two gears mesh when their tooth counts add up to a multiple of 20",
+  "profiles": [
+    "PLA",
+    "PETG",
+    "ABS"
+  ],
   "parts": [
-    { "name": "COUPON", "title": "Fit test coupon", "group": "test", "params": { "part": "coupon" }, "expect": { "size": [60, 52, 12] } },
-
-    { "name": "B4x4",   "title": "Tile 4x4, bayonet", "group": "board", "params": { "part": "tile", "tile_nx": 4, "tile_ny": 4, "socket": "bayonet" }, "expect": { "size": [87.65, 87.65, 12] } },
-    { "name": "B4x4-M8", "title": "Tile 4x4, M8 captive nuts", "group": "board", "params": { "part": "tile", "tile_nx": 4, "tile_ny": 4, "socket": "M8" }, "expect": { "size": [87.65, 87.65, 12] } },
-    { "name": "B4x4-M6", "title": "Tile 4x4, M6 captive nuts", "group": "board", "params": { "part": "tile", "tile_nx": 4, "tile_ny": 4, "socket": "M6" }, "expect": { "size": [87.65, 87.65, 12] } },
-    { "name": "B6x6",   "title": "Tile 6x6, bayonet", "group": "board", "params": { "part": "tile", "tile_nx": 6, "tile_ny": 6, "socket": "bayonet" }, "expect": { "size": [127.65, 127.65, 12] } },
-
-    { "name": "P1", "title": "Pin, 1 level", "group": "pin", "params": { "part": "pin", "levels": 1 }, "expect": { "size": [17, 16, 26.7] } },
-    { "name": "P2", "title": "Pin, 2 levels", "group": "pin", "params": { "part": "pin", "levels": 2 }, "expect": { "size": [17, 16, 36.7] } },
-    { "name": "P3", "title": "Pin, 3 levels", "group": "pin", "params": { "part": "pin", "levels": 3 }, "expect": { "size": [17, 16, 46.7] } },
-    { "name": "C",  "title": "Quarter-turn cap", "group": "pin", "params": { "part": "cap" }, "expect": { "size": [20, 20, 8.2] } },
-    { "name": "K8", "title": "Knob for an M8 hex bolt", "group": "hardware", "params": { "part": "knob", "bolt": "M8" }, "expect": { "size": [20, 20, 12.2] } },
-    { "name": "K6", "title": "Knob for an M6 hex bolt", "group": "hardware", "params": { "part": "knob", "bolt": "M6" }, "expect": { "size": [20, 20, 10.7] } },
-    { "name": "S1", "title": "Spacer, 3 mm (between levels)", "group": "pin", "params": { "part": "spacer", "spacer_h": 3 }, "expect": { "size": [11, 11, 3] } },
-    { "name": "S10", "title": "Spacer, 10 mm (skip a level)", "group": "pin", "params": { "part": "spacer", "spacer_h": 10 }, "expect": { "size": [11, 11, 10] } },
-    { "name": "S2", "title": "Base spacer for bolt tiles", "group": "hardware", "params": { "part": "base_spacer", "bolt": "M8" }, "expect": { "size": [11, 11, 2] } },
-    { "name": "CPL", "title": "Spline coupler", "group": "pin", "params": { "part": "coupler" }, "expect": { "size": [34, 34, 6] } },
-    { "name": "SLV6", "title": "M6 sleeve for a 608", "group": "hardware", "params": { "part": "sleeve_m6" }, "expect": { "size": [7.85, 7.85, 7] } },
-    { "name": "BSH8", "title": "Plain bushing, M8, replaces a 608", "group": "hardware", "params": { "part": "bushing", "bolt": "M8" }, "expect": { "size": [21.9, 21.9, 7] } },
-
-    { "name": "G20", "title": "Gear 20T", "group": "gear", "params": { "part": "gear", "teeth": 20 }, "expect": { "size": [44, 44, 8] } },
-    { "name": "G30", "title": "Gear 30T", "group": "gear", "params": { "part": "gear", "teeth": 30 }, "expect": { "size": [64, 64, 8] } },
-    { "name": "G40", "title": "Gear 40T", "group": "gear", "params": { "part": "gear", "teeth": 40, "face": "spokes" }, "expect": { "size": [84, 84, 8] } },
-    { "name": "G50", "title": "Gear 50T", "group": "gear", "params": { "part": "gear", "teeth": 50, "face": "spokes" }, "expect": { "size": [104, 104, 8] } },
-    { "name": "G60", "title": "Gear 60T", "group": "gear", "params": { "part": "gear", "teeth": 60, "face": "spokes" }, "expect": { "size": [124, 124, 8] } },
-    { "name": "G70", "title": "Gear 70T", "group": "gear", "params": { "part": "gear", "teeth": 70, "face": "holes" }, "expect": { "size": [144, 144, 8] } },
-    { "name": "G80", "title": "Gear 80T", "group": "gear", "params": { "part": "gear", "teeth": 80, "face": "spokes" }, "expect": { "size": [164, 164, 8] } },
-    { "name": "G40-20", "title": "Compound 40T over 20T", "group": "gear", "params": { "part": "compound", "teeth": 40, "teeth_upper": 20 }, "expect": { "size": [84, 84, 17] } },
-    { "name": "G60-20", "title": "Compound 60T over 20T", "group": "gear", "params": { "part": "compound", "teeth": 60, "teeth_upper": 20, "face": "spokes" }, "expect": { "size": [124, 124, 17] } },
-    { "name": "G80-20", "title": "Compound 80T over 20T", "group": "gear", "params": { "part": "compound", "teeth": 80, "teeth_upper": 20, "face": "spokes" }, "expect": { "size": [164, 164, 17] } },
-    { "name": "G60-40", "title": "Compound 60T over 40T", "group": "gear", "params": { "part": "compound", "teeth": 60, "teeth_upper": 40, "face": "spokes" }, "expect": { "size": [124, 124, 17] } }
+    {
+      "name": "COUPON",
+      "title": "Fit test coupon",
+      "group": "test",
+      "params": {
+        "part": "coupon"
+      },
+      "expect": {
+        "M2": [43.83, 60, 12],
+        "M1.5": [32.83, 46.02, 10]
+      }
+    },
+    {
+      "name": "B2x2",
+      "title": "Tile 2x2",
+      "group": "board",
+      "params": {
+        "part": "tile",
+        "tile_nx": 2,
+        "tile_ny": 2
+      },
+      "expect": {
+        "M2": [40, 40, 12],
+        "M1.5": [30.04, 30.04, 10]
+      }
+    },
+    {
+      "name": "B4x4",
+      "title": "Tile 4x4",
+      "group": "board",
+      "params": {
+        "part": "tile",
+        "tile_nx": 4,
+        "tile_ny": 4
+      },
+      "expect": {
+        "M2": [87.65, 87.65, 12],
+        "M1.5": [65.65, 65.65, 10]
+      }
+    },
+    {
+      "name": "B6x6",
+      "title": "Tile 6x6",
+      "group": "board",
+      "params": {
+        "part": "tile",
+        "tile_nx": 6,
+        "tile_ny": 6
+      },
+      "expect": {
+        "M2": [127.65, 127.65, 12],
+        "M1.5": [95.65, 95.65, 10]
+      }
+    },
+    {
+      "name": "K",
+      "title": "Bolt knob",
+      "group": "pin",
+      "params": {
+        "part": "knob"
+      },
+      "expect": {
+        "M2": [20, 20, 11],
+        "M1.5": [16, 16, 9.2]
+      }
+    },
+    {
+      "name": "BS",
+      "title": "Base spacer, 2 mm (on the plate)",
+      "group": "pin",
+      "params": {
+        "part": "base_spacer"
+      },
+      "expect": {
+        "M2": [11, 11, 2],
+        "M1.5": [8.5, 8.5, 2]
+      }
+    },
+    {
+      "name": "S3",
+      "title": "Spacer, 3 mm (between levels)",
+      "group": "pin",
+      "params": {
+        "part": "spacer",
+        "spacer_h": 3
+      },
+      "expect": {
+        "M2": [11, 11, 3],
+        "M1.5": [8.5, 8.5, 3]
+      }
+    },
+    {
+      "name": "S1",
+      "title": "Spacer, 1 mm (shim)",
+      "group": "pin",
+      "params": {
+        "part": "spacer",
+        "spacer_h": 1
+      },
+      "expect": {
+        "M2": [11, 11, 1],
+        "M1.5": [8.5, 8.5, 1]
+      }
+    },
+    {
+      "name": "S10",
+      "title": "Spacer, 10 mm (skip a level)",
+      "group": "pin",
+      "params": {
+        "part": "spacer",
+        "spacer_h": 10
+      },
+      "expect": {
+        "M2": [11, 11, 10],
+        "M1.5": [8.5, 8.5, 10]
+      }
+    },
+    {
+      "name": "CPL",
+      "title": "Coupler half (use two)",
+      "group": "pin",
+      "params": {
+        "part": "coupler"
+      },
+      "expect": {
+        "M2": [32, 32, 3.1],
+        "M1.5": [25, 25, 2.6]
+      }
+    },
+    {
+      "name": "BSH",
+      "title": "Bushing (replaces a bearing)",
+      "group": "pin",
+      "params": {
+        "part": "bushing"
+      },
+      "expect": {
+        "M2": [21.9, 21.9, 7],
+        "M1.5": [16.9, 16.9, 6]
+      }
+    },
+    {
+      "name": "G20",
+      "title": "Gear 20T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 20
+      },
+      "expect": {
+        "M2": [43.98, 43.98, 8],
+        "M1.5": [32.99, 32.99, 7]
+      }
+    },
+    {
+      "name": "G30",
+      "title": "Gear 30T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 30
+      },
+      "expect": {
+        "M2": [63.77, 63.99, 8],
+        "M1.5": [47.82, 47.99, 7]
+      }
+    },
+    {
+      "name": "G40",
+      "title": "Gear 40T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 40,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 8],
+        "M1.5": [62.99, 62.99, 7]
+      }
+    },
+    {
+      "name": "G50",
+      "title": "Gear 50T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 50,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [103.87, 103.99, 8],
+        "M1.5": [77.9, 77.99, 7]
+      }
+    },
+    {
+      "name": "G60",
+      "title": "Gear 60T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 60,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 8],
+        "M1.5": [92.99, 92.99, 7]
+      }
+    },
+    {
+      "name": "G70",
+      "title": "Gear 70T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 70,
+        "face": "holes"
+      },
+      "expect": {
+        "M2": [143.91, 143.99, 8],
+        "M1.5": [107.93, 108, 7]
+      }
+    },
+    {
+      "name": "G80",
+      "title": "Gear 80T",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 80,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [163.99, 163.99, 8],
+        "M1.5": [123, 123, 7]
+      }
+    },
+    {
+      "name": "G40-20",
+      "title": "Compound 40T over 20T",
+      "group": "gear",
+      "params": {
+        "part": "compound",
+        "teeth": 40,
+        "teeth_upper": 20,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 17],
+        "M1.5": [62.99, 62.99, 15]
+      }
+    },
+    {
+      "name": "G60-20",
+      "title": "Compound 60T over 20T",
+      "group": "gear",
+      "params": {
+        "part": "compound",
+        "teeth": 60,
+        "teeth_upper": 20,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 17],
+        "M1.5": [92.99, 92.99, 15]
+      }
+    },
+    {
+      "name": "G80-20",
+      "title": "Compound 80T over 20T",
+      "group": "gear",
+      "params": {
+        "part": "compound",
+        "teeth": 80,
+        "teeth_upper": 20,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [163.99, 163.99, 17],
+        "M1.5": [123, 123, 15]
+      }
+    },
+    {
+      "name": "G60-40",
+      "title": "Compound 60T over 40T",
+      "group": "gear",
+      "params": {
+        "part": "compound",
+        "teeth": 60,
+        "teeth_upper": 40,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 17],
+        "M1.5": [92.99, 92.99, 15]
+      }
+    }
   ],
   "kits": {
-    "coupon": ["COUPON", "P1", "C", "CPL"],
-    "starter-bayonet": ["B4x4", "P1", "P1", "P1", "P2", "C", "C", "C", "C", "S1", "G20", "G20", "G40", "G60", "CPL"],
-    "starter-m8": ["B4x4-M8", "K8", "K8", "K8", "K8", "S2", "S2", "S2", "S2", "S1", "G20", "G20", "G40", "G60", "CPL"]
+    "coupon": {
+      "title": "Fit test kit",
+      "parts": [
+        "COUPON",
+        "CPL",
+        "CPL",
+        "K",
+        "S3",
+        "BS"
+      ],
+      "hardware": [
+        "1 bolt (1-level length)",
+        "1 nut",
+        "1 bearing"
+      ]
+    },
+    "starter": {
+      "title": "Starter kit",
+      "parts": [
+        "B4x4",
+        "K",
+        "K",
+        "K",
+        "K",
+        "BS",
+        "BS",
+        "BS",
+        "BS",
+        "S3",
+        "S3",
+        "CPL",
+        "CPL",
+        "G20",
+        "G20",
+        "G40",
+        "G60",
+        "G60-20"
+      ],
+      "hardware": [
+        "4 bolts (2-level length)",
+        "4 nuts",
+        "7 bearings"
+      ]
+    }
   }
 }
