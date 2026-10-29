@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
-  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, emptyLayout, exampleLayout, gearAt, kindOf, newId, pinById, std, topLevel,
-  type Gear, type ItemKind, type Layout, type Pin, type Teeth,
+  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, emptyLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, newId, pinById, springMinTeeth, std, topLevel,
+  type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type Pin, type Teeth,
 } from "./model";
-import { analyze, billOfMaterials, key, ratioText } from "./rules";
+import { analyze, billOfMaterials, key, label, ratioText } from "./rules";
 import { decodeLayout, encodeLayout } from "./share";
 import { buildKitZip } from "../kitzip";
 import { download } from "../download";
@@ -26,16 +26,25 @@ function initialLayout(size: Size): Layout {
 // tiles across/down: 1..MAX_TILES (a 16x16 board of 8x8 tiles is 128x128 sockets, still fine to draw)
 const MAX_TILES = 16;
 const clampTiles = (v: string) => Math.min(MAX_TILES, Math.max(1, Math.round(Number(v) || 1)));
-const KINDS: { id: ItemKind; label: string }[] = [
-  { id: "gear", label: "Gear" }, { id: "pulley", label: "Pulley" }, { id: "ratchet", label: "Ratchet wheel" }, { id: "pawl", label: "Pawl" }, { id: "rocker", label: "Rocker (linkage)" },
+const KINDS: { id: ItemKind; label: string; needsCrank?: boolean }[] = [
+  { id: "gear", label: "Gear" }, { id: "partial", label: "Partial gear" }, { id: "pulley", label: "Pulley" }, { id: "ratchet", label: "Ratchet wheel" }, { id: "pawl", label: "Pawl" },
+  { id: "rocker", label: "Rocker (linkage)", needsCrank: true }, { id: "qrlever", label: "Quick-return lever", needsCrank: true },
+  { id: "cam", label: "Cam" }, { id: "follower", label: "Cam follower" }, { id: "geneva", label: "Geneva driver" }, { id: "genevaWheel", label: "Geneva wheel" },
+  { id: "escwheel", label: "Escape wheel" }, { id: "anchor", label: "Anchor" }, { id: "winch", label: "Winch drum" },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];
-const itemLabel = (g: Gear) => { switch (kindOf(g)) { case "gear": return `${g.teeth}T gear`; case "pulley": return `P${g.teeth} pulley`; case "ratchet": return "ratchet"; case "pawl": return "pawl"; case "rocker": return "rocker"; } };
+/** Kinds that turn on their bearing (they can be the input and carry a topper). */
+const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch"]);
+/** Kinds posed by a partner rather than by the train. */
+const POSED: Partial<Record<ItemKind, string>> = { rocker: "oscillates with its crank", pawl: "fixed to the board", follower: "rides its cam", anchor: "rocks with its escape wheel", qrlever: "swings with its crank post" };
+const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "cam", "escwheel", "genevaWheel"]);
+const DIRS = ["+x (right)", "+y (up the board)", "−x (left)", "−y (down)"];
 
-/** Phase 3 + 4a: build a train on a virtual board, check it, animate it, print it. */
+/** Phase 3 + 4: build a train on a virtual board, check it, animate it, print it. */
 export default function LayoutMode({ size, profile, overrides, render, engineReady }: Props) {
   const [layout, setLayoutRaw] = useState<Layout>(() => initialLayout(size));
   const [selected, setSelected] = useState<{ i: number; j: number } | null>(null);
+  const [selectedFixture, setSelectedFixture] = useState<string | null>(null);
   const [hover, setHover] = useState<Pick>(null);
   const [playing, setPlaying] = useState(true);
   const [zipState, setZipState] = useState<string | null>(null);
@@ -57,31 +66,49 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
   const bom = useMemo(() => billOfMaterials(layout), [layout]);
   const d = std(layout.size);
   const selPin = selected ? layout.pins.find(p => p.x === selected.i && p.y === selected.j) : undefined;
+  const selFix = selectedFixture ? (layout.fixtures ?? []).find(f => f.id === selectedFixture) : undefined;
+  const load = (l: Layout) => { setLayoutRaw(l); setSelected(null); setSelectedFixture(null); };
 
   const onPick = (p: Pick) => {
+    setSelectedFixture(null);
     if (!p) { setSelected(null); return; }
     if (p.kind === "socket") setSelected({ i: p.i, j: p.j });
+    else if (p.kind === "fixture") { setSelected(null); setSelectedFixture(p.id); }
     else { const pin = pinById(layout, p.pin); if (pin) setSelected({ i: pin.x, j: pin.y }); }
   };
 
-  /** Drop bands and rockers that point at items that no longer exist. */
+  /** Drop bands, rockers, levers and fixtures that point at things that no longer exist. */
   const tidy = (l: Layout): Layout => {
     const has = (pid: string, level: number) => { const p = pinById(l, pid); return !!p && !!gearAt(p, level); };
+    const hasCrank = (pid: string) => !!pinById(l, pid)?.gears.some(o => o.topper === "crank");
     const bands = (l.bands ?? []).filter(b => has(b.a.pin, b.a.level) && has(b.b.pin, b.b.level));
-    const pins = l.pins.map(p => ({ ...p, gears: p.gears.map(g => (g.rocker && !pinById(l, g.rocker.crank)?.gears.some(o => o.topper === "crank") ? { ...g, rocker: undefined, kind: "gear" as ItemKind } : g)) }));
+    const pins = l.pins.map(p => ({ ...p, gears: p.gears.map(g => {
+      if (g.rocker && !hasCrank(g.rocker.crank)) return { ...g, rocker: undefined, kind: "gear" as ItemKind };
+      if (kindOf(g) === "qrlever" && (!g.crank || !hasCrank(g.crank))) return { ...g, crank: undefined, kind: "gear" as ItemKind };
+      return g;
+    }) }));
+    const W = l.tile.nx * l.tiles.cols, H = l.tile.ny * l.tiles.rows;
+    const fixtures = (l.fixtures ?? []).filter(f => f.x >= 0 && f.y >= 0 && f.x < W && f.y < H);
     const input = l.input && !has(l.input.pin, l.input.level) ? null : l.input;
-    return { ...l, bands, pins, input };
+    return { ...l, bands, pins, fixtures, input };
   };
   const updatePin = (id: string, f: (p: Pin) => Pin | null) => setLayout(l => tidy({ ...l, pins: l.pins.flatMap(p => (p.id === id ? (f(p) ? [f(p)!] : []) : [p])) }));
   const updateGear = (pinId: string, level: number, f: (g: Gear) => Gear) => updatePin(pinId, p => ({ ...p, gears: p.gears.map(x => (x.level === level ? f(x) : x)) }));
+  const crankPins = layout.pins.filter(p => p.gears.some(g => g.topper === "crank"));
   const addItem = (level: number) => {
     if (!selected) return;
     const item: Gear = { level, teeth: newTeeth, joined: false, kind: newKind === "gear" ? undefined : newKind };
-    if (newKind === "rocker") {
-      const crankPin = layout.pins.find(p => p.gears.some(g => g.topper === "crank"));
+    if (newKind === "rocker" || newKind === "qrlever") {
+      const crankPin = crankPins[0];
       if (!crankPin) return;
-      item.rocker = { crank: crankPin.id, coupler: 4, holes: 3 };
+      if (newKind === "rocker") item.rocker = { crank: crankPin.id, coupler: 4, holes: 3 }; else item.crank = crankPin.id;
     }
+    if (newKind === "cam") item.cam = "eccentric";
+    if (newKind === "geneva" || newKind === "genevaWheel") item.slots = 6;
+    if (newKind === "partial") item.keep = 0.5;
+    if (newKind === "anchor") item.anchorCw = true;
+    if (newKind === "ratchet" || newKind === "pawl" || newKind === "follower" || newKind === "escwheel" || newKind === "winch" || newKind === "cam" || newKind === "anchor" || newKind === "rocker" || newKind === "qrlever" || newKind === "genevaWheel") item.teeth = 20;
+    if (newKind === "geneva") item.teeth = 40;
     if (selPin) updatePin(selPin.id, p => ({ ...p, gears: [...p.gears, item] }));
     else setLayout(l => ({ ...l, pins: [...l.pins, { id: newId(), x: selected.i, y: selected.j, gears: [item] }] }));
   };
@@ -90,6 +117,19 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
     const id = newId();
     setLayout(l => ({ ...l, pins: [...l.pins, { id, x: selected.i, y: selected.j, gears: [{ level: 1, teeth: 20, joined: false }], motor: { dir: 0 } }], input: l.input ?? { pin: id, level: 1 } }));
   };
+  const addRail = () => {
+    if (!selected || selPin) return;
+    const id = newId();
+    const f: Fixture = { id, kind: "rail", x: selected.i, y: selected.j, dir: 0, n: 4, carriage: null };
+    setLayout(l => ({ ...l, fixtures: [...(l.fixtures ?? []), f] }));
+    setSelected(null); setSelectedFixture(id);
+  };
+  const updateFixture = (id: string, f: (x: Fixture) => Fixture | null) => setLayout(l => tidy({ ...l, fixtures: (l.fixtures ?? []).flatMap(x => (x.id === id ? (f(x) ? [f(x)!] : []) : [x])) }));
+  const setCarriage = (id: string, kind: string) => updateFixture(id, x => {
+    const level = x.carriage && "level" in x.carriage ? x.carriage.level : 1;
+    const c: Carriage | null = kind === "rack" ? { kind: "rack", len: 2, level } : kind === "yoke" ? { kind: "yoke", level, throw: 20, reach: 3 } : kind === "slider" ? { kind: "slider", level, link: 4 } : null;
+    return { ...x, carriage: c };
+  });
   const setInput = (pin: string, level: number) => setLayout(l => ({ ...l, input: { pin, level } }));
   const setBand = (pinId: string, level: number, to: string | null, crossed = false) => setLayout(l => {
     const bands = (l.bands ?? []).filter(b => !(b.a.pin === pinId && b.a.level === level) && !(b.b.pin === pinId && b.b.level === level));
@@ -99,6 +139,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
 
   const hoverKey = hover?.kind === "gear" ? key(hover.pin, hover.level) : null;
   const hoverGear = hover?.kind === "gear" ? gearAt(pinById(layout, hover.pin)!, hover.level) : null;
+  const hoverFixture = hover?.kind === "fixture" ? analysis.fixtures.find(f => f.fixture.id === hover.id) : null;
 
   const resize = (patch: Partial<Layout["tile"]> & Partial<Layout["tiles"]>) => setLayout(l => {
     const tile = { nx: patch.nx ?? l.tile.nx, ny: patch.ny ?? l.tile.ny };
@@ -125,9 +166,14 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
 
   const gearCount = layout.pins.reduce((n, p) => n + p.gears.length, 0);
   const inputGear = layout.input ? gearAt(pinById(layout, layout.input.pin)!, layout.input.level) : null;
-  const crankPins = layout.pins.filter(p => p.gears.some(g => g.topper === "crank"));
   const pulleysAt = (level: number, except: string) => layout.pins.filter(p => p.id !== except && p.gears.some(g => g.level === level && kindOf(g) === "pulley"));
   const bandOf = (pinId: string, level: number) => (layout.bands ?? []).find(b => (b.a.pin === pinId && b.a.level === level) || (b.b.pin === pinId && b.b.level === level));
+  const carriageText = (f: typeof analysis.fixtures[number]) => {
+    const c = f.fixture.carriage;
+    if (!c) return "empty rail";
+    const travel = `${(f.range[1] - f.range[0]).toFixed(0)} mm travel`;
+    return c.kind === "rack" ? `rack, ${travel}` : c.kind === "yoke" ? `scotch yoke, ${travel}` : `crank slider, ${travel}`;
+  };
 
   return (
     <div className="layout">
@@ -150,9 +196,10 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <span className="field-help">{boardW(layout)} × {boardH(layout)} sockets, {boardW(layout) * d.grid} × {boardH(layout) * d.grid} mm</span>
           </label>
           <div className="row">
-            <button type="button" onClick={() => { setLayoutRaw(exampleLayout(size)); setSelected(null); }}>1:16 example</button>
-            <button type="button" onClick={() => { setLayoutRaw(addonsLayout(size)); setSelected(null); }}>Add-ons sampler</button>
-            <button type="button" onClick={() => { setLayoutRaw(emptyLayout(size)); setSelected(null); }}>Clear</button>
+            <button type="button" onClick={() => load(exampleLayout(size))}>1:16 example</button>
+            <button type="button" onClick={() => load(addonsLayout(size))}>Add-ons sampler</button>
+            <button type="button" onClick={() => load(mechanismsLayout(size))}>Mechanisms sampler</button>
+            <button type="button" onClick={() => load(emptyLayout(size))}>Clear</button>
           </div>
         </div>
 
@@ -176,28 +223,80 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
           <label className="check">{layout.rpm} rpm <input type="range" min={1} max={60} value={layout.rpm} onChange={e => setLayout(l => ({ ...l, rpm: Number(e.target.value) }))} /></label>
           <span className="status">
             {hoverGear && hoverKey ? (
-              <><b>{itemLabel(hoverGear)}</b> level {hoverGear.level}: {kindOf(hoverGear) === "rocker" ? "oscillates with its crank" : kindOf(hoverGear) === "pawl" ? "fixed to the board" : ratioText(analysis.speed.get(hoverKey) ?? 0)}</>
+              <><b>{label(hoverGear)}</b> level {hoverGear.level}: {POSED[kindOf(hoverGear)] ?? ratioText(analysis.speed.get(hoverKey) ?? 0)}</>
+            ) : hoverFixture ? (
+              <><b>Slider rail</b> over {hoverFixture.fixture.n} sockets: {carriageText(hoverFixture)}</>
             ) : analysis.problems.length ? (
               <span className="err">{analysis.problems.length} problem{analysis.problems.length > 1 ? "s" : ""}: {analysis.problems[0].text}</span>
             ) : !layout.input ? (
               "Pick a gear and mark it as the input to see the train turn."
             ) : (
-              <>{analysis.pairs.filter(p => p.kind === "mesh").length} meshes, {analysis.reachable.size} of {gearCount} items driven{inputGear ? ` from the ${itemLabel(inputGear)}` : ""}. Click a socket to add a pin, click an item to edit it.</>
+              <>{analysis.pairs.filter(p => p.kind === "mesh").length} meshes, {analysis.reachable.size} of {gearCount} items driven{inputGear ? ` from the ${label(inputGear)}` : ""}. Click a socket to add a pin, click an item to edit it.</>
             )}
           </span>
           <span className="legend"><i style={{ background: "#7ee787" }} /> input <i style={{ background: "#e8b44c" }} /> driven <i style={{ background: "#7a8296" }} /> free <i style={{ background: "#c9a2ff" }} /> add-on <i style={{ background: "#ff6b62" }} /> collides</span>
         </div>
-        <BoardView layout={layout} analysis={analysis} selected={selected ? { ...selected, pin: selPin?.id } : null} playing={playing} onPick={onPick} onHover={setHover} />
+        <BoardView layout={layout} analysis={analysis} selected={selected ? { ...selected, pin: selPin?.id } : null} selectedFixture={selectedFixture} playing={playing} onPick={onPick} onHover={setHover} />
       </main>
 
       <aside className="panel">
-        {!selected ? (
+        {selFix ? (
+          <>
+            <h2>Slider rail at socket {selFix.x + 1}, {selFix.y + 1}</h2>
+            <div className="form">
+              <div className="row">
+                <label className="field"><span className="field-label">Runs toward</span>
+                  <select value={selFix.dir} onChange={e => updateFixture(selFix.id, x => ({ ...x, dir: Number(e.target.value) as Fixture["dir"] }))}>{DIRS.map((t, i) => <option key={i} value={i}>{t}</option>)}</select>
+                </label>
+                <label className="field"><span className="field-label">Sockets</span>
+                  <select value={selFix.n} onChange={e => updateFixture(selFix.id, x => ({ ...x, n: Number(e.target.value) }))}>{[2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}</select>
+                </label>
+              </div>
+              <label className="field"><span className="field-label">Carriage</span>
+                <select value={selFix.carriage?.kind ?? ""} onChange={e => setCarriage(selFix.id, e.target.value)}>
+                  <option value="">none</option><option value="rack">rack, driven by a gear</option><option value="yoke">scotch yoke, driven by a crank</option><option value="slider">crank slider, driven by a crank through a link</option>
+                </select>
+              </label>
+              {selFix.carriage && (
+                <div className="row">
+                  <label className="field"><span className="field-label">{selFix.carriage.kind === "rack" ? "Teeth at level" : "Crank gear on level"}</span>
+                    <select value={selFix.carriage.level} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...x.carriage!, level: Number(e.target.value) } }))}>{[1, 2].map(n => <option key={n} value={n}>level {n}</option>)}</select>
+                  </label>
+                  {selFix.carriage.kind === "rack" && (
+                    <label className="field"><span className="field-label">Length</span>
+                      <select value={selFix.carriage.len} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "rack" }), len: Number(e.target.value) } }))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} steps · {n * d.grid} mm</option>)}</select>
+                    </label>
+                  )}
+                  {selFix.carriage.kind === "yoke" && (
+                    <>
+                      <label className="field"><span className="field-label">Crank throw</span>
+                        <select value={selFix.carriage.throw} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), throw: Number(e.target.value) } }))}>{[20, 30, 40].map(n => <option key={n} value={n}>{n} mm</option>)}</select>
+                      </label>
+                      <label className="field"><span className="field-label">Reach</span>
+                        <select value={selFix.carriage.reach} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), reach: Number(e.target.value) } }))}>{[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} steps</option>)}</select>
+                      </label>
+                    </>
+                  )}
+                  {selFix.carriage.kind === "slider" && (
+                    <label className="field"><span className="field-label">Link holes</span>
+                      <select value={selFix.carriage.link} onChange={e => updateFixture(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "slider" }), link: Number(e.target.value) } }))}>{[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+                    </label>
+                  )}
+                </div>
+              )}
+              <p className="hint">The rail bolts into the sockets at both ends of the row beside it (its left, looking along it). A rack's pinion sits on the far side, two rows away for a 20T and three for a 40T, on the rack's level. A yoke or slider takes a crank on the rail's own row past its end, on a gear at the carriage's level; the arm then rides two levels above that gear.</p>
+              <button type="button" className="link" onClick={() => { updateFixture(selFix.id, () => null); setSelectedFixture(null); }}>Remove rail</button>
+              {analysis.problems.filter(p => p.fixture === selFix.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
+            </div>
+          </>
+        ) : !selected ? (
           <>
             <h2>Layout</h2>
             <p className="blurb">Click a socket on the board to add a pin and an item. Click an item to change it, stack another level on it, or make it the input.</p>
             <p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p>
             <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part, any other pair gets two coupler halves.</p>
             <p className="hint">Add-ons: a pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p>
+            <p className="hint">Mechanisms: a cam wants its follower two sockets away on its level. A Geneva driver (a 40T with a post and a locking crescent one level up) indexes a Geneva wheel three sockets away, one level above it. An escape wheel wants its anchor two sockets away. A quick-return lever on a crank's row, two levels above its gear, swings with the crank post. A partial gear drives in bursts. A wind-up spring sits on a plain gear of {springMinTeeth(layout.size)}T or more. A slider rail bolts to the board and carries a rack, a scotch yoke or a crank slider.</p>
             {analysis.problems.length > 0 && <ul className="problems">{analysis.problems.map((p, i) => <li key={i} className="err">{p.text}</li>)}</ul>}
           </>
         ) : (
@@ -223,32 +322,57 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
               const isInput = layout.input?.pin === selPin?.id && layout.input?.level === level;
               const isTop = !!selPin && topLevel(selPin) === level;
               const band = selPin ? bandOf(selPin.id, level) : undefined;
+              const kind = g ? kindOf(g) : "gear";
               return (
                 <div key={level} className="level">
-                  <div className="level-head"><b>Level {level}</b>{g && <span className="muted">{isInput ? " input" : kindOf(g) === "gear" || kindOf(g) === "pulley" || kindOf(g) === "ratchet" ? ` ${ratioText(analysis.speed.get(k) ?? 0)}` : ""}</span>}</div>
+                  <div className="level-head"><b>Level {level}</b>{g && <span className="muted">{isInput ? " input" : TURNING.has(kind) ? ` ${ratioText(analysis.speed.get(k) ?? 0)}` : ""}</span>}</div>
                   {g ? (
                     <div className="form">
                       <div className="row">
-                        {kindOf(g) === "gear" && (
+                        {(kind === "gear" || kind === "partial") && (
                           <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
                             {TEETH.map(t => <option key={t} value={t}>{t} teeth · {d.module * t} mm</option>)}
                           </select>
                         )}
-                        {kindOf(g) === "pulley" && (
+                        {kind === "partial" && (
+                          <select value={g.keep ?? 0.5} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, keep: Number(e.target.value) as 0.5 | 0.25 }))}>
+                            <option value={0.5}>half toothed</option><option value={0.25}>quarter toothed</option>
+                          </select>
+                        )}
+                        {kind === "pulley" && (
                           <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
                             {TEETH.map(t => <option key={t} value={t}>P{t} pulley · {d.module * t} mm</option>)}
                           </select>
                         )}
-                        {kindOf(g) === "ratchet" && <span className="muted">Ratchet wheel, 12 teeth</span>}
-                        {kindOf(g) === "pawl" && (
+                        {kind === "ratchet" && <span className="muted">Ratchet wheel, 12 teeth</span>}
+                        {kind === "pawl" && (
                           <select value={g.pawlCw ? "cw" : "ccw"} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, pawlCw: e.target.value === "cw" }))}>
                             <option value="ccw">Pawl: locks counter-clockwise</option><option value="cw">Pawl: locks clockwise</option>
                           </select>
                         )}
-                        {kindOf(g) === "rocker" && <span className="muted">Rocker on this pin</span>}
+                        {kind === "rocker" && <span className="muted">Rocker on this pin</span>}
+                        {kind === "cam" && (
+                          <select value={g.cam ?? "eccentric"} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, cam: e.target.value as CamKind }))}>
+                            <option value="eccentric">Eccentric cam (sine lift)</option><option value="heart">Heart cam (even rise and fall)</option><option value="snail">Snail cam (slow rise, drop)</option>
+                          </select>
+                        )}
+                        {kind === "follower" && <span className="muted">Follower arm, nose on the cam</span>}
+                        {(kind === "geneva" || kind === "genevaWheel") && (
+                          <select value={g.slots ?? 6} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, slots: Number(e.target.value) as 6 | 8 }))}>
+                            <option value={6}>{kind === "geneva" ? "Geneva driver" : "Geneva wheel"}, 6 slots</option><option value={8}>{kind === "geneva" ? "Geneva driver" : "Geneva wheel"}, 8 slots</option>
+                          </select>
+                        )}
+                        {kind === "escwheel" && <span className="muted">Escape wheel, 15 teeth</span>}
+                        {kind === "anchor" && (
+                          <select value={g.anchorCw === false ? "ccw" : "cw"} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, anchorCw: e.target.value === "cw" }))}>
+                            <option value="cw">Anchor for a clockwise wheel</option><option value="ccw">Anchor for a counter-clockwise wheel (ANCHOR-L)</option>
+                          </select>
+                        )}
+                        {kind === "winch" && <span className="muted">Winch drum, two levels</span>}
+                        {kind === "qrlever" && <span className="muted">Quick-return lever</span>}
                         <button type="button" onClick={() => updatePin(selPin!.id, p => { const gears = p.gears.filter(x => x.level !== level); return gears.length ? { ...p, gears } : null; })}>Remove</button>
                       </div>
-                      {kindOf(g) === "rocker" && g.rocker && (
+                      {kind === "rocker" && g.rocker && (
                         <div className="row">
                           <label className="field"><span className="field-label">Crank on pin</span>
                             <select value={g.rocker.crank} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, rocker: { ...x.rocker!, crank: e.target.value } }))}>
@@ -263,7 +387,14 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                           </label>
                         </div>
                       )}
-                      {kindOf(g) === "pulley" && (
+                      {kind === "qrlever" && (
+                        <label className="field"><span className="field-label">Crank on pin</span>
+                          <select value={g.crank ?? ""} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, crank: e.target.value }))}>
+                            {crankPins.map(p => <option key={p.id} value={p.id}>socket {p.x + 1}, {p.y + 1}</option>)}
+                          </select>
+                        </label>
+                      )}
+                      {kind === "pulley" && (
                         <div className="row">
                           <label className="field"><span className="field-label">Band to</span>
                             <select value={band ? (band.a.pin === selPin!.id ? band.b.pin : band.a.pin) : ""} onChange={e => setBand(selPin!.id, level, e.target.value || null, band?.crossed)}>
@@ -275,16 +406,17 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                         </div>
                       )}
                       <div className="row">
-                        {level > 1 && gearAt(selPin!, level - 1) && kindOf(g) !== "pawl" && kindOf(g) !== "rocker" && (
+                        {level > 1 && gearAt(selPin!, level - 1) && !POSED[kind] && (
                           <label className="check"><input type="checkbox" checked={g.joined} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, joined: e.target.checked }))} /> joined to level {level - 1}</label>
                         )}
-                        {(kindOf(g) === "gear" || kindOf(g) === "pulley" || kindOf(g) === "ratchet") && <label className="check"><input type="radio" name="input" checked={isInput} onChange={() => setInput(selPin!.id, level)} /> input</label>}
+                        {TURNING.has(kind) && <label className="check"><input type="radio" name="input" checked={isInput} onChange={() => setInput(selPin!.id, level)} /> input</label>}
                       </div>
-                      {isTop && (kindOf(g) === "gear" || kindOf(g) === "pulley" || kindOf(g) === "ratchet") && (
+                      {isTop && TOPPER_OK.has(kind) && (
                         <div className="row">
                           <label className="field"><span className="field-label">On its top face</span>
                             <select value={g.topper ?? ""} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, topper: (e.target.value || undefined) as Gear["topper"], throw: e.target.value === "crank" ? x.throw ?? 2 * d.grid : x.throw }))}>
                               <option value="">nothing</option><option value="crank">crank</option><option value="pointer">pointer and dial knob</option>
+                              {kind === "gear" && g.teeth >= springMinTeeth(layout.size) && <option value="spring">wind-up spring</option>}
                             </select>
                           </label>
                           {g.topper === "crank" && (
@@ -294,19 +426,20 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                           )}
                         </div>
                       )}
-                      {g.topper === "crank" && <p className="hint">A handle rides the post, or a rocker on another pin at level {crankLinkLevel(level)} follows it through a coupler link.</p>}
+                      {g.topper === "crank" && <p className="hint">A handle rides the post, or a rocker, a quick-return lever or a rail carriage at level {crankLinkLevel(level)} follows it.</p>}
+                      {g.topper === "spring" && <p className="hint">The gear gets a wall for the spiral spring; the spring's boss grips the bearing's inner race, so the pin must not turn: wind it with the knob and let the train run down.</p>}
                     </div>
                   ) : (
                     <div className="row">
-                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={kd.id === "rocker" && !crankPins.length}>{kd.label}</option>)}</select>
-                      {(newKind === "gear" || newKind === "pulley") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{TEETH.map(t => <option key={t} value={t}>{newKind === "gear" ? `${t} teeth` : `P${t}`}</option>)}</select>}
+                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={kd.needsCrank && !crankPins.length}>{kd.label}</option>)}</select>
+                      {(newKind === "gear" || newKind === "pulley" || newKind === "partial") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{TEETH.map(t => <option key={t} value={t}>{newKind === "pulley" ? `P${t}` : `${t} teeth`}</option>)}</select>}
                       <button type="button" onClick={() => addItem(level)}>Add</button>
                     </div>
                   )}
                 </div>
               );
             })}
-            {!selPin && <div className="form"><button type="button" onClick={addMotor}>Put an N20 motor here</button></div>}
+            {!selPin && <div className="form"><div className="row"><button type="button" onClick={addMotor}>Put an N20 motor here</button><button type="button" onClick={addRail}>Start a slider rail here</button></div></div>}
             {selPin && <button type="button" className="link" onClick={() => { updatePin(selPin.id, () => null); setSelected(null); }}>Remove pin</button>}
             {analysis.problems.filter(p => p.pin === selPin?.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
           </>

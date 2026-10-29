@@ -5,7 +5,7 @@
 // libraries folder). Run `npm run render` to build the whole catalog.
 
 /* [Part] */
-part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, coupler, bushing, coupon, crank, post, joint, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion]
+part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, coupler, bushing, coupon, crank, post, joint, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook]
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
@@ -19,7 +19,7 @@ face = "solid";    // [solid, spokes, cross, holes, spiral]
 /* [Tile] */
 tile_nx = 4;       // [2:1:8]
 tile_ny = 4;       // [2:1:8]
-flip = false;      // tile, crank, pointer: render print-ready (upside down)
+flip = false;      // tile, crank, pointer, carriage, rack, yoke: render print-ready (upside down)
 
 /* [Spacer] */
 spacer_h = 3;      // [1:0.5:10]
@@ -27,10 +27,20 @@ spacer_h = 3;      // [1:0.5:10]
 /* [Add-ons] */
 throw = 40;        // [20:10:80] crank: post distance from the axis, mm
 post_h = 11;       // [8:1:40] post height above the crank arm; 11 carries a bearing, 28 a handle
-level = 1;         // [1:1:3] motor mount: level of the pinion
+level = 1;         // [1:1:3] motor mount: level of the pinion; rack: level of the teeth; yoke, slider post: level of the crank gear
 pulley_n = 40;     // [20:10:80] pulley diameter as a tooth count: MOD x n mm
 holes = 3;         // [2:1:6] link: bearing seats, one grid step apart
 flip_pawl = false; // pawl for a ratchet that locks the other way
+
+/* [Mechanisms] */
+rail_n = 4;        // [2:1:8] rail: sockets it spans
+rack_len = 2;      // [2:1:4] rack: length in grid steps
+reach = 3;         // [2:1:5] yoke: grid steps from the carriage centre to the crank pin
+cam = "eccentric"; // [eccentric, heart, snail]
+slots = 6;         // [6, 8] geneva: slots in the wheel
+keep = "half";     // [half, quarter] partial gear: how much of the rim has teeth
+d_steps = 3;       // [2:1:4] quick return: grid steps from the crank pin to the lever pivot
+cw = true;         // anchor for an escape wheel that runs clockwise (seen from above); false mirrors it
 
 /* [Print profile] */
 profile = "PETG"; // [PLA, PETG, ABS]
@@ -44,6 +54,7 @@ include <lib/board.scad>
 include <lib/coupon.scad>
 include <lib/addons.scad>
 include <lib/motor.scad>
+include <lib/mechanisms.scad>
 
 // turn a part that hangs pegs below z = 0 upside down for printing
 module print_flip(on, h) { if (on) translate([0, 0, h]) mirror([0, 0, 1]) children(); else children(); }
@@ -70,4 +81,22 @@ else if (part == "ratchet")     ratchet();
 else if (part == "pawl")        pawl(flip_pawl);
 else if (part == "motor_mount") motor_mount(level);
 else if (part == "pinion")      pinion();
+else if (part == "rail")        rail(rail_n);
+else if (part == "carriage")    print_flip(flip, BASE_TOP) carriage();
+else if (part == "rack")        print_flip(flip, rack_top(level)) rack_carriage(rack_len, level);
+else if (part == "yoke")        print_flip(flip, yoke_top(level)) yoke(level, throw, reach);
+else if (part == "slider_post") slider_post(level);
+else if (part == "cam")         cam(cam);
+else if (part == "follower")    follower();
+else if (part == "geneva_driver") geneva_driver(slots);
+else if (part == "geneva_wheel") geneva_wheel(slots);
+else if (part == "partial")     partial_gear(teeth, keep == "quarter" ? 0.25 : 0.5);
+else if (part == "qr_lever")    qr_lever(d_steps, throw);
+else if (part == "escape_wheel") escape_wheel();
+else if (part == "anchor")      anchor(cw);
+else if (part == "spring_gear") spring_gear(teeth);
+else if (part == "spring")      spring();
+else if (part == "winch")       winch();
+else if (part == "winch_flange") winch_flange();
+else if (part == "hook")        hook();
 else assert(false, str("unknown part: ", part));

@@ -83,6 +83,55 @@ gear's face, a bolt pin with bearings, or the sockets themselves.
   two sockets between the legs. Use a 100:1 to 300:1 N20 at 5 or 6 V; a USB
   power bank with a USB-to-DC lead or a 4 x AA box runs it.
 
+## Mechanisms (phase 4b)
+
+The same three interfaces again, plus one new one: a **slider rail** that
+bolts to the board and carries a sliding carriage.
+
+- **Slider rail and carriages.** `RAIL2` to `RAIL8` run along a row of
+  sockets with a dovetail ridge; tabs at both ends bolt into the sockets of
+  the row beside it (its left, looking along it) with 1-level bolts and
+  knobs. `CARRIAGE` slides on the ridge and has a square pocket on top for
+  the scotch yoke tower or the slider post. Rails print flat, carriages
+  upside down.
+- **Rack.** `RACK2` to `RACK4` are carriages with a toothed bar along one
+  side (teeth at level 1 or 2). The pitch line sits one grid step from the
+  rail, so a 20T pinion goes two rows from the rail and a 40T three.
+- **Scotch yoke.** `YOKE<throw>R<reach>` plugs into the carriage: a tower
+  and a beam carry a slotted plate two levels above the crank's gear; the
+  crank post's bearing rides in the slot. The crank sits on the rail's own
+  row past its end. The carriage moves with a pure sine motion of twice the
+  throw.
+- **Crank slider.** `SLPOST` plugs into the carriage and puts a post at the
+  crank's link level; a link from the crank post to it is the classic
+  piston drive.
+- **Cams.** `CAM-E` (eccentric, sine lift), `CAM-H` (heart, even rise and
+  fall) and `CAM-S` (snail, slow rise and a drop) are discs on the gear hub
+  lifting half a grid step. `FOLLOWER` is an arm on a pin two sockets away
+  with a round nose on the cam and a tail for a rubber band that holds it
+  down.
+- **Geneva drive.** `GENEVA6-D` and `GENEVA8-D` are 40T gears with a drive
+  post and a locking crescent one level up (two bearings); `GENEVA6` and
+  `GENEVA8` are the slotted wheels, on a pin three sockets away one level
+  above the driver. One turn of the driver indexes the wheel one slot and
+  locks it in between.
+- **Partial gears.** `G<n>H` and `G<n>Q` have teeth on half or a quarter of
+  the rim: whatever they mesh with turns in bursts and rests between.
+- **Quick-return lever.** `QR<d>-<throw>` is a slotted lever pivoting `d`
+  sockets from a crank, two levels above the crank's gear; the crank post's
+  bearing rides in the slot, so the lever swings slowly one way and quickly
+  back. A post socket at its end takes a link.
+- **Escapement.** `ESCWHEEL` is a 15 tooth wheel; `ANCHOR` is a recoil
+  anchor on a pin two sockets away with a balance bar that sets the beat
+  (clamped by its nut). The wheel steps one tooth per swing. `ANCHOR-L` is
+  the mirror image for a wheel that runs counter-clockwise.
+- **Wind-up spring.** `SG30` to `SG80` are gears with a wall on the top
+  face; `SPRING` is a printed spiral (PETG works best) whose boss grips the
+  bearing's inner race and whose hook catches the wall. Hold the pin with
+  its knob, wind the gear, let the train run down.
+- **Winch.** `WINCH` is a two-level drum with a bottom flange on two
+  bearings, `WFLANGE` presses on top, `HOOK` goes on the string.
+
 ## Files
 
 ```
@@ -95,6 +144,7 @@ scad/lib/pin.scad      knob, spacers, bushing
 scad/lib/coupon.scad   the fit test coupon
 scad/lib/addons.scad   crank, posts, handle, cap, pointer, dial knob, pulley, link, ratchet, pawl
 scad/lib/motor.scad    N20 motor mount and pinion
+scad/lib/mechanisms.scad  rail, carriages, rack, yoke, cams, Geneva, partial gears, quick return, escapement, spring, winch
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog for one or both sizes
@@ -163,6 +213,17 @@ empty socket can take an N20 motor; its pinion becomes the input and its
 mount's legs and block are checked against everything around them. "Add-ons
 sampler" loads a board with all of them.
 
+The mechanisms are placeable too: cams with their followers, Geneva drivers
+and wheels, partial gears, quick-return levers, escape wheels with their
+anchors, winches and the spring on a gear's top face. An empty socket can
+start a slider rail; pick its direction and length, then a rack, a scotch
+yoke or a crank slider for it. The tester finds the rack's pinion and the
+yoke's or slider's crank, works out the carriage travel, warns when it runs
+off the rail or the arm hits a knob, and animates the real motions: the
+Geneva wheel indexes and dwells, the escape wheel steps, the follower rides
+its cam, the partial gear drives in bursts. "Mechanisms sampler" loads a
+board with most of them.
+
 ## First print: the fit test coupon
 
 Print the fit test kit for your size (`COUPON`, two `CPL`, `K`, `S3`, `BS`) in
@@ -189,4 +250,8 @@ the fit overrides in the web app) and print the coupon again.
   joint and the handle stand up; the cap prints head down.
 - Pawls: flat; PETG flexes best, PLA works for the small deflection.
 - Motor mount: legs down; the short tongue over the pinion is a 17 mm bridge.
+- Rails flat; carriages, racks and yokes upside down (the app renders them
+  that way); the slider post, the Geneva driver and the winch stand up.
+- Spring: flat, PETG, 100 percent infill, 2 walls; it is a 1.2 mm band
+  (1.0 mm in M1.5).
 - Everything prints without supports.

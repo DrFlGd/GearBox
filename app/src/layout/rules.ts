@@ -1,35 +1,60 @@
 // What the tester checks: which items mesh, band together or collide, which
-// hardware an item hits, how the train turns, and what to print.
+// hardware an item hits, how the train turns (including the stepped and gated
+// motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, crankLinkLevel, gearAt, itemR, kindOf, motorLegs, pinById, pitchR, pointerReach, socketPos, std, tipR, topLevel,
-  type Band, type Gear, type Layout, type Pin,
+  ARM_W, bearingOD, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  pinById, pitchR, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
+  type Band, type Fixture, type Gear, type Layout, type Pin,
 } from "./model";
+import { escapeAngle, gateE, genevaAngle, rangeOver, sliderX, yokeX } from "./motion";
 import { catalog, type Size } from "../parts";
 
 export type GearRef = { pin: Pin; gear: Gear };
-export type Pair = { a: GearRef; b: GearRef; kind: "mesh" | "collide" | "band" };
-export type HardwareHit = { gear: GearRef; pin: Pin; what: "spacer" | "knob" | "mount" | "crank" | "pointer" };
-export type Problem = { text: string; pin?: string; level?: number };
+export type Pair = { a: GearRef; b: GearRef; kind: "mesh" | "collide" | "band" | "cam" | "geneva" | "escapement" };
+export type HardwareHit = { gear: GearRef; pin: Pin; what: "spacer" | "knob" | "mount" | "crank" | "pointer" | "lever" | "rail" | "carriage" };
+export type Problem = { text: string; pin?: string; level?: number; fixture?: string };
 /** A crank-rocker linkage the view animates: crank post on pin `crank`, rocker on pin `rocker`. */
 export type Linkage = { crank: GearRef; rocker: GearRef; throw: number; coupler: number; rockerLen: number; ok: boolean };
+/** What a fixture's carriage does: who drives it and how far it travels along the rail. */
+export type FixtureInfo = {
+  fixture: Fixture;
+  drive?: GearRef;              // the crank's gear (yoke, slider) or the pinion (rack)
+  pinU?: number;                // the drive pin's position along the rail, mm
+  range: [number, number];      // carriage centre travel along the rail, mm
+  limit: [number, number];      // where the carriage may be
+  ok: boolean;
+};
+export type Motion = (theta: number) => number;
 
 export type Analysis = {
   pairs: Pair[];
   hits: HardwareHit[];
   problems: Problem[];
-  speed: Map<string, number>;       // key pin:level -> angular speed relative to the input (sign = direction)
+  speed: Map<string, number>;       // key pin:level -> mean angular speed relative to the input (sign = direction)
   phase: Map<string, number>;       // key -> initial angle, radians, so meshing teeth interleave
+  motion: Map<string, Motion>;      // key -> angle for an input angle theta (stepped and gated motions included)
   locked: boolean;
   reachable: Set<string>;
   pawls: Map<string, number>;       // pawl key -> angle (radians) toward its ratchet
   linkages: Linkage[];
+  partners: Map<string, GearRef>;   // follower -> its cam, anchor -> its escape wheel, lever -> its crank gear, Geneva wheel -> its driver
+  fixtures: FixtureInfo[];
 };
 
 export const key = (pin: Pin | string, level: number) => `${typeof pin === "string" ? pin : pin.id}:${level}`;
 const mm = (l: Layout, p: Pin) => socketPos(l, p.x, p.y);
 const dist = (l: Layout, p: Pin, q: Pin) => { const a = mm(l, p), b = mm(l, q); return Math.hypot(a.x - b.x, a.y - b.y); };
 const angle = (l: Layout, p: Pin, q: Pin) => { const a = mm(l, p), b = mm(l, q); return Math.atan2(b.y - a.y, b.x - a.x); };
-const label = (g: Gear) => { switch (kindOf(g)) { case "gear": return `${g.teeth}T`; case "pulley": return `P${g.teeth}`; case "ratchet": return "ratchet"; case "pawl": return "pawl"; case "rocker": return "rocker"; } };
+/** Pins exactly `steps` sockets apart along a grid line. */
+const straight = (p: Pin, q: Pin, steps: number) => (Math.abs(q.x - p.x) === steps && q.y === p.y) || (Math.abs(q.y - p.y) === steps && q.x === p.x);
+export const label = (g: Gear) => {
+  switch (kindOf(g)) {
+    case "gear": return `${g.teeth}T`; case "pulley": return `P${g.teeth}`; case "ratchet": return "ratchet"; case "pawl": return "pawl"; case "rocker": return "rocker";
+    case "cam": return `${g.cam ?? "eccentric"} cam`; case "follower": return "follower"; case "geneva": return "Geneva driver"; case "genevaWheel": return "Geneva wheel";
+    case "partial": return `${g.teeth}T ${g.keep === 0.25 ? "quarter" : "half"} gear`; case "qrlever": return "quick-return lever"; case "escwheel": return "escape wheel";
+    case "anchor": return "anchor"; case "winch": return "winch";
+  }
+};
 
 /** Footprint of a motor mount in mm, relative to the motor socket, turned by dir: leg circles and the block. */
 export function motorFootprint(l: Layout, pin: Pin) {
@@ -56,34 +81,86 @@ function polyDist(px: number, py: number, poly: { x: number; y: number }[]) {
   }
   return inside ? 0 : best;
 }
+/** Distance from a point to a segment. */
+const segDist = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+  const ex = bx - ax, ey = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * ex + (py - ay) * ey) / (ex * ex + ey * ey || 1)));
+  return Math.hypot(px - ax - t * ex, py - ay - t * ey);
+};
+/** Distance from a point (in a rail's local frame) to an axis-aligned rectangle. */
+const rectDist = (u: number, v: number, u0: number, u1: number, v0: number, v1: number) => Math.hypot(Math.max(u0 - u, 0, u - u1), Math.max(v0 - v, 0, v - v1));
+
+/** A box in the rail's frame, or (with `r`) a circle centred at (u0, v0). */
+export type FixtureBox = { u0: number; u1: number; v0: number; v1: number; lo: number; hi: number; what: "rail" | "carriage"; r?: number };
+/** The boxes a fixture occupies in its own frame, with the levels they fill. Carriage boxes span the travel. */
+export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): FixtureBox[] {
+  const s = std(l.size), g = s.grid, r = railDims(l.size);
+  const L = (f.n - 1) * g;
+  const box = (u0: number, u1: number, v0: number, v1: number, lo: number, hi: number, what: FixtureBox["what"]): FixtureBox => ({ u0, u1, v0, v1, lo, hi, what });
+  const out: FixtureBox[] = [box(-r.w / 2, L + r.w / 2, -r.w / 2, r.w / 2, 1, 1, "rail")];
+  for (const u of [0, L]) out.push({ ...box(u, u, g, g, 1, 2, "rail"), r: s.knob_d / 2 });  // tab knobs
+  const c = f.carriage;
+  if (!c) return out;
+  const [lo, hi] = info?.range ?? [r.carL / 2, L - r.carL / 2];
+  if (c.kind === "rack") {
+    const half = (c.len * g) / 2;
+    out.push(box(lo - half, hi + half, -r.w / 2, r.w / 2, 1, c.level, "carriage"));
+    out.push(box(lo - half, hi + half, -(g - 1.25 * s.module), -r.w / 2, c.level, c.level, "carriage"));
+  } else {
+    out.push(box(lo - r.carL / 2, hi + r.carL / 2, -r.w / 2, r.w / 2, 1, 1, "carriage"));
+    if (c.kind === "yoke") {
+      const sw = slotW(l.size), aw = sw + 8, sl = 2 * c.throw + sw + 1;
+      out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.w / 2, r.w / 2, 2, c.level + 2, "carriage"));                      // tower
+      out.push(box(lo - r.plugW / 2, hi + c.reach * g - aw / 2, -r.w / 2, r.w / 2, c.level + 2, c.level + 2, "carriage"));    // beam
+      out.push(box(lo + c.reach * g - aw / 2, hi + c.reach * g + aw / 2, -sl / 2 - 4, sl / 2 + 4, c.level + 2, c.level + 2, "carriage")); // slot plate
+    } else out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.plugW / 2, r.plugW / 2, 2, c.level + 2, "carriage"));            // post
+  }
+  return out;
+}
 
 export function analyze(l: Layout): Analysis {
   const s = std(l.size);
-  const m = s.module;
+  const m = s.module, g = s.grid;
   const pairs: Pair[] = [];
   const hits: HardwareHit[] = [];
   const problems: Problem[] = [];
   const pawls = new Map<string, number>();
   const linkages: Linkage[] = [];
+  const partners = new Map<string, GearRef>();
   const gears: GearRef[] = l.pins.flatMap(pin => pin.gears.map(gear => ({ pin, gear })));
   const bands: Band[] = l.bands ?? [];
-  const bandOf = (b: Band["a"]) => gears.find(g => g.pin.id === b.pin && g.gear.level === b.level);
+  const bandOf = (b: Band["a"]) => gears.find(x => x.pin.id === b.pin && x.gear.level === b.level);
+  const k = (r: GearRef) => key(r.pin, r.gear.level);
+  const find = (pred: (o: GearRef) => boolean) => gears.find(pred);
 
-  // items on the same level: gears mesh or collide, anything else collides
-  for (let i = 0; i < gears.length; i++) for (let j = i + 1; j < gears.length; j++) {
-    const a = gears[i], b = gears[j];
-    if (a.pin === b.pin || a.gear.level !== b.gear.level) continue;
-    const d = dist(l, a.pin, b.pin);
+  // everything an item fills: its own level and any extra ones
+  type Occ = { ref: GearRef; level: number; r: number; own: boolean; what: string };
+  const occ: Occ[] = gears.flatMap(ref => [{ ref, level: ref.gear.level, r: itemR(l.size, ref.gear), own: true, what: label(ref.gear) },
+    ...extraLevels(l.size, ref.gear).map(e => ({ ref, level: e.level, r: e.r, own: false, what: e.what }))]);
+  const armKinds = new Set(["rocker", "qrlever", "follower", "anchor"]);
+  const special = (a: GearRef, b: GearRef) => {
     const ka = kindOf(a.gear), kb = kindOf(b.gear);
-    if (ka === "gear" && kb === "gear") {
-      const req = (m * (a.gear.teeth + b.gear.teeth)) / 2;
-      if (Math.abs(d - req) < 0.05) pairs.push({ a, b, kind: "mesh" });
-      else if (d < req + 2 * m) pairs.push({ a, b, kind: "collide" });
+    const has = (x: string, y: string) => (ka === x && kb === y) || (ka === y && kb === x);
+    return has("pawl", "ratchet") || has("cam", "follower") || has("escwheel", "anchor") || armKinds.has(ka) || armKinds.has(kb);
+  };
+  const genevaPair = (a: Occ, b: Occ) => (kindOf(a.ref.gear) === "geneva" && !a.own && kindOf(b.ref.gear) === "genevaWheel") || (kindOf(b.ref.gear) === "geneva" && !b.own && kindOf(a.ref.gear) === "genevaWheel");
+  // items on the same level: gears mesh or collide, anything else collides
+  for (let i = 0; i < occ.length; i++) for (let j = i + 1; j < occ.length; j++) {
+    const a = occ[i], b = occ[j];
+    if (a.ref.pin === b.ref.pin || a.level !== b.level) continue;
+    const d = dist(l, a.ref.pin, b.ref.pin);
+    if (a.own && b.own && meshes(a.ref.gear) && meshes(b.ref.gear)) {
+      const req = (m * (teethOf(a.ref.gear) + teethOf(b.ref.gear))) / 2;
+      if (Math.abs(d - req) < 0.05) pairs.push({ a: a.ref, b: b.ref, kind: "mesh" });
+      else if (d < req + 2 * m) pairs.push({ a: a.ref, b: b.ref, kind: "collide" });
       continue;
     }
-    if ((ka === "pawl" && kb === "ratchet") || (ka === "ratchet" && kb === "pawl")) continue; // checked below
-    if (ka === "rocker" || kb === "rocker") continue;                                          // checked with its linkage
-    if (d < itemR(l.size, a.gear) + itemR(l.size, b.gear) + 0.5) pairs.push({ a, b, kind: "collide" });
+    if (a.own && b.own && special(a.ref, b.ref)) continue;           // checked with their partner below
+    if (genevaPair(a, b)) continue;                                    // the lock sits in the wheel's arcs by design
+    if (d < a.r + b.r + 0.5) {
+      if (a.own && b.own) pairs.push({ a: a.ref, b: b.ref, kind: "collide" });
+      else problems.push({ text: `${a.own ? label(a.ref.gear) : "the " + a.what} and ${b.own ? label(b.ref.gear) : "the " + b.what} collide on level ${a.level}`, pin: a.ref.pin.id, level: a.ref.gear.level });
+    }
   }
   // bands between pulleys
   for (const b of bands) {
@@ -92,59 +169,120 @@ export function analyze(l: Layout): Analysis {
     if (a.gear.level !== c.gear.level) problems.push({ text: "a band joins pulleys on different levels", pin: a.pin.id, level: a.gear.level });
     pairs.push({ a, b: c, kind: "band" });
   }
+  // an arm (follower, anchor, lever) sweeping over its level: does a segment from the pivot touch other items?
+  const sweepHits = (self: GearRef, except: GearRef | undefined, segs: [number, number, number, number][], extra: number, hit: (o: Occ) => void) => {
+    for (const o of occ) {
+      if (o.level !== self.gear.level || o.ref.pin === self.pin || (except && o.ref === except)) continue;
+      const t = mm(l, o.ref.pin);
+      if (segs.some(([ax, ay, bx, by]) => segDist(t.x, t.y, ax, ay, bx, by) < o.r + extra + 0.5)) hit(o);
+    }
+  };
   // pawls want a ratchet exactly two sockets away along a grid line
-  for (const g of gears) if (kindOf(g.gear) === "pawl") {
-    const r = gears.find(o => o.pin !== g.pin && kindOf(o.gear) === "ratchet" && o.gear.level === g.gear.level
-      && ((Math.abs(o.pin.x - g.pin.x) === 2 && o.pin.y === g.pin.y) || (Math.abs(o.pin.y - g.pin.y) === 2 && o.pin.x === g.pin.x)));
-    if (!r) problems.push({ text: "the pawl needs a ratchet two sockets away on its level, straight along the grid", pin: g.pin.id, level: g.gear.level });
-    else pawls.set(key(g.pin, g.gear.level), angle(l, g.pin, r.pin));
+  for (const g0 of gears) if (kindOf(g0.gear) === "pawl") {
+    const r = find(o => o.pin !== g0.pin && kindOf(o.gear) === "ratchet" && o.gear.level === g0.gear.level && straight(g0.pin, o.pin, 2));
+    if (!r) problems.push({ text: "the pawl needs a ratchet two sockets away on its level, straight along the grid", pin: g0.pin.id, level: g0.gear.level });
+    else pawls.set(k(g0), angle(l, g0.pin, r.pin));
+  }
+  // followers want a cam two sockets away on their level; the arm then stays clear of other items on that level
+  for (const g0 of gears) if (kindOf(g0.gear) === "follower") {
+    const c = find(o => o.pin !== g0.pin && kindOf(o.gear) === "cam" && o.gear.level === g0.gear.level && straight(g0.pin, o.pin, 2));
+    if (!c) { problems.push({ text: "the follower needs a cam two sockets away on its level, straight along the grid", pin: g0.pin.id, level: g0.gear.level }); continue; }
+    partners.set(k(g0), c); pairs.push({ a: c, b: g0, kind: "cam" });
+    const p = mm(l, g0.pin), dir = angle(l, g0.pin, c.pin), A = followerA(l.size);
+    const segs = [0, 0.3, 0.6, 0.9].map(th => [p.x, p.y, p.x + A * Math.cos(dir + th), p.y + A * Math.sin(dir + th)] as [number, number, number, number]);
+    segs.push([p.x, p.y, p.x - g * Math.cos(dir), p.y - g * Math.sin(dir)]);   // the tail
+    sweepHits(g0, c, segs, ARM_W(l.size) / 2, o => pairs.push({ a: g0, b: o.ref, kind: "collide" }));
+  }
+  // Geneva wheels want their driver three sockets away, one level down
+  for (const g0 of gears) if (kindOf(g0.gear) === "genevaWheel") {
+    const d = find(o => o.pin !== g0.pin && kindOf(o.gear) === "geneva" && o.gear.level === g0.gear.level - 1 && straight(g0.pin, o.pin, 3));
+    if (!d) { problems.push({ text: "the Geneva wheel needs its driver three sockets away, straight along the grid, one level below it", pin: g0.pin.id, level: g0.gear.level }); continue; }
+    if ((d.gear.slots ?? 6) !== (g0.gear.slots ?? 6)) problems.push({ text: "the Geneva wheel and its driver disagree on the slot count", pin: g0.pin.id, level: g0.gear.level });
+    partners.set(k(g0), d); pairs.push({ a: d, b: g0, kind: "geneva" });
+  }
+  // anchors want an escape wheel two sockets away on their level; their bar points away from it
+  for (const g0 of gears) if (kindOf(g0.gear) === "anchor") {
+    const w = find(o => o.pin !== g0.pin && kindOf(o.gear) === "escwheel" && o.gear.level === g0.gear.level && straight(g0.pin, o.pin, 2));
+    if (!w) { problems.push({ text: "the anchor needs an escape wheel two sockets away on its level, straight along the grid", pin: g0.pin.id, level: g0.gear.level }); continue; }
+    partners.set(k(g0), w); pairs.push({ a: w, b: g0, kind: "escapement" });
+    const p = mm(l, g0.pin), q = mm(l, w.pin), e = escDims(l.size), dir = angle(l, g0.pin, w.pin);
+    const segs: [number, number, number, number][] = [[p.x, p.y, p.x - e.bar * Math.cos(dir), p.y - e.bar * Math.sin(dir)]];
+    for (const sg of [1, -1]) segs.push([p.x, p.y, q.x + e.R * Math.cos(dir + Math.PI + sg * e.alpha), q.y + e.R * Math.sin(dir + Math.PI + sg * e.alpha)]);
+    sweepHits(g0, w, segs, ARM_W(l.size) / 2, o => pairs.push({ a: g0, b: o.ref, kind: "collide" }));
+  }
+  // quick-return levers: the crank's post rides in the slot two levels above the crank's gear
+  const crankR = (gr: Gear) => (gr.throw ?? 2 * g) + ARM_W(l.size) / 2 + 1;
+  for (const g0 of gears) if (kindOf(g0.gear) === "qrlever") {
+    const cp = g0.gear.crank ? pinById(l, g0.gear.crank) : undefined;
+    const c = cp?.gears.find(o => o.topper === "crank");
+    if (!cp || !c) { problems.push({ text: "the quick-return lever's crank is gone", pin: g0.pin.id, level: g0.gear.level }); continue; }
+    const D = dist(l, g0.pin, cp), t = c.throw ?? 2 * g;
+    const steps = Math.round(D / g);
+    if (!straight(g0.pin, cp, steps) || steps < 2 || steps > 4) problems.push({ text: "the lever's pivot must be 2, 3 or 4 sockets from the crank, straight along the grid", pin: g0.pin.id, level: g0.gear.level });
+    if (D - t - slotW(l.size) / 2 - 1 < bearingOD(l.size) / 2 + 4) problems.push({ text: `a ${t} mm crank reaches the lever's pivot: more distance or less throw`, pin: g0.pin.id, level: g0.gear.level });
+    if (g0.gear.level !== crankLinkLevel(c.level)) problems.push({ text: `the lever must be on level ${crankLinkLevel(c.level)}, two above its crank`, pin: g0.pin.id, level: g0.gear.level });
+    partners.set(k(g0), { pin: cp, gear: c });
+    // the bar sweeps +-asin(t/D) about the line to the crank
+    const p = mm(l, g0.pin), dir = angle(l, g0.pin, cp), sw = Math.asin(Math.min(1, t / D));
+    const len = D + t + slotW(l.size) / 2 + 4 + 3 * m + 8;
+    const segs: [number, number, number, number][] = [];
+    for (let i = -4; i <= 4; i++) { const a = dir + (sw * i) / 4; segs.push([p.x, p.y, p.x + len * Math.cos(a), p.y + len * Math.sin(a)]); }
+    sweepHits(g0, { pin: cp, gear: c }, segs, slotW(l.size) / 2 + 4, o => { if (o.ref.pin !== cp) hits.push({ gear: o.ref, pin: g0.pin, what: "lever" }); });
   }
   // items against other pins' hardware at the same level
-  const crankR = (g: Gear) => (g.throw ?? 2 * s.grid) + ARM_W(l.size) / 2 + 1;
-  for (const g of gears) for (const pin of l.pins) {
-    if (pin === g.pin) continue;
-    const lv = g.gear.level;
-    const r = itemR(l.size, g.gear);
-    const d = dist(l, g.pin, pin);
+  for (const o of occ) for (const pin of l.pins) {
+    if (pin === o.ref.pin) continue;
+    const lv = o.level;
+    const r = o.r;
+    const d = dist(l, o.ref.pin, pin);
     const top = topLevel(pin);
-    if (!gearAt(pin, lv)) {
+    const topG = gearAt(pin, top);
+    const topUsed = topG ? top + levelsUsed(l.size, topG) - 1 : top;   // the knob sits above the top item's extra levels
+    if (!gearAt(pin, lv) && !pin.gears.some(x => extraLevels(l.size, x).some(e => e.level === lv))) {
       // a bolt with spacers, or the knob on top of the stack
-      const hw: HardwareHit["what"] | null = pin.motor ? null : lv <= top ? "spacer" : lv === top + 1 ? "knob" : null;
+      const hw: HardwareHit["what"] | null = pin.motor ? null : lv <= topUsed ? "spacer" : lv === topUsed + 1 ? "knob" : null;
       if (hw) {
-        const topG = gearAt(pin, top);
         const hr = hw === "spacer" ? s.spacer_od / 2 : topG?.topper === "pointer" ? s.dial_r : s.knob_d / 2;
-        if (d < r + hr + 0.5) hits.push({ gear: g, pin, what: hw });
+        if (d < r + hr + 0.5) hits.push({ gear: o.ref, pin, what: hw });
       }
     }
     // cranks sweep above their gear through the next three levels; pointers one level, out to the dial rim
-    for (const o of pin.gears) {
-      if (o.topper === "crank" && lv > o.level && lv <= o.level + 3 && d < r + crankR(o) + 0.5) hits.push({ gear: g, pin, what: "crank" });
-      if (o.topper === "pointer" && lv === o.level + 1 && d < r + pointerReach(l.size) + 0.5) hits.push({ gear: g, pin, what: "pointer" });
+    for (const x of pin.gears) {
+      const isPartner = partners.get(k(o.ref))?.pin === pin || (kindOf(o.ref.gear) === "rocker" && o.ref.gear.rocker?.crank === pin.id);
+      if (x.topper === "crank" && lv > x.level && lv <= x.level + 3 && d < r + crankR(x) + 0.5 && !isPartner) hits.push({ gear: o.ref, pin, what: "crank" });
+      if (x.topper === "pointer" && lv === x.level + 1 && d < r + pointerReach(l.size) + 0.5) hits.push({ gear: o.ref, pin, what: "pointer" });
     }
     // a motor mount's legs, block and cradle
     if (pin.motor) {
       const motorLevel = pin.gears[0]?.level ?? 1;
       const fp = motorFootprint(l, pin);
-      const o = mm(l, pin), p = mm(l, g.pin);
-      const rel = { x: p.x - o.x, y: p.y - o.y };
+      const oo = mm(l, pin), p = mm(l, o.ref.pin);
+      const rel = { x: p.x - oo.x, y: p.y - oo.y };
       const legHit = lv <= motorLevel && fp.legs.some(leg => Math.hypot(rel.x - leg.x, rel.y - leg.y) < r + leg.r + 0.5);
       const blockHit = lv <= motorLevel && polyDist(rel.x, rel.y, fp.corners) < r + 0.5;
       const cradleHit = lv > motorLevel && d < r + fp.cradleR + 0.5;
-      if (legHit || blockHit || cradleHit) hits.push({ gear: g, pin, what: "mount" });
+      if (legHit || blockHit || cradleHit) hits.push({ gear: o.ref, pin, what: "mount" });
     }
   }
   // stack rules
+  const noTopper = new Set(["pawl", "follower", "anchor", "qrlever", "rocker", "geneva", "winch"]);
   for (const pin of l.pins) {
-    const levels = pin.gears.map(g => g.level);
-    if (new Set(levels).size !== levels.length) problems.push({ text: "two items on one level", pin: pin.id });
+    const levels = pin.gears.flatMap(x => [x.level, ...extraLevels(l.size, x).map(e => e.level)]);
+    if (new Set(levels).size !== levels.length) problems.push({ text: "two items on one level (a Geneva driver, a winch and a spring gear fill the level above them too)", pin: pin.id });
     const top = topLevel(pin);
-    for (const g of pin.gears) {
-      if (g.joined && !gearAt(pin, g.level - 1)) problems.push({ text: `level ${g.level} is joined to an empty level below`, pin: pin.id, level: g.level });
-      if (g.topper && g.level !== top) problems.push({ text: `the ${g.topper} must be on the top item of the pin`, pin: pin.id, level: g.level });
-      if (g.topper && kindOf(g) === "pawl") problems.push({ text: `a pawl cannot carry a ${g.topper}`, pin: pin.id, level: g.level });
-      if (g.topper === "crank" && crankLinkLevel(g.level) > 4) problems.push({ text: "a crank needs its gear on level 2 or lower", pin: pin.id, level: g.level });
+    const topG = gearAt(pin, top);
+    const used = topG ? top + levelsUsed(l.size, topG) - 1 : top;
+    for (const x of pin.gears) {
+      const kind = kindOf(x);
+      const below = gearAt(pin, x.level - 1);
+      if (x.joined && !below) problems.push({ text: `level ${x.level} is joined to an empty level below`, pin: pin.id, level: x.level });
+      if (x.joined && below && extraLevels(l.size, below).length) problems.push({ text: `level ${x.level} cannot join a two-level part below it`, pin: pin.id, level: x.level });
+      if (x.topper && x.level !== top) problems.push({ text: `the ${x.topper} must be on the top item of the pin`, pin: pin.id, level: x.level });
+      if (x.topper && noTopper.has(kind)) problems.push({ text: `a ${label(x)} cannot carry a ${x.topper}`, pin: pin.id, level: x.level });
+      if (x.topper === "crank" && crankLinkLevel(x.level) > 4) problems.push({ text: "a crank needs its gear on level 2 or lower", pin: pin.id, level: x.level });
+      if (x.topper === "spring" && (kind !== "gear" || x.teeth < springMinTeeth(l.size))) problems.push({ text: `the spring needs a plain gear of ${springMinTeeth(l.size)}T or more`, pin: pin.id, level: x.level });
     }
-    if (top > 4) problems.push({ text: "a pin carries at most 4 levels", pin: pin.id });
+    if (used > 4) problems.push({ text: "a pin carries at most 4 levels", pin: pin.id });
     if (pin.motor) {
       if (pin.gears.length !== 1 || pin.gears[0].teeth !== 20 || kindOf(pin.gears[0]) !== "gear") problems.push({ text: "a motor pin carries only its 20T pinion", pin: pin.id });
       for (const [i, j] of motorLegs(pin.motor.dir)) {
@@ -154,86 +292,194 @@ export function analyze(l: Layout): Analysis {
     }
   }
   // linkages: a rocker on a pin, driven by a crank on another pin through a coupler link
-  for (const g of gears) if (kindOf(g.gear) === "rocker") {
-    const rk = g.gear.rocker;
+  for (const g0 of gears) if (kindOf(g0.gear) === "rocker") {
+    const rk = g0.gear.rocker;
     const crankPin = rk && pinById(l, rk.crank);
     const crank = crankPin?.gears.find(o => o.topper === "crank");
-    if (!rk || !crankPin || !crank) { problems.push({ text: "the rocker's crank is gone", pin: g.pin.id, level: g.gear.level }); continue; }
-    const throwMm = crank.throw ?? 2 * s.grid;
-    const coupler = (rk.coupler - 1) * s.grid, rockerLen = (rk.holes - 1) * s.grid;
-    const G = dist(l, crankPin, g.pin);
+    if (!rk || !crankPin || !crank) { problems.push({ text: "the rocker's crank is gone", pin: g0.pin.id, level: g0.gear.level }); continue; }
+    const throwMm = crank.throw ?? 2 * g;
+    const coupler = (rk.coupler - 1) * g, rockerLen = (rk.holes - 1) * g;
+    const G = dist(l, crankPin, g0.pin);
     const ok = G + throwMm <= coupler + rockerLen - 0.01 && G - throwMm >= Math.abs(coupler - rockerLen) + 0.01;
-    if (!ok) problems.push({ text: `the linkage binds: ${rk.coupler} hole coupler and ${rk.holes} hole rocker cannot follow a ${throwMm} mm crank ${G.toFixed(0)} mm away`, pin: g.pin.id, level: g.gear.level });
-    if (g.gear.level !== crankLinkLevel(crank.level)) problems.push({ text: `the rocker must be on level ${crankLinkLevel(crank.level)}, two above its crank`, pin: g.pin.id, level: g.gear.level });
-    linkages.push({ crank: { pin: crankPin, gear: crank }, rocker: g, throw: throwMm, coupler, rockerLen, ok });
+    if (!ok) problems.push({ text: `the linkage binds: ${rk.coupler} hole coupler and ${rk.holes} hole rocker cannot follow a ${throwMm} mm crank ${G.toFixed(0)} mm away`, pin: g0.pin.id, level: g0.gear.level });
+    if (g0.gear.level !== crankLinkLevel(crank.level)) problems.push({ text: `the rocker must be on level ${crankLinkLevel(crank.level)}, two above its crank`, pin: g0.pin.id, level: g0.gear.level });
+    linkages.push({ crank: { pin: crankPin, gear: crank }, rocker: g0, throw: throwMm, coupler, rockerLen, ok });
   }
-  for (const p of pairs) if (p.kind === "collide") problems.push({ text: `${label(p.a.gear)} and ${label(p.b.gear)} on level ${p.a.gear.level} collide`, pin: p.a.pin.id, level: p.a.gear.level });
-  for (const h of hits) problems.push({ text: `${label(h.gear.gear)} on level ${h.gear.gear.level} hits a ${h.what === "mount" ? "motor mount" : h.what} on another pin`, pin: h.gear.pin.id, level: h.gear.gear.level });
 
-  // train solver: breadth first from the input over mesh, band and joined edges
+  // fixtures: rails with their carriages
+  const fixtures: FixtureInfo[] = [];
+  for (const f of l.fixtures ?? []) {
+    const fr = railFrame(l, f);
+    const rd = railDims(l.size);
+    const info: FixtureInfo = { fixture: f, range: [rd.carL / 2, fr.len - rd.carL / 2], limit: [rd.carL / 2 - 4, fr.len - rd.carL / 2 + 4], ok: true };
+    const bad = (text: string) => { problems.push({ text, fixture: f.id }); info.ok = false; };
+    // pins under the rail or its tabs
+    for (const pin of l.pins) {
+      const p = fr.toLocal(mm(l, pin));
+      if (Math.abs(p.v) < 1 && p.u > -1 && p.u < fr.len + 1) bad(`a pin sits under the rail at socket ${pin.x + 1}, ${pin.y + 1}`);
+      if (Math.abs(p.v - g) < 1 && (Math.abs(p.u) < 1 || Math.abs(p.u - fr.len) < 1)) bad(`a pin sits where the rail's tab bolts in, socket ${pin.x + 1}, ${pin.y + 1}`);
+    }
+    const c = f.carriage;
+    if (c?.kind === "rack") {
+      const half = (c.len * g) / 2;
+      info.limit = [half - 4, fr.len - half + 4];
+      // the pinion: a gear on the rack's level with its pitch circle on the rack's pitch line (v = -g)
+      const pinion = gears.find(o => kindOf(o.gear) === "gear" && o.gear.level === c.level && Math.abs(fr.toLocal(mm(l, o.pin)).v + g + pitchR(l.size, o.gear.teeth)) < 0.05);
+      if (pinion) {
+        const pu = fr.toLocal(mm(l, pinion.pin)).u;
+        info.drive = pinion; info.pinU = pu;
+        // the rack can move as long as the pinion stays on its teeth
+        info.range = [Math.max(info.limit[0], pu - half + 4), Math.min(info.limit[1], pu + half - 4)];
+        if (info.range[0] >= info.range[1]) { info.range = info.limit; bad("the pinion is off the rack's teeth: move it along the rail"); }
+      } else { info.range = info.limit; bad(`no pinion drives the rack: put a gear on level ${c.level} two rows from the rail for a 20T, three for a 40T`); }
+    } else if (c) {
+      // the crank: a gear at the carriage's level with a crank, on the rail's row past its end
+      const crank = gears.find(o => o.gear.topper === "crank" && o.gear.level === c.level && Math.abs(fr.toLocal(mm(l, o.pin)).v) < 0.05 && fr.toLocal(mm(l, o.pin)).u > fr.len);
+      if (!crank) bad(`no crank drives the ${c.kind}: put a gear with a crank on level ${c.level} on the rail's row, past its end`);
+      else {
+        const pu = fr.toLocal(mm(l, crank.pin)).u;
+        const t = crank.gear.throw ?? 2 * g;
+        info.drive = crank; info.pinU = pu;
+        if (c.kind === "yoke") {
+          if (Math.abs(t - c.throw) > 0.01) bad(`the yoke is cut for a ${c.throw} mm crank, the crank throws ${t} mm`);
+          info.range = rangeOver(phi => yokeX(pu, c.reach * g, t, phi));
+        } else {
+          const len = (c.link - 1) * g;
+          if (len <= t + 2) bad(`a ${c.link} hole link is too short for a ${t} mm crank`);
+          info.range = rangeOver(phi => sliderX(pu, t, len, phi));
+        }
+        if (info.range[0] < info.limit[0] - 0.01 || info.range[1] > info.limit[1] + 0.01) bad(`the ${c.kind} runs off the rail: it travels ${info.range[0].toFixed(0)} to ${info.range[1].toFixed(0)} mm from the rail's first socket, the rail allows ${info.limit[0].toFixed(0)} to ${info.limit[1].toFixed(0)}`);
+        if (c.level + 2 > 4) bad(`the ${c.kind}'s arm would sit above level 4: the crank gear must be on level 2 or lower`);
+      }
+    }
+    // items that run into the rail or the carriage
+    for (const box of fixtureBoxes(l, f, info)) {
+      for (const o of occ) {
+        if (o.level < box.lo || o.level > box.hi) continue;
+        if (info.drive && o.ref === info.drive && box.what === "carriage") continue;   // the drive meshes with the rack or sits under the arm by design
+        const p = fr.toLocal(mm(l, o.ref.pin));
+        const gap = box.r ? Math.hypot(p.u - box.u0, p.v - box.v0) - box.r : rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1);
+        if (gap < o.r + 0.5) { hits.push({ gear: o.ref, pin: o.ref.pin, what: box.what }); break; }
+      }
+      // knobs of other pins under the arm
+      if (box.what === "carriage" && box.lo > 1) for (const pin of l.pins) {
+        if (!pin.gears.length || info.drive?.pin === pin || pin.motor) continue;
+        const topG = gearAt(pin, topLevel(pin))!;
+        const knobLevel = topLevel(pin) + levelsUsed(l.size, topG);
+        if (knobLevel < box.lo || knobLevel > box.hi) continue;
+        const p = fr.toLocal(mm(l, pin));
+        if (rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1) < s.knob_d / 2 + 0.5) bad(`the carriage's arm hits the knob on the pin at socket ${pin.x + 1}, ${pin.y + 1}`);
+      }
+    }
+    fixtures.push(info);
+  }
+
+  for (const p of pairs) if (p.kind === "collide") problems.push({ text: `${label(p.a.gear)} and ${label(p.b.gear)} on level ${p.a.gear.level} collide`, pin: p.a.pin.id, level: p.a.gear.level });
+  const hitName: Record<HardwareHit["what"], string> = { spacer: "a spacer", knob: "a knob", mount: "a motor mount", crank: "a crank", pointer: "a pointer", lever: "the quick-return lever", rail: "a rail", carriage: "a carriage" };
+  for (const h of hits) problems.push({ text: `${label(h.gear.gear)} on level ${h.gear.gear.level} hits ${hitName[h.what]}${h.what === "rail" || h.what === "carriage" ? "" : " on another pin"}`, pin: h.gear.pin.id, level: h.gear.gear.level });
+
+  // train solver: breadth first from the input over mesh, band, joined and Geneva edges.
+  // Each edge carries the mean ratio; the motion map composes the real angle functions.
   const speed = new Map<string, number>();
   const phase = new Map<string, number>();
+  const motion = new Map<string, Motion>();
   const reachable = new Set<string>();
   let locked = false;
-  const adj = new Map<string, { to: GearRef; ratio: number; mesh?: { from: GearRef; dir: number } }[]>();
-  const add = (from: GearRef, to: GearRef, ratio: number, dir?: number) => {
-    const k = key(from.pin, from.gear.level);
-    if (!adj.has(k)) adj.set(k, []);
-    adj.get(k)!.push({ to, ratio, mesh: dir === undefined ? undefined : { from, dir } });
-  };
+  type Edge = { from: GearRef; to: GearRef; ratio: number; mesh?: { dir: number }; geneva?: { n: number; a: number; C: number; dir: number } };
+  const adj = new Map<string, Edge[]>();
+  const add = (e: Edge) => { const kk = k(e.from); if (!adj.has(kk)) adj.set(kk, []); adj.get(kk)!.push(e); };
   for (const p of pairs) {
     if (p.kind === "mesh") {
-      add(p.a, p.b, -p.a.gear.teeth / p.b.gear.teeth, angle(l, p.a.pin, p.b.pin));
-      add(p.b, p.a, -p.b.gear.teeth / p.a.gear.teeth, angle(l, p.b.pin, p.a.pin));
+      const ta = teethOf(p.a.gear), tb = teethOf(p.b.gear);
+      const gate = (from: GearRef) => (kindOf(from.gear) === "partial" ? (from.gear.keep ?? 0.5) : 1);
+      add({ from: p.a, to: p.b, ratio: (-ta / tb) * gate(p.a), mesh: { dir: angle(l, p.a.pin, p.b.pin) } });
+      add({ from: p.b, to: p.a, ratio: (-tb / ta) * gate(p.b), mesh: { dir: angle(l, p.b.pin, p.a.pin) } });
     } else if (p.kind === "band") {
       const band = bands.find(b => bandOf(b.a) === p.a && bandOf(b.b) === p.b);
       const sgn = band?.crossed ? -1 : 1;
-      add(p.a, p.b, (sgn * p.a.gear.teeth) / p.b.gear.teeth);
-      add(p.b, p.a, (sgn * p.b.gear.teeth) / p.a.gear.teeth);
+      add({ from: p.a, to: p.b, ratio: (sgn * p.a.gear.teeth) / p.b.gear.teeth });
+      add({ from: p.b, to: p.a, ratio: (sgn * p.b.gear.teeth) / p.a.gear.teeth });
+    } else if (p.kind === "geneva") {
+      const n = p.a.gear.slots ?? 6, gd = genevaDims(l.size, n);
+      add({ from: p.a, to: p.b, ratio: -1 / n, geneva: { n, a: gd.a, C: gd.C, dir: angle(l, p.a.pin, p.b.pin) } });
     }
   }
-  for (const pin of l.pins) for (const g of pin.gears) if (g.joined) {
-    const below = gearAt(pin, g.level - 1);
+  for (const pin of l.pins) for (const x of pin.gears) if (x.joined) {
+    const below = gearAt(pin, x.level - 1);
     if (!below) continue;
-    add({ pin, gear: below }, { pin, gear: g }, 1);
-    add({ pin, gear: g }, { pin, gear: below }, 1);
+    add({ from: { pin, gear: below }, to: { pin, gear: x }, ratio: 1 });
+    add({ from: { pin, gear: x }, to: { pin, gear: below }, ratio: 1 });
   }
-  const input = l.input && gears.find(g => g.pin.id === l.input!.pin && g.gear.level === l.input!.level);
+  const input = l.input && gears.find(x => x.pin.id === l.input!.pin && x.gear.level === l.input!.level);
   if (input) {
-    const k0 = key(input.pin, input.gear.level);
-    speed.set(k0, 1); phase.set(k0, 0); reachable.add(k0);
+    const k0 = k(input);
+    speed.set(k0, 1); phase.set(k0, 0); reachable.add(k0); motion.set(k0, th => th);
     const queue: GearRef[] = [input];
     while (queue.length) {
       const cur = queue.shift()!;
-      const kc = key(cur.pin, cur.gear.level);
+      const kc = k(cur);
       for (const e of adj.get(kc) ?? []) {
-        const kt = key(e.to.pin, e.to.gear.level);
+        const kt = k(e.to);
         const w = speed.get(kc)! * e.ratio;
-        if (speed.has(kt)) { if (Math.abs(speed.get(kt)! - w) > 1e-6) locked = true; continue; }
+        // a loop must agree with itself; a gated edge (from a partial gear) carries a mean ratio, so it cannot disagree
+        if (speed.has(kt)) { if (kindOf(cur.gear) !== "partial" && kindOf(e.to.gear) !== "partial" && Math.abs(speed.get(kt)! - w) > 1e-6) locked = true; continue; }
         speed.set(kt, w);
         reachable.add(kt);
-        // tooth phase: a tooth of `cur` on the centre line faces a gap of `to`
+        const fromMotion = motion.get(kc)!, fromPhase = phase.get(kc)!;
+        let toPhase = fromPhase;
         if (e.mesh) {
-          const n1 = cur.gear.teeth, n2 = e.to.gear.teeth, a = e.mesh.dir;
+          // tooth phase: a tooth of `cur` on the centre line faces a gap of `to`
+          const n1 = teethOf(cur.gear), n2 = teethOf(e.to.gear), a = e.mesh.dir;
           const pitch1 = (2 * Math.PI) / n1, pitch2 = (2 * Math.PI) / n2;
-          const p1 = ((((phase.get(kc)! - a) / pitch1) % 1) + 1) % 1;
-          phase.set(kt, a + Math.PI + (0.5 - p1) * pitch2);
-        } else phase.set(kt, phase.get(kc)!);
+          const p1 = ((((fromPhase - a) / pitch1) % 1) + 1) % 1;
+          toPhase = a + Math.PI + (0.5 - p1) * pitch2;
+        }
+        if (e.geneva) {
+          // the wheel's slots point at the driver's post while it indexes; between indexes it dwells
+          const gv = e.geneva;
+          const R0 = gv.dir + Math.PI - (2 * Math.PI) / gv.n;   // slot 1 points at the driver when the post does
+          toPhase = R0 + genevaAngle(fromPhase - gv.dir, gv.n, gv.a, gv.C);
+          motion.set(kt, th => R0 + genevaAngle(fromMotion(th) - gv.dir, gv.n, gv.a, gv.C));
+        } else if (e.mesh && kindOf(cur.gear) === "partial") {
+          const keep = cur.gear.keep ?? 0.5, a = e.mesh.dir, ratio = -teethOf(cur.gear) / teethOf(e.to.gear);
+          const base = gateE(fromPhase - a, keep);
+          motion.set(kt, th => toPhase + ratio * (gateE(fromMotion(th) - a, keep) - base));
+        } else {
+          const ratio = e.ratio;
+          motion.set(kt, th => toPhase + ratio * (fromMotion(th) - fromPhase));
+        }
+        phase.set(kt, toPhase);
         queue.push(e.to);
       }
     }
   }
+  // escape wheels step half a tooth at a time (items joined to one share its pin, so they step too)
+  for (const pin of l.pins) {
+    const esc = pin.gears.find(x => kindOf(x) === "escwheel");
+    if (!esc) continue;
+    for (const x of pin.gears) {
+      const kk = key(pin, x.level);
+      const mo = motion.get(kk), ph = phase.get(kk);
+      if (mo && ph !== undefined && (x === esc || x.joined || esc.joined)) motion.set(kk, th => ph + escapeAngle(mo(th) - ph, escDims(l.size).n));
+    }
+  }
   // a ratchet turning the wrong way against its pawl locks the train
-  for (const g of gears) if (kindOf(g.gear) === "pawl") {
-    const k = key(g.pin, g.gear.level);
-    if (!pawls.has(k)) continue;
-    const r = gears.find(o => kindOf(o.gear) === "ratchet" && o.gear.level === g.gear.level && Math.abs(angle(l, g.pin, o.pin) - pawls.get(k)!) < 1e-6);
-    const w = r && speed.get(key(r.pin, r.gear.level));
+  for (const g0 of gears) if (kindOf(g0.gear) === "pawl") {
+    const kk = k(g0);
+    if (!pawls.has(kk)) continue;
+    const r = gears.find(o => kindOf(o.gear) === "ratchet" && o.gear.level === g0.gear.level && Math.abs(angle(l, g0.pin, o.pin) - pawls.get(kk)!) < 1e-6);
+    const w = r && speed.get(k(r));
     // the ratchet runs clockwise (negative, seen from above) past a standard pawl
-    if (w && ((w > 0 && !g.gear.pawlCw) || (w < 0 && g.gear.pawlCw))) problems.push({ text: "the ratchet turns into its pawl: flip the pawl or the drive", pin: r!.pin.id, level: r!.gear.level });
+    if (w && ((w > 0 && !g0.gear.pawlCw) || (w < 0 && g0.gear.pawlCw))) problems.push({ text: "the ratchet turns into its pawl: flip the pawl or the drive", pin: r!.pin.id, level: r!.gear.level });
+  }
+  // an anchor is cut for one direction of its wheel
+  for (const g0 of gears) if (kindOf(g0.gear) === "anchor") {
+    const w = partners.get(k(g0));
+    const sp = w && speed.get(k(w));
+    if (sp && ((sp < 0) !== (g0.gear.anchorCw ?? true))) problems.push({ text: `the escape wheel runs ${sp < 0 ? "clockwise" : "counter-clockwise"}: use the ${sp < 0 ? "standard anchor" : "mirrored anchor (ANCHOR-L)"}`, pin: g0.pin.id, level: g0.gear.level });
   }
   if (locked) problems.push({ text: "the train is locked: a loop disagrees with itself" });
-  return { pairs, hits, problems, speed, phase, locked, reachable, pawls, linkages };
+  return { pairs, hits, problems, speed, phase, motion, locked, reachable, pawls, linkages, partners, fixtures };
 }
 
 export type BomLine = { name: string; title: string; qty: number; params?: Record<string, string | number> };
@@ -247,38 +493,57 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
     const e = printed.get(name); if (e) e.qty += qty; else printed.set(name, { name, title, qty, params });
   };
   const addH = (name: string, title: string, qty = 1) => { const e = hardware.get(name); if (e) e.qty += qty; else hardware.set(name, { name, title, qty }); };
+  const bolt = (levels: number, qty = 1) => addH(`bolt-${levels}`, `${s.bolt} x ${s.bolt_lengths[String(levels)] ?? "?"} mm hex bolt`, qty);
+  const bearing = (qty = 1) => addH("bearing", `${s.bearing} bearing`, qty);
   const spacer = (h: number, qty = 1) => addP(`S${h}`, `Spacer ${h} mm`, { part: "spacer", spacer_h: h }, qty);
-  const rockers = l.pins.flatMap(p => p.gears.filter(g => kindOf(g) === "rocker" && g.rocker));
-  const linkageCranks = new Set(rockers.map(g => g.rocker!.crank));
+  const rockers = l.pins.flatMap(p => p.gears.filter(x => kindOf(x) === "rocker" && x.rocker));
+  const linkageCranks = new Set(rockers.map(x => x.rocker!.crank));
+  const leverCranks = new Set(l.pins.flatMap(p => p.gears.filter(x => kindOf(x) === "qrlever" && x.crank).map(x => x.crank!)));
+  const fixtureCranks = new Map<string, "yoke" | "slider">();
 
   addP(`B${l.tile.nx}x${l.tile.ny}`, `Tile ${l.tile.nx}x${l.tile.ny}`, { part: "tile", tile_nx: l.tile.nx, tile_ny: l.tile.ny, flip: "true" }, l.tiles.cols * l.tiles.rows);
+  // fixtures first: they decide which cranks get a handle
+  for (const f of l.fixtures ?? []) {
+    addP(`RAIL${f.n}`, `Slider rail over ${f.n} sockets`, { part: "rail", rail_n: f.n });
+    addP("K", "Bolt knob", { part: "knob" }, 2); bolt(1, 2); addH("nut", `${s.nut} nut`, 2);
+    const c = f.carriage;
+    if (!c) continue;
+    if (c.kind === "rack") { addP(`RACK${c.len}${c.level > 1 ? `-L${c.level}` : ""}`, `Rack carriage, ${c.len} steps, teeth at level ${c.level}`, { part: "rack", rack_len: c.len, level: c.level, flip: "true" }); continue; }
+    const fr = railFrame(l, f);
+    const crank = l.pins.find(p => p.gears.some(x => x.topper === "crank" && x.level === c.level) && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u > fr.len);
+    if (crank) fixtureCranks.set(crank.id, c.kind);
+    addP("CARRIAGE", "Carriage with a plug pocket", { part: "carriage", flip: "true" });
+    if (c.kind === "yoke") addP(`YOKE${c.throw}R${c.reach}${c.level > 1 ? `-L${c.level}` : ""}`, `Scotch yoke for a ${c.throw} mm crank on level ${c.level}, reach ${c.reach}`, { part: "yoke", level: c.level, throw: c.throw, reach: c.reach, flip: "true" });
+    else { addP(`SLPOST${c.level > 1 ? `-L${c.level}` : ""}`, `Slider post for a crank on level ${c.level}`, { part: "slider_post", level: c.level }); addP(`L${c.link}`, `Link, ${c.link} holes`, { part: "link", holes: c.link }); bearing(); addP("CAP", "Post cap", { part: "cap" }); }
+  }
   for (const pin of l.pins) {
     if (!pin.gears.length) continue;
     const top = topLevel(pin);
     const topG = gearAt(pin, top)!;
+    const used = top + levelsUsed(l.size, topG) - 1;
     if (pin.motor) {
       const lv = pin.gears[0].level;
       addP(lv === 1 ? "MOTOR" : `MOTOR${lv}`, `N20 motor mount, pinion at level ${lv}`, { part: "motor_mount", level: lv });
       addP("PINION", "Motor pinion 20T", { part: "pinion" });
       addP("K", "Bolt knob", { part: "knob" }, 2);
-      addH(`bolt-${lv}`, `${s.bolt} x ${s.bolt_lengths[String(lv)] ?? "?"} mm hex bolt`, 2);
+      bolt(lv, 2);
       addH("nut", `${s.nut} nut`, 2);
       addH("n20", "N20 gearmotor, 100:1 to 300:1, with 2 x M1.6 screws");
       continue;
     }
     if (topG.topper === "pointer") addP("DIALK", "Dial knob", { part: "dial_knob" }); else addP("K", "Bolt knob", { part: "knob" });
     addP("BS", "Base spacer", { part: "base_spacer" });
-    addH(`bolt-${top}`, `${s.bolt} x ${s.bolt_lengths[String(top)] ?? "?"} mm hex bolt`);
+    bolt(Math.min(4, used));
     addH("nut", `${s.nut} nut`);
     const sorted = [...pin.gears].sort((a, b) => a.level - b.level);
     if (sorted[0].level > 1) spacer(s.level, sorted[0].level - 1); // empty levels under the first item
     for (let i = 0; i < sorted.length; i++) {
-      const g = sorted[i];
+      const x = sorted[i];
       const above = sorted[i + 1];
-      const kind = kindOf(g);
-      if (kind === "gear" && above?.joined && kindOf(above) === "gear" && g.teeth > above.teeth && above.level === g.level + 1) {
-        addP(`G${g.teeth}-${above.teeth}`, `Compound ${g.teeth}T over ${above.teeth}T`, { part: "compound", teeth: g.teeth, teeth_upper: above.teeth, face: "spokes" });
-        addH("bearing", `${s.bearing} bearing`, 2);
+      const kind = kindOf(x);
+      if (kind === "gear" && !x.topper && above?.joined && kindOf(above) === "gear" && x.teeth > above.teeth && above.level === x.level + 1) {
+        addP(`G${x.teeth}-${above.teeth}`, `Compound ${x.teeth}T over ${above.teeth}T`, { part: "compound", teeth: x.teeth, teeth_upper: above.teeth, face: "spokes" });
+        bearing(2);
         spacer(3); // between the compound's two bearings
         i++; // the upper gear is part of the compound
         topper(above);
@@ -286,38 +551,58 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
         continue;
       }
       switch (kind) {
-        case "gear": addP(`G${g.teeth}`, `Gear ${g.teeth}T`, { part: "gear", teeth: g.teeth, face: g.teeth >= 40 ? "spokes" : "solid" }); addH("bearing", `${s.bearing} bearing`); break;
-        case "pulley": addP(`P${g.teeth}`, `Pulley ${g.teeth}`, { part: "pulley", pulley_n: g.teeth }); addH("bearing", `${s.bearing} bearing`); break;
-        case "ratchet": addP("RATCHET", "Ratchet wheel", { part: "ratchet" }); addH("bearing", `${s.bearing} bearing`); break;
-        case "pawl": addP(g.pawlCw ? "PAWL-L" : "PAWL", g.pawlCw ? "Pawl, locks clockwise" : "Pawl", { part: "pawl", flip_pawl: g.pawlCw ? "true" : "false" }); break;
+        case "gear":
+          if (x.topper === "spring") addP(`SG${x.teeth}`, `Spring gear ${x.teeth}T`, { part: "spring_gear", teeth: x.teeth });
+          else addP(`G${x.teeth}`, `Gear ${x.teeth}T`, { part: "gear", teeth: x.teeth, face: x.teeth >= 40 ? "spokes" : "solid" });
+          bearing(); break;
+        case "partial": addP(`G${x.teeth}${x.keep === 0.25 ? "Q" : "H"}`, `Intermittent gear ${x.teeth}T, teeth on ${x.keep === 0.25 ? "a quarter" : "half"} the rim`, { part: "partial", teeth: x.teeth, keep: x.keep === 0.25 ? "quarter" : "half" }); bearing(); break;
+        case "pulley": addP(`P${x.teeth}`, `Pulley ${x.teeth}`, { part: "pulley", pulley_n: x.teeth }); bearing(); break;
+        case "ratchet": addP("RATCHET", "Ratchet wheel", { part: "ratchet" }); bearing(); break;
+        case "pawl": addP(x.pawlCw ? "PAWL-L" : "PAWL", x.pawlCw ? "Pawl, locks clockwise" : "Pawl", { part: "pawl", flip_pawl: x.pawlCw ? "true" : "false" }); break;
         case "rocker": {
-          const rk = g.rocker!;
-          addP(`L${rk.holes}`, `Link, ${rk.holes} holes`, { part: "link", holes: rk.holes }); addH("bearing", `${s.bearing} bearing`);
-          addP(`L${rk.coupler}`, `Link, ${rk.coupler} holes`, { part: "link", holes: rk.coupler }); addH("bearing", `${s.bearing} bearing`, 2);
+          const rk = x.rocker!;
+          addP(`L${rk.holes}`, `Link, ${rk.holes} holes`, { part: "link", holes: rk.holes }); bearing();
+          addP(`L${rk.coupler}`, `Link, ${rk.coupler} holes`, { part: "link", holes: rk.coupler }); bearing(2);
           addP("JOINT", "Joint post", { part: "joint" }); spacer(3); addP("CAP", "Post cap", { part: "cap" });
           break;
         }
+        case "cam": { const c = x.cam ?? "eccentric"; addP(`CAM-${c[0].toUpperCase()}`, `${c[0].toUpperCase()}${c.slice(1)} cam`, { part: "cam", cam: c }); bearing(); break; }
+        case "follower": addP("FOLLOWER", "Cam follower arm", { part: "follower" }); bearing(); addH("band", "rubber band or O-ring"); break;
+        case "geneva": addP(`GENEVA${x.slots ?? 6}-D`, `Geneva driver, ${x.slots ?? 6} slot, on a 40T gear`, { part: "geneva_driver", slots: x.slots ?? 6 }); bearing(2); spacer(3); break;
+        case "genevaWheel": addP(`GENEVA${x.slots ?? 6}`, `Geneva wheel, ${x.slots ?? 6} slots`, { part: "geneva_wheel", slots: x.slots ?? 6 }); bearing(); break;
+        case "qrlever": {
+          const cp = x.crank ? pinById(l, x.crank) : undefined;
+          const c = cp?.gears.find(o => o.topper === "crank");
+          const d = cp ? Math.round(Math.hypot(cp.x - pin.x, cp.y - pin.y)) : 3, t = c?.throw ?? 2 * s.grid;
+          addP(`QR${d}-${t}`, `Quick-return lever, pivot ${d} steps from a ${t} mm crank`, { part: "qr_lever", d_steps: d, throw: t }); bearing(); break;
+        }
+        case "escwheel": addP("ESCWHEEL", "Escape wheel, 15 teeth", { part: "escape_wheel" }); bearing(); break;
+        case "anchor": addP(x.anchorCw === false ? "ANCHOR-L" : "ANCHOR", `Anchor with balance bar, wheel runs ${x.anchorCw === false ? "counter-clockwise" : "clockwise"}`, { part: "anchor", cw: x.anchorCw === false ? "false" : "true" }); bearing(); addH("nut", `${s.nut} nut`); break;
+        case "winch": addP("WINCH", "Winch drum, two levels", { part: "winch" }); addP("WFLANGE", "Winch top flange", { part: "winch_flange" }); addP("HOOK", "String hook", { part: "hook" }); bearing(2); spacer(3); addH("string", "1 m of string"); break;
       }
-      topper(g);
+      topper(x);
       if (above) {
         if (above.joined) addP("CPL", "Coupler half", { part: "coupler" }, 2);
-        spacersBetween(g.level, above.level);
+        spacersBetween(x.level + levelsUsed(l.size, x) - 1, above.level);
       }
     }
-    function topper(g: Gear) {
-      if (g.topper === "pointer") addP("PTR", "Pointer", { part: "pointer", flip: "true" });
-      if (g.topper === "crank") {
-        const t = g.throw ?? 2 * s.grid;
+    function topper(x: Gear) {
+      if (x.topper === "pointer") addP("PTR", "Pointer", { part: "pointer", flip: "true" });
+      if (x.topper === "spring") addP("SPRING", "Spiral wind-up spring", { part: "spring" });
+      if (x.topper === "crank") {
+        const t = x.throw ?? 2 * s.grid;
         addP(`CRANK${t}`, `Crank, ${t} mm throw`, { part: "crank", throw: t, flip: "true" });
-        addP("POSTH", "Post, 28 mm", { part: "post", post_h: 28 });
         addP("CAP", "Post cap", { part: "cap" });
-        if (linkageCranks.has(pin.id)) spacer(s.level); else addP("HANDLE", "Handle grip", { part: "handle" });
+        const fx = fixtureCranks.get(pin.id);
+        if (linkageCranks.has(pin.id)) { addP("POSTH", "Post, 28 mm", { part: "post", post_h: 28 }); spacer(s.level); }
+        else if (leverCranks.has(pin.id) || fx) { addP("POST", "Post, 11 mm", { part: "post", post_h: 11 }); bearing(); }
+        else { addP("POSTH", "Post, 28 mm", { part: "post", post_h: 28 }); addP("HANDLE", "Handle grip", { part: "handle" }); }
       }
     }
     function spacersBetween(lo: number, hi: number) {
-      for (let k = lo; k < hi; k++) {
+      for (let kk = lo; kk < hi; kk++) {
         spacer(3);
-        if (k > lo) spacer(s.level); // an empty level in between
+        if (kk > lo) spacer(s.level); // an empty level in between
       }
     }
   }
