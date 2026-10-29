@@ -18,6 +18,7 @@ _tol = [
     ["nut_clear",         0.20,   0.25,   0.30],  // added across flats of a captive nut or bolt head pocket
     ["slot_clear",        0.30,   0.35,   0.35],  // dovetail keys and coupler peg holes
     ["backlash",          0.20,   0.20,   0.25],  // gear backlash passed to BOSL2
+    ["post_fit",          0.05,   0.10,   0.10],  // added to the press-fit socket for a crank post stem
 ];
 
 function _profile_col() = _profile == "PLA" ? 1 : _profile == "ABS" ? 3 : 2;

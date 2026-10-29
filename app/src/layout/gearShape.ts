@@ -35,3 +35,39 @@ export function gearGeometry(teeth: number, module: number, thickness: number, b
   cache.set(k, geo);
   return geo;
 }
+
+/** A pulley: a disc with a shallow groove suggested by a slightly smaller middle band. */
+export function pulleyGeometry(r: number, thickness: number, boreR: number): THREE.BufferGeometry {
+  const k = `P:${r}:${thickness}:${boreR}`;
+  const hit = cache.get(k);
+  if (hit) return hit;
+  const pts: THREE.Vector2[] = [];
+  const g = 1.6;
+  for (const [rr, z] of [[boreR, 0], [r, 0], [r, thickness / 2 - g], [r - g, thickness / 2 - g / 2], [r - g, thickness / 2 + g / 2], [r, thickness / 2 + g], [r, thickness], [boreR, thickness]]) pts.push(new THREE.Vector2(rr, z));
+  const geo = new THREE.LatheGeometry(pts, 48);
+  geo.computeVertexNormals();
+  cache.set(k, geo);
+  return geo;
+}
+
+/** A 12 tooth sawtooth ratchet wheel. */
+export function ratchetGeometry(r: number, depth: number, thickness: number, boreR: number): THREE.BufferGeometry {
+  const k = `R:${r}:${depth}:${thickness}:${boreR}`;
+  const hit = cache.get(k);
+  if (hit) return hit;
+  const shape = new THREE.Shape();
+  const n = 12, r0 = r - depth;
+  for (let i = 0; i < n; i++) {
+    const a = (i * 2 * Math.PI) / n, b = a + (2 * Math.PI) / 180;
+    if (i === 0) shape.moveTo(r * Math.cos(a), r * Math.sin(a)); else shape.lineTo(r * Math.cos(a), r * Math.sin(a));
+    shape.lineTo(r0 * Math.cos(b), r0 * Math.sin(b));
+  }
+  shape.closePath();
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, boreR, 0, 2 * Math.PI, true);
+  shape.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 6 });
+  geo.computeVertexNormals();
+  cache.set(k, geo);
+  return geo;
+}

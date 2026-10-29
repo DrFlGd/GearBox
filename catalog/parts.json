@@ -8,12 +8,18 @@
       "gear_thickness": 8,
       "bolt": "M8",
       "bearing": "608 (8 x 22 x 7)",
-      "nut": "M8 DIN 934", "knob_d": 20, "spacer_od": 11, "tile_h": 12, "plate_t": 5,
+      "nut": "M8 DIN 934",
+      "knob_d": 20,
+      "spacer_od": 11,
+      "tile_h": 12,
+      "plate_t": 5,
       "bolt_lengths": {
         "1": 30,
         "2": 40,
-        "3": 50
-      }
+        "3": 50,
+        "4": 60
+      },
+      "dial_r": 17
     },
     "M1.5": {
       "title": "M1.5 · mod 1.5 · 15 mm grid · M6 bolts · 606 bearings",
@@ -23,12 +29,18 @@
       "gear_thickness": 7,
       "bolt": "M6",
       "bearing": "606 (6 x 17 x 6)",
-      "nut": "M6 DIN 934", "knob_d": 16, "spacer_od": 8.5, "tile_h": 10, "plate_t": 4,
+      "nut": "M6 DIN 934",
+      "knob_d": 16,
+      "spacer_od": 8.5,
+      "tile_h": 10,
+      "plate_t": 4,
       "bolt_lengths": {
         "1": 25,
         "2": 35,
-        "3": 40
-      }
+        "3": 40,
+        "4": 50
+      },
+      "dial_r": 13
     }
   },
   "mesh_rule": "two gears mesh when their tooth counts add up to a multiple of 20",
@@ -334,6 +346,314 @@
         "M2": [123.99, 123.99, 17],
         "M1.5": [92.99, 92.99, 15]
       }
+    },
+    {
+      "name": "CRANK20",
+      "title": "Crank, 20 mm throw",
+      "group": "addon",
+      "params": {
+        "part": "crank",
+        "throw": 20,
+        "flip": true
+      },
+      "expect": {
+        "M1.5": [38.75, 25, 12.7],
+        "M2": [44, 32, 14.2]
+      }
+    },
+    {
+      "name": "CRANK40",
+      "title": "Crank, 40 mm throw",
+      "group": "addon",
+      "params": {
+        "part": "crank",
+        "throw": 40,
+        "flip": true
+      },
+      "expect": {
+        "M2": [64, 32, 14.2],
+        "M1.5": [58.75, 25, 12.7]
+      }
+    },
+    {
+      "name": "CRANK60",
+      "title": "Crank, 60 mm throw",
+      "group": "addon",
+      "params": {
+        "part": "crank",
+        "throw": 60,
+        "flip": true
+      },
+      "expect": {
+        "M2": [84, 32, 14.2],
+        "M1.5": [78.75, 25, 12.7]
+      }
+    },
+    {
+      "name": "POST",
+      "title": "Post, carries a bearing",
+      "group": "addon",
+      "params": {
+        "part": "post",
+        "post_h": 11
+      },
+      "expect": {
+        "M2": [9.9, 9.9, 21],
+        "M1.5": [7.9, 7.9, 20]
+      }
+    },
+    {
+      "name": "POSTH",
+      "title": "Post, carries the handle",
+      "group": "addon",
+      "params": {
+        "part": "post",
+        "post_h": 28
+      },
+      "expect": {
+        "M2": [9.9, 9.9, 38],
+        "M1.5": [7.9, 7.9, 37]
+      }
+    },
+    {
+      "name": "JOINT",
+      "title": "Joint post",
+      "group": "addon",
+      "params": {
+        "part": "joint"
+      },
+      "expect": {
+        "M2": [13.9, 13.9, 21.5],
+        "M1.5": [11.9, 11.9, 19.5]
+      }
+    },
+    {
+      "name": "HANDLE",
+      "title": "Handle grip",
+      "group": "addon",
+      "params": {
+        "part": "handle"
+      },
+      "expect": {
+        "M2": [15.4, 15.4, 26],
+        "M1.5": [13.4, 13.4, 26]
+      }
+    },
+    {
+      "name": "CAP",
+      "title": "Post cap",
+      "group": "addon",
+      "params": {
+        "part": "cap"
+      },
+      "expect": {
+        "M2": [10.9, 10.9, 5.99],
+        "M1.5": [8.9, 8.9, 5.99]
+      }
+    },
+    {
+      "name": "PTR",
+      "title": "Pointer",
+      "group": "addon",
+      "params": {
+        "part": "pointer",
+        "flip": true
+      },
+      "expect": {
+        "M2": [40, 32, 4.2],
+        "M1.5": [31.75, 25, 3.7]
+      }
+    },
+    {
+      "name": "DIALK",
+      "title": "Dial knob",
+      "group": "addon",
+      "params": {
+        "part": "dial_knob"
+      },
+      "expect": {
+        "M2": [34, 34, 11],
+        "M1.5": [26, 26, 9.2]
+      }
+    },
+    {
+      "name": "P20",
+      "title": "Pulley 20",
+      "group": "pulley",
+      "params": {
+        "part": "pulley",
+        "pulley_n": 20
+      },
+      "expect": {
+        "M2": [42, 42, 8],
+        "M1.5": [32, 32, 7]
+      }
+    },
+    {
+      "name": "P40",
+      "title": "Pulley 40",
+      "group": "pulley",
+      "params": {
+        "part": "pulley",
+        "pulley_n": 40
+      },
+      "expect": {
+        "M2": [82, 82, 8],
+        "M1.5": [62, 62, 7]
+      }
+    },
+    {
+      "name": "P60",
+      "title": "Pulley 60",
+      "group": "pulley",
+      "params": {
+        "part": "pulley",
+        "pulley_n": 60
+      },
+      "expect": {
+        "M2": [122, 122, 8],
+        "M1.5": [92, 92, 7]
+      }
+    },
+    {
+      "name": "P80",
+      "title": "Pulley 80",
+      "group": "pulley",
+      "params": {
+        "part": "pulley",
+        "pulley_n": 80
+      },
+      "expect": {
+        "M2": [162, 162, 8],
+        "M1.5": [122, 122, 7]
+      }
+    },
+    {
+      "name": "L2",
+      "title": "Link, 2 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 2
+      },
+      "expect": {
+        "M2": [48, 28, 8],
+        "M1.5": [38, 23, 7]
+      }
+    },
+    {
+      "name": "L3",
+      "title": "Link, 3 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 3
+      },
+      "expect": {
+        "M2": [68, 28, 8],
+        "M1.5": [53, 23, 7]
+      }
+    },
+    {
+      "name": "L4",
+      "title": "Link, 4 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 4
+      },
+      "expect": {
+        "M2": [88, 28, 8],
+        "M1.5": [68, 23, 7]
+      }
+    },
+    {
+      "name": "L5",
+      "title": "Link, 5 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 5
+      },
+      "expect": {
+        "M2": [108, 28, 8],
+        "M1.5": [83, 23, 7]
+      }
+    },
+    {
+      "name": "RATCHET",
+      "title": "Ratchet wheel",
+      "group": "addon",
+      "params": {
+        "part": "ratchet"
+      },
+      "expect": {
+        "M2": [35, 35, 8],
+        "M1.5": [25, 25, 7]
+      }
+    },
+    {
+      "name": "PAWL",
+      "title": "Pawl",
+      "group": "addon",
+      "params": {
+        "part": "pawl"
+      },
+      "expect": {
+        "M2": [36.4, 24.17, 8],
+        "M1.5": [27.71, 18.09, 7]
+      }
+    },
+    {
+      "name": "PAWL-L",
+      "title": "Pawl, locks the other way",
+      "group": "addon",
+      "params": {
+        "part": "pawl",
+        "flip_pawl": true
+      },
+      "expect": {
+        "M2": [36.4, 24.17, 8],
+        "M1.5": [27.71, 18.09, 7]
+      }
+    },
+    {
+      "name": "MOTOR",
+      "title": "N20 motor mount, pinion at level 1",
+      "group": "motor",
+      "params": {
+        "part": "motor_mount",
+        "level": 1
+      },
+      "expect": {
+        "M2": [58, 55.8, 23.59],
+        "M1.5": [45, 44.3, 22.59]
+      }
+    },
+    {
+      "name": "MOTOR2",
+      "title": "N20 motor mount, pinion at level 2",
+      "group": "motor",
+      "params": {
+        "part": "motor_mount",
+        "level": 2
+      },
+      "expect": {
+        "M2": [58, 55.8, 33.59],
+        "M1.5": [45, 44.3, 31.59]
+      }
+    },
+    {
+      "name": "PINION",
+      "title": "Motor pinion 20T",
+      "group": "motor",
+      "params": {
+        "part": "pinion"
+      },
+      "expect": {
+        "M2": [43.98, 43.98, 8],
+        "M1.5": [32.99, 32.99, 7]
+      }
     }
   ],
   "kits": {
@@ -379,6 +699,82 @@
         "4 bolts (2-level length)",
         "4 nuts",
         "7 bearings"
+      ]
+    },
+    "crank": {
+      "title": "Hand crank kit",
+      "parts": [
+        "CRANK60",
+        "POSTH",
+        "HANDLE",
+        "CAP"
+      ],
+      "hardware": [
+        "(pegs into any gear's top face)"
+      ]
+    },
+    "motor": {
+      "title": "N20 motor kit",
+      "parts": [
+        "MOTOR",
+        "PINION",
+        "K",
+        "K"
+      ],
+      "hardware": [
+        "1 N20 gearmotor (100:1 or 300:1)",
+        "2 bolts (1-level length)",
+        "2 nuts",
+        "2 x M1.6 screws, optional"
+      ]
+    },
+    "pointer": {
+      "title": "Pointer and dial",
+      "parts": [
+        "PTR",
+        "DIALK"
+      ],
+      "hardware": [
+        "(replaces the knob on that pin)"
+      ]
+    },
+    "ratchet": {
+      "title": "Ratchet kit",
+      "parts": [
+        "RATCHET",
+        "PAWL",
+        "K",
+        "K",
+        "BS",
+        "BS"
+      ],
+      "hardware": [
+        "2 bolts (1-level length)",
+        "2 nuts",
+        "1 bearing"
+      ]
+    },
+    "linkage": {
+      "title": "Crank and rocker linkage",
+      "parts": [
+        "CRANK40",
+        "POSTH",
+        "CAP",
+        "CAP",
+        "L4",
+        "L3",
+        "JOINT",
+        "S3",
+        "S10",
+        "K",
+        "BS",
+        "S10",
+        "S10"
+      ],
+      "hardware": [
+        "1 bolt (3-level length) for the rocker pin, 1 nut",
+        "3 bearings",
+        "(the crank pegs into a gear on level 1)"
       ]
     }
   }
