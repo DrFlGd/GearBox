@@ -1,0 +1,20 @@
+{
+  "name": "gearbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Modular gear board: OpenSCAD part library, catalog and render tools",
+  "type": "module",
+  "scripts": {
+    "render": "node tools/render-catalog.mjs",
+    "render:all": "node tools/render-catalog.mjs --profile PLA && node tools/render-catalog.mjs --profile PETG && node tools/render-catalog.mjs --profile ABS",
+    "part": "node tools/render.mjs scad/gearbox.scad",
+    "stats": "node tools/stl-stats.mjs"
+  },
+  "dependencies": {
+    "openscad-wasm-prebuilt": "1.2.0",
+    "three": "^0.170.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
