@@ -213,7 +213,7 @@ tools/render-catalog.mjs  render and check the whole catalog for one or both siz
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
 app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
-.github/workflows      render check on every PR, Pages deploy on main, release on demand
+.github/workflows      build on every PR (plus the full catalog render when a part source changed), Pages deploy on main, release on demand (zips re-rendered only when parts changed)
 ```
 
 ## Rendering
