@@ -654,6 +654,446 @@
         "M2": [43.98, 43.98, 8],
         "M1.5": [32.99, 32.99, 7]
       }
+    },
+    {
+      "name": "RAIL3",
+      "title": "Slider rail over 3 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 3
+      },
+      "expect": {
+        "M2": [58, 37, 5.32],
+        "M1.5": [45, 28, 4.32]
+      }
+    },
+    {
+      "name": "RAIL4",
+      "title": "Slider rail over 4 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 4
+      },
+      "expect": {
+        "M2": [78, 37, 5.32],
+        "M1.5": [60, 28, 4.32]
+      }
+    },
+    {
+      "name": "RAIL6",
+      "title": "Slider rail over 6 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 6
+      },
+      "expect": {
+        "M2": [118, 37, 5.32],
+        "M1.5": [90, 28, 4.32]
+      }
+    },
+    {
+      "name": "CARRIAGE",
+      "title": "Carriage with a plug pocket",
+      "group": "rail",
+      "params": {
+        "part": "carriage",
+        "flip": true
+      },
+      "expect": {
+        "M2": [40, 16, 7],
+        "M1.5": [30, 11, 6.5]
+      }
+    },
+    {
+      "name": "RACK2",
+      "title": "Rack carriage, 2 steps, teeth at level 1",
+      "group": "rail",
+      "params": {
+        "part": "rack",
+        "rack_len": 2,
+        "level": 1,
+        "flip": true
+      },
+      "expect": {
+        "M2": [40, 30, 8],
+        "M1.5": [30, 22, 7]
+      }
+    },
+    {
+      "name": "RACK3",
+      "title": "Rack carriage, 3 steps, teeth at level 1",
+      "group": "rail",
+      "params": {
+        "part": "rack",
+        "rack_len": 3,
+        "level": 1,
+        "flip": true
+      },
+      "expect": {
+        "M2": [60, 30, 8],
+        "M1.5": [45, 22, 7]
+      }
+    },
+    {
+      "name": "RACK2-L2",
+      "title": "Rack carriage, 2 steps, teeth at level 2",
+      "group": "rail",
+      "params": {
+        "part": "rack",
+        "rack_len": 2,
+        "level": 2,
+        "flip": true
+      },
+      "expect": {
+        "M2": [40, 30, 17],
+        "M1.5": [30, 22, 15.5]
+      }
+    },
+    {
+      "name": "YOKE20R3",
+      "title": "Scotch yoke for a 20 mm crank on level 1, reach 3",
+      "group": "rail",
+      "params": {
+        "part": "yoke",
+        "level": 1,
+        "throw": 20,
+        "reach": 3,
+        "flip": true
+      },
+      "expect": {
+        "M2": [81.25, 63.5, 27.5],
+        "M1.5": [61.25, 58.5, 25]
+      }
+    },
+    {
+      "name": "YOKE30R4",
+      "title": "Scotch yoke for a 30 mm crank on level 1, reach 4",
+      "group": "rail",
+      "params": {
+        "part": "yoke",
+        "level": 1,
+        "throw": 30,
+        "reach": 4,
+        "flip": true
+      },
+      "expect": {
+        "M2": [101.25, 83.5, 27.5],
+        "M1.5": [76.25, 78.5, 25]
+      }
+    },
+    {
+      "name": "SLPOST",
+      "title": "Slider post for a crank on level 1",
+      "group": "rail",
+      "params": {
+        "part": "slider_post",
+        "level": 1
+      },
+      "expect": {
+        "M2": [12, 12, 26],
+        "M1.5": [7.9, 7.9, 23.5]
+      }
+    },
+    {
+      "name": "SLPOST-L2",
+      "title": "Slider post for a crank on level 2",
+      "group": "rail",
+      "params": {
+        "part": "slider_post",
+        "level": 2
+      },
+      "expect": {
+        "M2": [12, 12, 36],
+        "M1.5": [7.9, 7.9, 32.5]
+      }
+    },
+    {
+      "name": "CAM-E",
+      "title": "Eccentric cam",
+      "group": "cam",
+      "params": {
+        "part": "cam",
+        "cam": "eccentric"
+      },
+      "expect": {
+        "M2": [40, 40, 8],
+        "M1.5": [32.5, 32.49, 7]
+      }
+    },
+    {
+      "name": "CAM-H",
+      "title": "Heart cam (even rise and fall)",
+      "group": "cam",
+      "params": {
+        "part": "cam",
+        "cam": "heart"
+      },
+      "expect": {
+        "M2": [40.32, 40.49, 8],
+        "M1.5": [32.72, 32.84, 7]
+      }
+    },
+    {
+      "name": "CAM-S",
+      "title": "Snail cam (slow lift, sudden drop)",
+      "group": "cam",
+      "params": {
+        "part": "cam",
+        "cam": "snail"
+      },
+      "expect": {
+        "M2": [44.99, 40.13, 8],
+        "M1.5": [36.24, 32.59, 7]
+      }
+    },
+    {
+      "name": "FOLLOWER",
+      "title": "Cam follower arm",
+      "group": "cam",
+      "params": {
+        "part": "follower"
+      },
+      "expect": {
+        "M2": [51.9, 28, 8],
+        "M1.5": [38.92, 23, 7]
+      }
+    },
+    {
+      "name": "GENEVA6-D",
+      "title": "Geneva driver, 6 slot, on a 40T gear",
+      "group": "geneva",
+      "params": {
+        "part": "geneva_driver",
+        "slots": 6
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 17],
+        "M1.5": [62.99, 62.99, 15]
+      }
+    },
+    {
+      "name": "GENEVA6",
+      "title": "Geneva wheel, 6 slots",
+      "group": "geneva",
+      "params": {
+        "part": "geneva_wheel",
+        "slots": 6
+      },
+      "expect": {
+        "M2": [103.53, 96.21, 8],
+        "M1.5": [77.64, 72.71, 7]
+      }
+    },
+    {
+      "name": "GENEVA8-D",
+      "title": "Geneva driver, 8 slot, on a 40T gear",
+      "group": "geneva",
+      "params": {
+        "part": "geneva_driver",
+        "slots": 8
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 17],
+        "M1.5": [62.99, 62.99, 15]
+      }
+    },
+    {
+      "name": "GENEVA8",
+      "title": "Geneva wheel, 8 slots",
+      "group": "geneva",
+      "params": {
+        "part": "geneva_wheel",
+        "slots": 8
+      },
+      "expect": {
+        "M2": [110.51, 110.51, 8],
+        "M1.5": [82.87, 82.87, 7]
+      }
+    },
+    {
+      "name": "G40H",
+      "title": "Intermittent gear 40T, teeth on half the rim",
+      "group": "gear",
+      "params": {
+        "part": "partial",
+        "teeth": 40,
+        "keep": "half"
+      },
+      "expect": {
+        "M2": [79.19, 83.99, 8],
+        "M1.5": [59.32, 62.99, 7]
+      }
+    },
+    {
+      "name": "G40Q",
+      "title": "Intermittent gear 40T, teeth on a quarter",
+      "group": "gear",
+      "params": {
+        "part": "partial",
+        "teeth": 40,
+        "keep": "quarter"
+      },
+      "expect": {
+        "M2": [79.19, 74.4, 8],
+        "M1.5": [59.32, 55.65, 7]
+      }
+    },
+    {
+      "name": "G60H",
+      "title": "Intermittent gear 60T, teeth on half the rim",
+      "group": "gear",
+      "params": {
+        "part": "partial",
+        "teeth": 60,
+        "keep": "half"
+      },
+      "expect": {
+        "M2": [119.2, 123.99, 8],
+        "M1.5": [89.32, 92.99, 7]
+      }
+    },
+    {
+      "name": "QR3-20",
+      "title": "Quick-return lever, pivot 3 steps from a 20 mm crank",
+      "group": "link",
+      "params": {
+        "part": "qr_lever",
+        "d_steps": 3,
+        "throw": 20
+      },
+      "expect": {
+        "M2": [132.75, 30.5, 12],
+        "M1.5": [108.75, 25.5, 11]
+      }
+    },
+    {
+      "name": "QR4-30",
+      "title": "Quick-return lever, pivot 4 steps from a 30 mm crank",
+      "group": "link",
+      "params": {
+        "part": "qr_lever",
+        "d_steps": 4,
+        "throw": 30
+      },
+      "expect": {
+        "M2": [162.75, 30.5, 12],
+        "M1.5": [133.75, 25.5, 11]
+      }
+    },
+    {
+      "name": "ESCWHEEL",
+      "title": "Escape wheel, 15 teeth",
+      "group": "escapement",
+      "params": {
+        "part": "escape_wheel"
+      },
+      "expect": {
+        "M2": [46.51, 46.77, 8],
+        "M1.5": [34.88, 35.07, 7]
+      }
+    },
+    {
+      "name": "ANCHOR",
+      "title": "Anchor with balance bar, wheel runs clockwise",
+      "group": "escapement",
+      "params": {
+        "part": "anchor",
+        "cw": true
+      },
+      "expect": {
+        "M2": [44.21, 84.97, 8],
+        "M1.5": [33.16, 63.73, 7]
+      }
+    },
+    {
+      "name": "ANCHOR-L",
+      "title": "Anchor with balance bar, wheel runs counter-clockwise",
+      "group": "escapement",
+      "params": {
+        "part": "anchor",
+        "cw": false
+      },
+      "expect": {
+        "M2": [44.21, 84.97, 8],
+        "M1.5": [33.16, 63.73, 7]
+      }
+    },
+    {
+      "name": "SG40",
+      "title": "Spring gear 40T (wall for the spiral spring)",
+      "group": "spring",
+      "params": {
+        "part": "spring_gear",
+        "teeth": 40
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 17.49],
+        "M1.5": [62.99, 62.99, 15.49]
+      }
+    },
+    {
+      "name": "SG60",
+      "title": "Spring gear 60T (wall for the spiral spring)",
+      "group": "spring",
+      "params": {
+        "part": "spring_gear",
+        "teeth": 60
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 17.49],
+        "M1.5": [92.99, 92.99, 15.49]
+      }
+    },
+    {
+      "name": "SPRING",
+      "title": "Spiral wind-up spring",
+      "group": "spring",
+      "params": {
+        "part": "spring"
+      },
+      "expect": {
+        "M2": [48, 42.81, 9],
+        "M1.5": [38.95, 34.01, 8]
+      }
+    },
+    {
+      "name": "WINCH",
+      "title": "Winch drum, two levels",
+      "group": "winch",
+      "params": {
+        "part": "winch"
+      },
+      "expect": {
+        "M2": [44, 44, 17],
+        "M1.5": [34, 34, 15]
+      }
+    },
+    {
+      "name": "WFLANGE",
+      "title": "Winch top flange",
+      "group": "winch",
+      "params": {
+        "part": "winch_flange"
+      },
+      "expect": {
+        "M2": [44, 44, 1.5],
+        "M1.5": [34, 34, 1.5]
+      }
+    },
+    {
+      "name": "HOOK",
+      "title": "String hook",
+      "group": "winch",
+      "params": {
+        "part": "hook"
+      },
+      "expect": {
+        "M2": [12, 20, 3],
+        "M1.5": [12, 20, 3]
+      }
     }
   ],
   "kits": {
@@ -775,6 +1215,173 @@
         "1 bolt (3-level length) for the rocker pin, 1 nut",
         "3 bearings",
         "(the crank pegs into a gear on level 1)"
+      ]
+    },
+    "rack": {
+      "title": "Rack and pinion",
+      "parts": [
+        "RAIL4",
+        "RACK2",
+        "G20",
+        "K",
+        "K",
+        "BS"
+      ],
+      "hardware": [
+        "3 bolts (1-level length), 3 nuts",
+        "1 bearing",
+        "(the 20T pinion goes two rows below the rail)"
+      ]
+    },
+    "yoke": {
+      "title": "Scotch yoke",
+      "parts": [
+        "RAIL4",
+        "CARRIAGE",
+        "YOKE20R3",
+        "CRANK20",
+        "POST",
+        "CAP",
+        "G40",
+        "K",
+        "K",
+        "K",
+        "BS"
+      ],
+      "hardware": [
+        "2 bolts (1-level length) for the rail, 1 bolt (3-level length) for the crank gear, 3 nuts",
+        "2 bearings (one rides in the slot)"
+      ]
+    },
+    "slider": {
+      "title": "Crank slider",
+      "parts": [
+        "RAIL4",
+        "CARRIAGE",
+        "SLPOST",
+        "CRANK20",
+        "POST",
+        "CAP",
+        "CAP",
+        "L4",
+        "G40",
+        "K",
+        "K",
+        "K",
+        "BS"
+      ],
+      "hardware": [
+        "2 bolts (1-level length), 1 bolt (3-level length), 3 nuts",
+        "3 bearings"
+      ]
+    },
+    "cam": {
+      "title": "Cam and follower",
+      "parts": [
+        "CAM-E",
+        "CAM-H",
+        "CAM-S",
+        "FOLLOWER",
+        "K",
+        "K",
+        "BS",
+        "BS"
+      ],
+      "hardware": [
+        "2 bolts (1-level length), 2 nuts",
+        "2 bearings",
+        "1 rubber band"
+      ]
+    },
+    "geneva": {
+      "title": "Geneva drive",
+      "parts": [
+        "GENEVA6-D",
+        "GENEVA6",
+        "K",
+        "K",
+        "BS",
+        "BS",
+        "S3",
+        "S10"
+      ],
+      "hardware": [
+        "1 bolt (2-level length), 1 bolt (2-level length), 2 nuts",
+        "3 bearings"
+      ]
+    },
+    "quickreturn": {
+      "title": "Quick return",
+      "parts": [
+        "QR3-20",
+        "CRANK20",
+        "POST",
+        "CAP",
+        "G40",
+        "K",
+        "K",
+        "BS",
+        "BS",
+        "S10",
+        "S10",
+        "S3",
+        "S3"
+      ],
+      "hardware": [
+        "2 bolts (3-level length), 2 nuts",
+        "3 bearings"
+      ]
+    },
+    "escapement": {
+      "title": "Escapement",
+      "parts": [
+        "ESCWHEEL",
+        "ANCHOR",
+        "K",
+        "K",
+        "BS",
+        "BS"
+      ],
+      "hardware": [
+        "2 bolts (1-level length), 2 nuts",
+        "2 bearings",
+        "1 nut as the balance weight; a winch or spring drives the wheel"
+      ]
+    },
+    "spring": {
+      "title": "Wind-up spring",
+      "parts": [
+        "SG60",
+        "SPRING",
+        "RATCHET",
+        "PAWL",
+        "CPL",
+        "CPL",
+        "K",
+        "K",
+        "BS",
+        "BS",
+        "S3"
+      ],
+      "hardware": [
+        "1 bolt (3-level length), 1 bolt (2-level length), 2 nuts",
+        "2 bearings"
+      ]
+    },
+    "winch": {
+      "title": "Winch",
+      "parts": [
+        "WINCH",
+        "WFLANGE",
+        "HOOK",
+        "K",
+        "BS",
+        "S3"
+      ],
+      "hardware": [
+        "1 bolt (2-level length), 1 nut",
+        "2 bearings",
+        "1 m of string"
       ]
     }
   }
