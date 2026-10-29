@@ -100,6 +100,23 @@ like `https://drflgd.github.io/GearBox/#size=M1.5&part=gear&teeth=60` opens
 that part. The fit overrides in the profile panel are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
+### The layout tester
+
+The **Layout** tab in the app is a virtual board. Click a socket to add a pin
+and a gear, stack more gears on a pin by level, and mark one gear as the
+input. The tester colours every gear: green is the input, yellow turns, grey
+touches nothing, red collides with a gear, a spacer or a knob on another pin.
+Hover a gear for its speed and direction relative to the input. Two gears on
+the same level mesh when their tooth counts add up to a multiple of 20 and
+their pins are that many twentieths of the grid apart (20T+20T two sockets,
+20T+80T five sockets, or a 3-4-5 diagonal). Joining a stacked gear to the one
+below carries motion between levels: a bigger gear under a smaller one is
+one compound part, any other pair takes two coupler halves. The bill of
+materials counts tiles, gears, knobs, spacers, bolts by length, nuts and
+bearings; "Download kit zip" renders every distinct part for your size and
+profile. The whole layout lives in the link, so it can be bookmarked or sent.
+"Load 1:16 example" is the plan's gate: two 20:80 stages on three pins.
+
 ## First print: the fit test coupon
 
 Print the fit test kit for your size (`COUPON`, two `CPL`, `K`, `S3`, `BS`) in

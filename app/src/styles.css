@@ -91,3 +91,17 @@ button.link { background: none; border: 0; color: var(--accent); padding: 4px 0;
   .viewer { min-height: 40vh; }
   .top { flex-wrap: wrap; gap: 8px; }
 }
+
+/* layout tester */
+.top .modes { margin-left: 16px; }
+.top .modes button { padding: 5px 14px; font-size: 13px; }
+.row { display: flex; gap: 6px; align-items: center; }
+.row select { flex: 1; }
+.row button:not(.primary) { background: var(--bg3); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 2px; }
+.level { border-top: 1px solid var(--line); padding: 8px 0; }
+.level-head { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+.problems { padding-left: 18px; margin: 8px 0; }
+.toolbar input[type="range"] { width: 90px; margin-left: 6px; }
+.viewer.board { cursor: default; }

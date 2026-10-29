@@ -8,7 +8,7 @@
       "gear_thickness": 8,
       "bolt": "M8",
       "bearing": "608 (8 x 22 x 7)",
-      "nut": "M8 DIN 934",
+      "nut": "M8 DIN 934", "knob_d": 20, "spacer_od": 11, "tile_h": 12, "plate_t": 5,
       "bolt_lengths": {
         "1": 30,
         "2": 40,
@@ -23,7 +23,7 @@
       "gear_thickness": 7,
       "bolt": "M6",
       "bearing": "606 (6 x 17 x 6)",
-      "nut": "M6 DIN 934",
+      "nut": "M6 DIN 934", "knob_d": 16, "spacer_od": 8.5, "tile_h": 10, "plate_t": 4,
       "bolt_lengths": {
         "1": 25,
         "2": 35,
