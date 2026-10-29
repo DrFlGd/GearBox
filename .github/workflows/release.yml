@@ -1,10 +1,17 @@
 name: Release
 
-# Push a tag like v0.1.0 and this renders every catalog part for each print
-# profile, zips them and publishes a GitHub release with the zips attached.
+# Push a tag like v0.1.0, or run this workflow by hand with a version, and it
+# renders every catalog part for each print profile, zips them and publishes a
+# GitHub release with the zips attached (creating the tag if needed).
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to release, e.g. v0.1.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -21,15 +28,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Pick the version
+        id: ver
+        run: echo "tag=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
       - name: Render every profile
         run: |
           for p in PLA PETG ABS; do
             node tools/render-catalog.mjs --profile $p --out out
-            (cd out && zip -qr ../gearbox-${GITHUB_REF_NAME}-stl-$p.zip $p)
+            (cd out && zip -qr ../gearbox-${{ steps.ver.outputs.tag }}-stl-$p.zip $p)
           done
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.ver.outputs.tag }}
           generate_release_notes: true
           files: gearbox-*.zip
