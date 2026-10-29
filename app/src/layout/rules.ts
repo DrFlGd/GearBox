@@ -2,8 +2,8 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, bearingOD, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
-  pinById, pitchR, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
+  ARM_W, PLN, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Layout, type Pin,
 } from "./model";
 import { escapeAngle, gateE, genevaAngle, rangeOver, sliderX, yokeX } from "./motion";
@@ -18,7 +18,9 @@ export type Linkage = { crank: GearRef; rocker: GearRef; throw: number; coupler:
 /** What a fixture's carriage does: who drives it and how far it travels along the rail. */
 export type FixtureInfo = {
   fixture: Fixture;
-  drive?: GearRef;              // the crank's gear (yoke, slider) or the pinion (rack)
+  drive?: GearRef;              // the crank's gear (yoke, slider), the pinion (rack) or the bevel gear (bracket)
+  wormGear?: GearRef;           // bracket: the worm gear beside the bar
+  side?: number;                // bracket: which side (+1 left, -1 right) the worm gear is on
   pinU?: number;                // the drive pin's position along the rail, mm
   range: [number, number];      // carriage centre travel along the rail, mm
   limit: [number, number];      // where the carriage may be
@@ -53,29 +55,41 @@ export const label = (g: Gear) => {
     case "cam": return `${g.cam ?? "eccentric"} cam`; case "follower": return "follower"; case "geneva": return "Geneva driver"; case "genevaWheel": return "Geneva wheel";
     case "partial": return `${g.teeth}T ${g.keep === 0.25 ? "quarter" : "half"} gear`; case "qrlever": return "quick-return lever"; case "escwheel": return "escape wheel";
     case "anchor": return "anchor"; case "winch": return "winch";
+    case "carrier": return "planet carrier"; case "bevel": return `bevel gear on a ${g.teeth}T`; case "wormgear": return `${g.teeth}T worm gear`; case "flywheel": return "flywheel";
   }
 };
 
-/** Footprint of a motor mount in mm, relative to the motor socket, turned by dir: leg circles and the block. */
+/** Footprint of a motor mount in mm, relative to the motor socket, turned by dir: leg circles,
+ *  full-height blocks (convex polygons) and the radius of what sits over the pinion. */
 export function motorFootprint(l: Layout, pin: Pin) {
   const s = std(l.size);
   const g = s.grid, m = s.module;
   const dir = pin.motor?.dir ?? 0;
+  const type = motorType(pin);
   const rot = (x: number, y: number) => { for (let k = 0; k < dir; k++) [x, y] = [-y, x]; return { x, y }; };
   const legR = (Number(s.bolt.slice(1)) * 1.6 + 5) / 2 + 0.3;            // BOLT[1] + 5, roughly
-  const legs = motorLegs(dir).map(([i, j]) => ({ x: i * g, y: j * g, r: legR }));
+  const legs = motorLegs(dir, type).map(([i, j]) => ({ x: i * g, y: j * g, r: legR }));
+  if (type === "nema17") {
+    // two arms from the legs to the 48 mm plate; the motor body sits on the plate
+    const half = 24, aw = 6;
+    const blocks = [-1, 1].map(sg => [[sg * (half - 1), -aw], [sg * 2 * g, -aw], [sg * 2 * g, aw], [sg * (half - 1), aw]].map(([x, y]) => rot(x, y)));
+    const corners = [[-half, -half], [half, -half], [half, half], [-half, half]].map(([x, y]) => rot(x, y));
+    return { legs, corners, blocks, cradleR: half * Math.SQRT2, type };
+  }
   // block: x in [-w/2, w/2], y in [tipR(20)+1, 2g] before rotation; the cradle sits over the axis
   const w = 12 + 0.4 + 2 * 1.6;
   const corners = [[-w / 2, m * 11 + 1], [w / 2, m * 11 + 1], [w / 2, 2 * g], [-w / 2, 2 * g]].map(([x, y]) => rot(x, y));
-  return { legs, corners, cradleR: w / 2 + 1 };
+  return { legs, corners, blocks: [corners], cradleR: w / 2 + 1, type };
 }
 /** Distance from a point to a convex polygon (0 inside). */
 function polyDist(px: number, py: number, poly: { x: number; y: number }[]) {
   let inside = true, best = Infinity;
+  const area = poly.reduce((acc, a, i) => { const b = poly[(i + 1) % poly.length]; return acc + a.x * b.y - b.x * a.y; }, 0);
+  const sgn = area < 0 ? -1 : 1;
   for (let i = 0; i < poly.length; i++) {
     const a = poly[i], b = poly[(i + 1) % poly.length];
     const ex = b.x - a.x, ey = b.y - a.y;
-    if (ex * (py - a.y) - ey * (px - a.x) < 0) inside = false;
+    if (sgn * (ex * (py - a.y) - ey * (px - a.x)) < 0) inside = false;
     const t = Math.max(0, Math.min(1, ((px - a.x) * ex + (py - a.y) * ey) / (ex * ex + ey * ey)));
     best = Math.min(best, Math.hypot(px - a.x - t * ex, py - a.y - t * ey));
   }
@@ -95,8 +109,17 @@ export type FixtureBox = { u0: number; u1: number; v0: number; v1: number; lo: n
 /** The boxes a fixture occupies in its own frame, with the levels they fill. Carriage boxes span the travel. */
 export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): FixtureBox[] {
   const s = std(l.size), g = s.grid, r = railDims(l.size);
-  const L = (f.n - 1) * g;
   const box = (u0: number, u1: number, v0: number, v1: number, lo: number, hi: number, what: FixtureBox["what"]): FixtureBox => ({ u0, u1, v0, v1, lo, hi, what });
+  if (f.kind === "bracket") {
+    const b = bracketDims(l.size), L = f.span * g;
+    const out: FixtureBox[] = [box(-b.housingT / 2, L + b.housingT / 2, -b.housingW / 2, b.housingW / 2, 1, 1, "rail")];
+    for (const u of [0, L]) out.push(box(u - b.housingT / 2, u + b.housingT / 2, -b.housingW / 2, b.housingW / 2, 1, 4, "rail"));
+    const wr = b.wormD / 2 + s.module;
+    if (info?.wormGear) out.push(box(L / 2 - b.wormL / 2, L / 2 + b.wormL / 2, -wr, wr, 2, 4, "carriage"));                      // the worm
+    if (info?.drive) out.push(box(-b.bevelD + pitchR(l.size, b.bevelT) - 2, -b.housingT / 2, -tipR(l.size, b.bevelT), tipR(l.size, b.bevelT), 2, 4, "carriage")); // the shaft bevel
+    return out;
+  }
+  const L = (f.n - 1) * g;
   const out: FixtureBox[] = [box(-r.w / 2, L + r.w / 2, -r.w / 2, r.w / 2, 1, 1, "rail")];
   for (const u of [0, L]) out.push({ ...box(u, u, g, g, 1, 2, "rail"), r: s.knob_d / 2 });  // tab knobs
   const c = f.carriage;
@@ -210,6 +233,21 @@ export function analyze(l: Layout): Analysis {
     for (const sg of [1, -1]) segs.push([p.x, p.y, q.x + e.R * Math.cos(dir + Math.PI + sg * e.alpha), q.y + e.R * Math.sin(dir + Math.PI + sg * e.alpha)]);
     sweepHits(g0, w, segs, ARM_W(l.size) / 2, o => pairs.push({ a: g0, b: o.ref, kind: "collide" }));
   }
+  // planet carriers want their 20T sun on the level above, free to turn, and two free sockets for the ring's legs
+  const pd = planetaryDims(l.size);
+  for (const g0 of gears) if (kindOf(g0.gear) === "carrier") {
+    const sun = gearAt(g0.pin, g0.gear.level + 1);
+    if (!sun || kindOf(sun) !== "gear" || sun.teeth !== PLN.sun || sun.joined) problems.push({ text: `the planet carrier needs a plain ${PLN.sun}T sun gear on level ${g0.gear.level + 1} of its pin, not joined to it`, pin: g0.pin.id, level: g0.gear.level });
+    else partners.set(k(g0), { pin: g0.pin, gear: sun });
+    if (g0.gear.level > 2) problems.push({ text: "the carrier must be on level 1 or 2 (the ring sits one level up, a gear on the sun one more)", pin: g0.pin.id, level: g0.gear.level });
+    for (const sg of [-1, 1]) {
+      const [lx, ly] = g0.gear.legs === "x" ? [sg * pd.legSteps, 0] : [0, sg * pd.legSteps];
+      const hit = l.pins.find(q => q.x === g0.pin.x + lx && q.y === g0.pin.y + ly);
+      if (hit) problems.push({ text: `a pin sits where the ring gear's leg bolts in, socket ${hit.x + 1}, ${hit.y + 1}`, pin: hit.id });
+    }
+  }
+  for (const g0 of gears) if (kindOf(g0.gear) === "bevel" && g0.gear.level !== 1) problems.push({ text: "a bevel gear sits on level 1: it fills its pin up to the shaft", pin: g0.pin.id, level: g0.gear.level });
+  for (const g0 of gears) if (kindOf(g0.gear) === "wormgear" && g0.gear.level !== SHAFT_LEVEL) problems.push({ text: `a worm gear sits on level ${SHAFT_LEVEL}, where the shaft runs`, pin: g0.pin.id, level: g0.gear.level });
   // quick-return levers: the crank's post rides in the slot two levels above the crank's gear
   const crankR = (gr: Gear) => (gr.throw ?? 2 * g) + ARM_W(l.size) / 2 + 1;
   for (const g0 of gears) if (kindOf(g0.gear) === "qrlever") {
@@ -252,22 +290,31 @@ export function analyze(l: Layout): Analysis {
       if (x.topper === "crank" && lv > x.level && lv <= x.level + 3 && d < r + crankR(x) + 0.5 && !isPartner) hits.push({ gear: o.ref, pin, what: "crank" });
       if (x.topper === "pointer" && lv === x.level + 1 && d < r + pointerReach(l.size) + 0.5) hits.push({ gear: o.ref, pin, what: "pointer" });
     }
-    // a motor mount's legs, block and cradle
+    // a motor mount's legs, blocks and cradle
     if (pin.motor) {
       const motorLevel = pin.gears[0]?.level ?? 1;
       const fp = motorFootprint(l, pin);
       const oo = mm(l, pin), p = mm(l, o.ref.pin);
       const rel = { x: p.x - oo.x, y: p.y - oo.y };
       const legHit = lv <= motorLevel && fp.legs.some(leg => Math.hypot(rel.x - leg.x, rel.y - leg.y) < r + leg.r + 0.5);
-      const blockHit = lv <= motorLevel && polyDist(rel.x, rel.y, fp.corners) < r + 0.5;
+      const blockHit = lv <= motorLevel && fp.blocks.some(b => polyDist(rel.x, rel.y, b) < r + 0.5);
       const cradleHit = lv > motorLevel && d < r + fp.cradleR + 0.5;
       if (legHit || blockHit || cradleHit) hits.push({ gear: o.ref, pin, what: "mount" });
     }
+    // a planet carrier's ring gear legs, columns up to the ring
+    for (const x of pin.gears) if (kindOf(x) === "carrier" && lv <= x.level + 1) {
+      const oo = mm(l, pin), p = mm(l, o.ref.pin);
+      for (const sg of [-1, 1]) {
+        const [lx, ly] = x.legs === "x" ? [sg * pd.legSteps * g, 0] : [0, sg * pd.legSteps * g];
+        if (Math.hypot(p.x - oo.x - lx, p.y - oo.y - ly) < r + pd.legR + 0.5) hits.push({ gear: o.ref, pin, what: "mount" });
+      }
+    }
   }
   // stack rules
-  const noTopper = new Set(["pawl", "follower", "anchor", "qrlever", "rocker", "geneva", "winch"]);
+  const noTopper = new Set(["pawl", "follower", "anchor", "qrlever", "rocker", "geneva", "winch", "carrier", "bevel"]);
   for (const pin of l.pins) {
-    const levels = pin.gears.flatMap(x => [x.level, ...extraLevels(l.size, x).map(e => e.level)]);
+    // (a carrier's extra level is the ring, which the sun shares by design)
+    const levels = pin.gears.flatMap(x => [x.level, ...(kindOf(x) === "carrier" ? [] : extraLevels(l.size, x).map(e => e.level))]);
     if (new Set(levels).size !== levels.length) problems.push({ text: "two items on one level (a Geneva driver, a winch and a spring gear fill the level above them too)", pin: pin.id });
     const top = topLevel(pin);
     const topG = gearAt(pin, top);
@@ -276,7 +323,7 @@ export function analyze(l: Layout): Analysis {
       const kind = kindOf(x);
       const below = gearAt(pin, x.level - 1);
       if (x.joined && !below) problems.push({ text: `level ${x.level} is joined to an empty level below`, pin: pin.id, level: x.level });
-      if (x.joined && below && extraLevels(l.size, below).length) problems.push({ text: `level ${x.level} cannot join a two-level part below it`, pin: pin.id, level: x.level });
+      if (x.joined && below && extraLevels(l.size, below).length) problems.push({ text: `level ${x.level} cannot join a ${kindOf(below) === "carrier" ? "planet carrier" : "two-level part"} below it`, pin: pin.id, level: x.level });
       if (x.topper && x.level !== top) problems.push({ text: `the ${x.topper} must be on the top item of the pin`, pin: pin.id, level: x.level });
       if (x.topper && noTopper.has(kind)) problems.push({ text: `a ${label(x)} cannot carry a ${x.topper}`, pin: pin.id, level: x.level });
       if (x.topper === "crank" && crankLinkLevel(x.level) > 4) problems.push({ text: "a crank needs its gear on level 2 or lower", pin: pin.id, level: x.level });
@@ -285,7 +332,7 @@ export function analyze(l: Layout): Analysis {
     if (used > 4) problems.push({ text: "a pin carries at most 4 levels", pin: pin.id });
     if (pin.motor) {
       if (pin.gears.length !== 1 || pin.gears[0].teeth !== 20 || kindOf(pin.gears[0]) !== "gear") problems.push({ text: "a motor pin carries only its 20T pinion", pin: pin.id });
-      for (const [i, j] of motorLegs(pin.motor.dir)) {
+      for (const [i, j] of motorLegs(pin.motor.dir, motorType(pin))) {
         const hit = l.pins.find(q => q.x === pin.x + i && q.y === pin.y + j);
         if (hit) problems.push({ text: "a pin sits where the motor mount's leg bolts in", pin: hit.id });
       }
@@ -313,6 +360,27 @@ export function analyze(l: Layout): Analysis {
     const rd = railDims(l.size);
     const info: FixtureInfo = { fixture: f, range: [rd.carL / 2, fr.len - rd.carL / 2], limit: [rd.carL / 2 - 4, fr.len - rd.carL / 2 + 4], ok: true };
     const bad = (text: string) => { problems.push({ text, fixture: f.id }); info.ok = false; };
+    if (f.kind === "bracket") {
+      const b = bracketDims(l.size);
+      info.range = [0, 0]; info.limit = [0, 0];
+      for (const pin of l.pins) {
+        const p = fr.toLocal(mm(l, pin));
+        if (Math.abs(p.v) < 1 && p.u > -1 && p.u < fr.len + 1) bad(`a pin sits under the shaft bracket at socket ${pin.x + 1}, ${pin.y + 1}`);
+      }
+      const bevel = gears.find(o => kindOf(o.gear) === "bevel" && Math.abs(fr.toLocal(mm(l, o.pin)).v) < 0.05 && Math.abs(fr.toLocal(mm(l, o.pin)).u + b.bevelD) < 0.05);
+      const wg = gears.find(o => kindOf(o.gear) === "wormgear" && Math.abs(fr.toLocal(mm(l, o.pin)).u - fr.len / 2) < 0.05 && Math.abs(Math.abs(fr.toLocal(mm(l, o.pin)).v) - (g + pitchR(l.size, o.gear.teeth))) < 0.05);
+      if (bevel) info.drive = bevel;
+      if (wg) { info.wormGear = wg; info.side = fr.toLocal(mm(l, wg.pin)).v > 0 ? 1 : -1; }
+      if (!bevel && !wg) bad("the shaft bracket has nothing on its shaft: a bevel gear two sockets before it on its row turns the shaft, a worm gear on level 4 beside the middle of the bar is turned by it");
+      for (const box of fixtureBoxes(l, f, info)) for (const o of occ) {
+        if (o.level < box.lo || o.level > box.hi) continue;
+        if ((bevel && o.ref === bevel) || (wg && o.ref === wg)) continue;
+        const p = fr.toLocal(mm(l, o.ref.pin));
+        if (rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1) < o.r + 0.5) { hits.push({ gear: o.ref, pin: o.ref.pin, what: box.what === "rail" ? "rail" : "carriage" }); break; }
+      }
+      fixtures.push(info);
+      continue;
+    }
     // pins under the rail or its tabs
     for (const pin of l.pins) {
       const p = fr.toLocal(mm(l, pin));
@@ -375,7 +443,7 @@ export function analyze(l: Layout): Analysis {
   }
 
   for (const p of pairs) if (p.kind === "collide") problems.push({ text: `${label(p.a.gear)} and ${label(p.b.gear)} on level ${p.a.gear.level} collide`, pin: p.a.pin.id, level: p.a.gear.level });
-  const hitName: Record<HardwareHit["what"], string> = { spacer: "a spacer", knob: "a knob", mount: "a motor mount", crank: "a crank", pointer: "a pointer", lever: "the quick-return lever", rail: "a rail", carriage: "a carriage" };
+  const hitName: Record<HardwareHit["what"], string> = { spacer: "a spacer", knob: "a knob", mount: "a mount's leg or block", crank: "a crank", pointer: "a pointer", lever: "the quick-return lever", rail: "a rail or bracket", carriage: "a carriage or the shaft's gears" };
   for (const h of hits) problems.push({ text: `${label(h.gear.gear)} on level ${h.gear.gear.level} hits ${hitName[h.what]}${h.what === "rail" || h.what === "carriage" ? "" : " on another pin"}`, pin: h.gear.pin.id, level: h.gear.gear.level });
 
   // train solver: breadth first from the input over mesh, band, joined and Geneva edges.
@@ -409,6 +477,17 @@ export function analyze(l: Layout): Analysis {
     if (!below) continue;
     add({ from: { pin, gear: below }, to: { pin, gear: x }, ratio: 1 });
     add({ from: { pin, gear: x }, to: { pin, gear: below }, ratio: 1 });
+  }
+  // planetary: sun in, carrier out, same way, 1 : (1 + ring / sun); the ring is fixed
+  for (const g0 of gears) if (kindOf(g0.gear) === "carrier") {
+    const sun = partners.get(k(g0));
+    if (!sun) continue;
+    add({ from: sun, to: g0, ratio: pd.ratio });
+    add({ from: g0, to: sun, ratio: 1 / pd.ratio });
+  }
+  // shaft brackets: the bevel gear turns the shaft 1:1, the worm turns its gear one tooth per turn
+  for (const info of fixtures) if (info.fixture.kind === "bracket" && info.drive && info.wormGear) {
+    add({ from: info.drive, to: info.wormGear, ratio: (info.side ?? 1) / info.wormGear.gear.teeth });   // a worm gear cannot drive its worm
   }
   const input = l.input && gears.find(x => x.pin.id === l.input!.pin && x.gear.level === l.input!.level);
   if (input) {
@@ -504,6 +583,17 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
   addP(`B${l.tile.nx}x${l.tile.ny}`, `Tile ${l.tile.nx}x${l.tile.ny}`, { part: "tile", tile_nx: l.tile.nx, tile_ny: l.tile.ny, flip: "true" }, l.tiles.cols * l.tiles.rows);
   // fixtures first: they decide which cranks get a handle
   for (const f of l.fixtures ?? []) {
+    if (f.kind === "bracket") {
+      addP("BRACKET", `Shaft bracket, housings ${f.span} sockets apart`, { part: "bracket", span: f.span });
+      bolt(1, f.span - 1); addH("nut", `${s.nut} nut`, f.span - 1);
+      addH(`shaft-bolt`, `${s.bolt} x ${s.bolt_lengths["4"] ?? "?"} mm hex bolt as the shaft`); addH("nut", `${s.nut} nut`, 2); bearing(2);
+      const fr = railFrame(l, f);
+      const hasBevel = l.pins.some(p => p.gears.some(x => kindOf(x) === "bevel") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u < 0);
+      const hasWorm = l.pins.some(p => p.gears.some(x => kindOf(x) === "wormgear") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).u - fr.len / 2) < 0.05);
+      if (hasBevel) addP("BEVEL-S", "Bevel gear on the shaft", { part: "bevel_shaft" });
+      if (hasWorm) addP("WORM", "Worm for the shaft bracket", { part: "worm", span: f.span });
+      continue;
+    }
     addP(`RAIL${f.n}`, `Slider rail over ${f.n} sockets`, { part: "rail", rail_n: f.n });
     addP("K", "Bolt knob", { part: "knob" }, 2); bolt(1, 2); addH("nut", `${s.nut} nut`, 2);
     const c = f.carriage;
@@ -523,12 +613,18 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
     const used = top + levelsUsed(l.size, topG) - 1;
     if (pin.motor) {
       const lv = pin.gears[0].level;
-      addP(lv === 1 ? "MOTOR" : `MOTOR${lv}`, `N20 motor mount, pinion at level ${lv}`, { part: "motor_mount", level: lv });
-      addP("PINION", "Motor pinion 20T", { part: "pinion" });
+      if (motorType(pin) === "nema17") {
+        addP(lv === 1 ? "NEMA17" : `NEMA17-L${lv}`, `NEMA 17 motor mount, pinion at level ${lv}`, { part: "nema_mount", level: lv });
+        addP("PINION5", "Motor pinion 20T, 5 mm D bore", { part: "pinion", shaft: "nema17" });
+        addH("nema17", "NEMA 17 stepper motor with a driver, 4 x M3 x 8 screws");
+      } else {
+        addP(lv === 1 ? "MOTOR" : `MOTOR${lv}`, `N20 motor mount, pinion at level ${lv}`, { part: "motor_mount", level: lv });
+        addP("PINION", "Motor pinion 20T", { part: "pinion", shaft: "n20" });
+        addH("n20", "N20 gearmotor, 100:1 to 300:1, with 2 x M1.6 screws");
+      }
       addP("K", "Bolt knob", { part: "knob" }, 2);
       bolt(lv, 2);
       addH("nut", `${s.nut} nut`, 2);
-      addH("n20", "N20 gearmotor, 100:1 to 300:1, with 2 x M1.6 screws");
       continue;
     }
     if (topG.topper === "pointer") addP("DIALK", "Dial knob", { part: "dial_knob" }); else addP("K", "Bolt knob", { part: "knob" });
@@ -579,6 +675,16 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
         case "escwheel": addP("ESCWHEEL", "Escape wheel, 15 teeth", { part: "escape_wheel" }); bearing(); break;
         case "anchor": addP(x.anchorCw === false ? "ANCHOR-L" : "ANCHOR", `Anchor with balance bar, wheel runs ${x.anchorCw === false ? "counter-clockwise" : "clockwise"}`, { part: "anchor", cw: x.anchorCw === false ? "false" : "true" }); bearing(); addH("nut", `${s.nut} nut`); break;
         case "winch": addP("WINCH", "Winch drum, two levels", { part: "winch" }); addP("WFLANGE", "Winch top flange", { part: "winch_flange" }); addP("HOOK", "String hook", { part: "hook" }); bearing(2); spacer(3); addH("string", "1 m of string"); break;
+        case "carrier": {
+          addP("CARRIER", "Planet carrier, 60T with four posts", { part: "carrier" }); bearing();
+          addP("G20", "Gear 20T", { part: "gear", teeth: 20, face: "solid" }, 2); bearing(2); addP("CAP", "Post cap", { part: "cap" }, 2);   // two planets
+          addP(`RING-L${x.level + 1}`, `Planetary ring gear over level ${x.level + 1}`, { part: "ring", level: x.level + 1, flip: "true" });
+          addP("K", "Bolt knob", { part: "knob" }, 2); bolt(Math.min(4, x.level + 1), 2); addH("nut", `${s.nut} nut`, 2);
+          break;
+        }
+        case "bevel": addP(x.teeth === 40 ? "BEVEL40" : "BEVEL", `Bevel gear on a ${x.teeth}T spur`, { part: "bevel", teeth: x.teeth }); bearing(); break;
+        case "wormgear": addP(`WG${x.teeth}`, `Worm gear ${x.teeth}T`, { part: "worm_gear", teeth: x.teeth }); bearing(); break;
+        case "flywheel": addP("FLYWHEEL", "Flywheel, eight nut pockets", { part: "flywheel" }); bearing(); addH("nut", `${s.nut} nut`, 8); break;
       }
       topper(x);
       if (above) {

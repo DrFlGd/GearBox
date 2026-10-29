@@ -1094,6 +1094,187 @@
         "M2": [12, 20, 3],
         "M1.5": [12, 20, 3]
       }
+    },
+    {
+      "name": "RING-L2",
+      "title": "Planetary ring gear, 60T, over planets on level 2",
+      "group": "planetary",
+      "params": {
+        "part": "ring",
+        "level": 2,
+        "flip": true
+      },
+      "expect": {
+        "M2": [133, 178, 20],
+        "M1.5": [101.75, 135, 18]
+      }
+    },
+    {
+      "name": "RING-L3",
+      "title": "Planetary ring gear, 60T, over planets on level 3",
+      "group": "planetary",
+      "params": {
+        "part": "ring",
+        "level": 3,
+        "flip": true
+      },
+      "expect": {
+        "M2": [133, 178, 30],
+        "M1.5": [101.75, 135, 27]
+      }
+    },
+    {
+      "name": "CARRIER",
+      "title": "Planet carrier: 60T gear with four planet posts",
+      "group": "planetary",
+      "params": {
+        "part": "carrier"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 17.99],
+        "M1.5": [92.99, 92.99, 15.99]
+      }
+    },
+    {
+      "name": "BRACKET",
+      "title": "Shaft bracket, housings 4 sockets apart",
+      "group": "shaft",
+      "params": {
+        "part": "bracket",
+        "span": 4
+      },
+      "expect": {
+        "M2": [88, 30, 51],
+        "M1.5": [67, 25, 45]
+      }
+    },
+    {
+      "name": "BEVEL",
+      "title": "Bevel gear 20T on a 20T spur, on a pin",
+      "group": "shaft",
+      "params": {
+        "part": "bevel",
+        "teeth": 20
+      },
+      "expect": {
+        "M2": [43.98, 43.98, 21.68],
+        "M1.5": [32.99, 32.99, 21.26]
+      }
+    },
+    {
+      "name": "BEVEL40",
+      "title": "Bevel gear 20T on a 40T spur, on a pin",
+      "group": "shaft",
+      "params": {
+        "part": "bevel",
+        "teeth": 40
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 21.68],
+        "M1.5": [62.99, 62.99, 21.26]
+      }
+    },
+    {
+      "name": "BEVEL-S",
+      "title": "Bevel gear 20T on the shaft",
+      "group": "shaft",
+      "params": {
+        "part": "bevel_shaft"
+      },
+      "expect": {
+        "M2": [46, 46, 23.18],
+        "M1.5": [34.5, 34.5, 16.76]
+      }
+    },
+    {
+      "name": "WORM",
+      "title": "Worm for the shaft bracket",
+      "group": "shaft",
+      "params": {
+        "part": "worm",
+        "span": 4
+      },
+      "expect": {
+        "M2": [44, 44, 71],
+        "M1.5": [33, 33, 52]
+      }
+    },
+    {
+      "name": "WG20",
+      "title": "Worm gear 20T",
+      "group": "shaft",
+      "params": {
+        "part": "worm_gear",
+        "teeth": 20
+      },
+      "expect": {
+        "M2": [44.88, 44.88, 8],
+        "M1.5": [33.62, 33.62, 7]
+      }
+    },
+    {
+      "name": "WG40",
+      "title": "Worm gear 40T",
+      "group": "shaft",
+      "params": {
+        "part": "worm_gear",
+        "teeth": 40
+      },
+      "expect": {
+        "M2": [85, 85, 8],
+        "M1.5": [64, 64, 7]
+      }
+    },
+    {
+      "name": "NEMA17",
+      "title": "NEMA 17 motor mount, pinion on level 1",
+      "group": "motor",
+      "params": {
+        "part": "nema_mount",
+        "level": 1
+      },
+      "expect": {
+        "M2": [98, 48, 18.49],
+        "M1.5": [75, 48, 17.49]
+      }
+    },
+    {
+      "name": "NEMA17-L2",
+      "title": "NEMA 17 motor mount, pinion on level 2",
+      "group": "motor",
+      "params": {
+        "part": "nema_mount",
+        "level": 2
+      },
+      "expect": {
+        "M2": [98, 48, 28.49],
+        "M1.5": [75, 48, 26.49]
+      }
+    },
+    {
+      "name": "PINION5",
+      "title": "Motor pinion 20T, 5 mm D bore for a NEMA 17",
+      "group": "motor",
+      "params": {
+        "part": "pinion",
+        "shaft": "nema17"
+      },
+      "expect": {
+        "M2": [43.98, 43.98, 8],
+        "M1.5": [32.99, 32.99, 7]
+      }
+    },
+    {
+      "name": "FLYWHEEL",
+      "title": "Flywheel with eight nut pockets",
+      "group": "flywheel",
+      "params": {
+        "part": "flywheel"
+      },
+      "expect": {
+        "M2": [75, 75, 8],
+        "M1.5": [55, 55, 7]
+      }
     }
   ],
   "kits": {
@@ -1382,6 +1563,81 @@
         "1 bolt (2-level length), 1 nut",
         "2 bearings",
         "1 m of string"
+      ]
+    },
+    "planetary": {
+      "title": "Planetary set",
+      "parts": [
+        "RING-L2",
+        "CARRIER",
+        "G20",
+        "G20",
+        "G20",
+        "CAP",
+        "CAP",
+        "G20",
+        "K",
+        "K",
+        "K",
+        "BS",
+        "S3",
+        "S3",
+        "CPL",
+        "CPL"
+      ],
+      "hardware": [
+        "1 bolt (3-level length), 2 bolts (2-level length), 3 nuts",
+        "4 bearings (sun, carrier, two planets) + 1 for the gear on top of the sun"
+      ]
+    },
+    "shaft": {
+      "title": "Bevel pair and worm on a shaft",
+      "parts": [
+        "BRACKET",
+        "BEVEL40",
+        "BEVEL-S",
+        "WORM",
+        "WG40",
+        "K",
+        "K",
+        "BS",
+        "S10",
+        "S10",
+        "S10"
+      ],
+      "hardware": [
+        "1 bolt (4-level length) as the shaft, 2 nuts for it",
+        "3 bolts (1-level length) and 3 nuts for the bracket",
+        "1 bolt (4-level length) and 1 nut for the worm gear pin, 1 bolt (3-level length) and 1 nut for the bevel pin",
+        "4 bearings"
+      ]
+    },
+    "nema17": {
+      "title": "NEMA 17 motor kit",
+      "parts": [
+        "NEMA17",
+        "PINION5",
+        "K",
+        "K"
+      ],
+      "hardware": [
+        "1 NEMA 17 stepper motor and a driver",
+        "2 bolts (1-level length)",
+        "2 nuts",
+        "4 x M3 x 8 screws"
+      ]
+    },
+    "flywheel": {
+      "title": "Flywheel",
+      "parts": [
+        "FLYWHEEL",
+        "K",
+        "BS"
+      ],
+      "hardware": [
+        "1 bolt (1-level length), 1 nut",
+        "1 bearing",
+        "8 nuts for the rim pockets"
       ]
     }
   }

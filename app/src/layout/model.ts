@@ -14,7 +14,8 @@ export const MAX_LEVEL = 4;
  *  size number, a link's holes, 12 for a ratchet, 40 for a Geneva driver, 15 for an escape wheel. */
 export type ItemKind =
   | "gear" | "pulley" | "ratchet" | "pawl" | "rocker"
-  | "cam" | "follower" | "geneva" | "genevaWheel" | "partial" | "qrlever" | "escwheel" | "anchor" | "winch";
+  | "cam" | "follower" | "geneva" | "genevaWheel" | "partial" | "qrlever" | "escwheel" | "anchor" | "winch"
+  | "carrier" | "bevel" | "wormgear" | "flywheel";
 export type Topper = "crank" | "pointer" | "spring";
 export type CamKind = "eccentric" | "heart" | "snail";
 export type Gear = {
@@ -32,15 +33,17 @@ export type Gear = {
   keep?: 0.5 | 0.25;  // partial gear: how much of the rim has teeth
   crank?: string;     // quick-return lever: the pin whose crank post rides in its slot
   anchorCw?: boolean; // anchor for an escape wheel that runs clockwise (default) or not
+  legs?: "x" | "y";   // carrier: which axis the ring gear's legs lie along (default y)
 };
 
 export type Pin = {
   id: string; x: number; y: number; gears: Gear[];
-  /** An N20 motor on this socket instead of a bolt: its 20T pinion is gears[0]; legs
-   *  sit at (-1, 2) and (1, 2) grid steps, turned by `dir` quarter turns. */
-  motor?: { dir: 0 | 1 | 2 | 3 };
+  /** A motor on this socket instead of a bolt: its 20T pinion is gears[0]. An N20's legs
+   *  sit at (-1, 2) and (1, 2) grid steps, a NEMA 17's at (-2, 0) and (2, 0), turned by `dir` quarter turns. */
+  motor?: { dir: 0 | 1 | 2 | 3; type?: MotorType };
 };
 
+export type MotorType = "n20" | "nema17";
 export type Band = { a: { pin: string; level: number }; b: { pin: string; level: number }; crossed: boolean };
 
 /** What rides on a rail: a rack (teeth at `level`, driven by a gear on the rows below the
@@ -52,7 +55,12 @@ export type Carriage =
   | { kind: "slider"; level: number; link: number };
 /** A slider rail bolted along `n` sockets from (x, y) in direction `dir` (quarter turns
  *  from +x). Its bolt tabs are on the row to its left (+v), the rack's teeth face right (-v). */
-export type Fixture = { id: string; kind: "rail"; x: number; y: number; dir: 0 | 1 | 2 | 3; n: number; carriage: Carriage | null };
+export type Fixture =
+  | { id: string; kind: "rail"; x: number; y: number; dir: 0 | 1 | 2 | 3; n: number; carriage: Carriage | null }
+  /** A shaft bracket: housings on the sockets at u = 0 and u = span, bolts between them, the
+   *  shaft at the middle of level 4. A bevel gear on the row two sockets before it turns the
+   *  shaft; a worm gear on level 4 beside the middle of the bar is turned by the worm. */
+  | { id: string; kind: "bracket"; x: number; y: number; dir: 0 | 1 | 2 | 3; span: number };
 
 export type Layout = {
   size: Size;
@@ -79,8 +87,8 @@ export const tipR = (size: Size, teeth: number) => (std(size).module * (teeth + 
 export const bearingOD = (size: Size) => Number(std(size).bearing.split("x")[1]);
 export const boltD = (size: Size) => Number(std(size).bolt.slice(1));
 /** Kinds that mesh like a gear (tooth count rule). */
-export const meshes = (g: Gear) => { const k = kindOf(g); return k === "gear" || k === "partial" || k === "geneva"; };
-export const teethOf = (g: Gear) => (kindOf(g) === "geneva" ? 40 : g.teeth);
+export const meshes = (g: Gear) => { const k = kindOf(g); return k === "gear" || k === "partial" || k === "geneva" || k === "carrier" || k === "bevel" || k === "wormgear"; };
+export const teethOf = (g: Gear) => (kindOf(g) === "geneva" ? 40 : kindOf(g) === "carrier" ? 60 : g.teeth);
 
 // Phase 4b dimensions, in step with scad/lib/mechanisms.scad -------------------------
 export const camDims = (size: Size) => { const s = std(size); return { r0: bearingOD(size) / 2 + 4, lift: s.grid / 2 }; };
@@ -114,6 +122,21 @@ export function railDims(size: Size) {
   const w = s.grid - 4, t = small ? 2.5 : 3, ridge = small ? 2 : 2.5;
   return { w, t, ridge, tabR: (boltD(size) * 1.6 + 5) / 2 + 0.3, carL: 2 * s.grid, baseTop: 2 + s.level - 2, plugW: w - 4, top: t + ridge };
 }
+// Phase 4c dimensions, in step with scad/lib/drives.scad ---------------------------------
+export const PLN = { sun: 20, planet: 20, ring: 60, carrier: 60 };
+export function planetaryDims(size: Size) {
+  const s = std(size), m = s.module;
+  return { R: 2 * s.grid, ringOR: (m * PLN.ring) / 2 + 1.25 * m + 4, ringIR: (m * PLN.ring) / 2 - m, legSteps: 4, legR: (boltD(size) * 1.6 + 5) / 2, ratio: 1 / (1 + PLN.ring / PLN.sun) };
+}
+export const SHAFT_LEVEL = 4;
+export function bracketDims(size: Size) {
+  const s = std(size), bw = Number(s.bearing.split("x")[2]) || 7;
+  return { shaftH: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2, housingT: bw + 1, housingW: bearingOD(size) + 8, barT: size === "M1.5" ? 4.7 : 6, bevelD: 2 * s.grid, bevelHub: s.gear_thickness + (size === "M1.5" ? 8.5 : 6), wormD: 2 * s.grid, wormL: 2 * s.grid, bevelT: 20 };
+}
+export const flyR = (size: Size) => 2 * std(size).grid - 2.5;
+export const NEMA = { w: 42.3, plate: 48, legSteps: 2 };
+export const motorType = (p: Pin): MotorType => p.motor?.type ?? "n20";
+
 /** Local z of the bottom of level k above the plate top (same as lvl_z in OpenSCAD). */
 export const lvlZ = (size: Size, k: number) => 2 + (k - 1) * std(size).level;
 
@@ -134,6 +157,10 @@ export function itemR(size: Size, g: Gear): number {
     case "escwheel": return escDims(size).R;
     case "anchor": return bearingOD(size) / 2 + 3;         // the hub; pallets and bar are checked separately
     case "winch": return winchR(size);
+    case "carrier": return tipR(size, PLN.carrier);
+    case "bevel": return tipR(size, g.teeth) + 0.5;
+    case "wormgear": return tipR(size, g.teeth) + 0.5;
+    case "flywheel": return flyR(size);
   }
 }
 /** Levels an item fills besides its own, with the radius it fills them at. */
@@ -142,6 +169,12 @@ export function extraLevels(size: Size, g: Gear): { level: number; r: number; wh
   if (k === "geneva") return [{ level: g.level + 1, r: genevaDims(size, g.slots ?? 6).a + postD(size) / 2, what: "Geneva lock" }];
   if (k === "winch") return [{ level: g.level + 1, r: winchR(size), what: "winch" }];
   if (g.topper === "spring") return [{ level: g.level + 1, r: springWallR(size), what: "spring wall" }];
+  if (k === "carrier") return [{ level: g.level + 1, r: planetaryDims(size).ringOR, what: "planetary ring" }];
+  if (k === "bevel") {
+    // the cone's base sits in level 2, its small end in level 3, the knob above it in level 4
+    const s = std(size), bt = bracketDims(size).bevelT;
+    return [{ level: 2, r: tipR(size, bt) + 0.5, what: "bevel gear" }, { level: 3, r: pitchR(size, bt) - 3 * s.module, what: "bevel gear" }, { level: 4, r: s.knob_d / 2, what: "bevel gear's knob" }];
+  }
   return [];
 }
 /** How many levels of bolt an item needs above its own level's top (two-level parts, the spring). */
@@ -151,9 +184,9 @@ export const gearZ = (size: Size, level: number) => { const s = std(size); retur
 /** The crank post base sits two levels above its gear; the handle and a linkage ride on it. */
 export const crankLinkLevel = (level: number) => level + 2;
 /** Where the motor mount's legs are, in socket offsets, for a direction. */
-export function motorLegs(dir: number): [number, number][] {
+export function motorLegs(dir: number, type: MotorType = "n20"): [number, number][] {
   const rot = ([x, y]: [number, number]): [number, number] => { for (let k = 0; k < dir; k++) [x, y] = [-y, x]; return [x, y]; };
-  return [rot([-1, 2]), rot([1, 2])];
+  return type === "nema17" ? [rot([-2, 0]), rot([2, 0])] : [rot([-1, 2]), rot([1, 2])];
 }
 /** The pointer's reach past the dial knob's rim, in mm. */
 export const pointerReach = (size: Size) => std(size).dial_r + 4;
@@ -165,7 +198,8 @@ export function railFrame(l: Layout, f: Fixture) {
   const c = Math.cos((f.dir * Math.PI) / 2), s = Math.sin((f.dir * Math.PI) / 2);
   const toWorld = (u: number, v: number) => ({ x: o.x + u * c - v * s, y: o.y + u * s + v * c });
   const toLocal = (p: { x: number; y: number }) => ({ u: (p.x - o.x) * c + (p.y - o.y) * s, v: -(p.x - o.x) * s + (p.y - o.y) * c });
-  return { o, angle: (f.dir * Math.PI) / 2, len: (f.n - 1) * std(l.size).grid, toWorld, toLocal };
+  const len = f.kind === "rail" ? (f.n - 1) * std(l.size).grid : f.span * std(l.size).grid;
+  return { o, angle: (f.dir * Math.PI) / 2, len, toWorld, toLocal };
 }
 
 export function emptyLayout(size: Size): Layout {
@@ -220,4 +254,19 @@ export function mechanismsLayout(size: Size): Layout {
     { id: "rail2", kind: "rail", x: cx + 6, y: 1, dir: 2, n: 4, carriage: { kind: "rack", len: 2, level: 1 } },
   ];
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 5, rows: 3 }, pins, bands: [], fixtures, input: { pin: "c", level: 2 }, rpm: 10 };
+}
+
+/** Phase 4c sampler: a NEMA 17 drives a planetary set (sun in, carrier out, 4:1); the
+ *  carrier turns a bevel gear, which turns a shaft bracket's worm; the worm gear drives
+ *  a flywheel through a 20T. */
+export function drivesLayout(size: Size): Layout {
+  const pins: Pin[] = [
+    { id: "m", x: 2, y: 4, gears: [{ level: 3, teeth: 20, joined: false }], motor: { dir: 1, type: "nema17" } },
+    { id: "s", x: 6, y: 4, gears: [{ level: 1, teeth: 60, joined: false, kind: "carrier", legs: "y" }, { level: 2, teeth: 20, joined: false }, { level: 3, teeth: 60, joined: true }] },
+    { id: "b", x: 10, y: 1, gears: [{ level: 1, teeth: 40, joined: false, kind: "bevel" }] },
+    { id: "w", x: 14, y: 4, gears: [{ level: 4, teeth: 40, joined: false, kind: "wormgear" }] },
+    { id: "f", x: 14, y: 7, gears: [{ level: 3, teeth: 20, joined: false, kind: "flywheel" }, { level: 4, teeth: 20, joined: true }] },
+  ];
+  const fixtures: Fixture[] = [{ id: "br", kind: "bracket", x: 12, y: 1, dir: 0, span: 4 }];
+  return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 5, rows: 3 }, pins, bands: [], fixtures, input: { pin: "m", level: 3 }, rpm: 10 };
 }

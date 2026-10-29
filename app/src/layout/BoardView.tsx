@@ -3,11 +3,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
-  ARM_W, bearingOD, boardH, boardW, camR, crankLinkLevel, escDims, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, noseR,
-  pitchR, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, topLevel, winchR, type Layout,
+  ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
+  boltD, pitchR, planetaryDims, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, tipR, topLevel, winchR, type Layout,
 } from "./model";
 import { anchorAngle, followerAngle, sliderX, yokeX } from "./motion";
-import { key, motorFootprint, type Analysis, type FixtureInfo, type Linkage, type Motion } from "./rules";
+import { key, motorFootprint, type Analysis, type Linkage, type Motion } from "./rules";
 
 export type Pick = { kind: "socket"; i: number; j: number } | { kind: "gear"; pin: string; level: number } | { kind: "fixture"; id: string } | null;
 
@@ -179,7 +179,8 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     const drivesSomething = (pinId: string, gearLevel: number) =>
       analysis.linkages.some(la => la.crank.pin.id === pinId && la.crank.gear.level === gearLevel) ||
       [...analysis.partners.values()].some(p => p.pin.id === pinId && p.gear.level === gearLevel) ||
-      analysis.fixtures.some(f => f.drive?.pin.id === pinId && f.drive.gear.level === gearLevel && f.fixture.carriage?.kind !== "rack");
+      analysis.fixtures.some(f => f.drive?.pin.id === pinId && f.drive.gear.level === gearLevel && f.fixture.kind === "rail" && f.fixture.carriage?.kind !== "rack");
+    const planetsOf = new Map<string, THREE.Mesh[]>();
     for (const pin of layout.pins) {
       const pos = socketPos(layout, pin.x, pin.y);
       const top = topLevel(pin);
@@ -187,7 +188,25 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       const hasGears = top > 0;
       const used = topG ? top + levelsUsed(size, topG) - 1 : top;
       const topZ = hasGears ? gearZ(size, used) + T + 3 : d.tile_h + 3;
-      if (pin.motor) {
+      if (pin.motor && motorType(pin) === "nema17") {
+        // the NEMA 17 mount: two legs, two arms, the plate and the motor on it
+        const lv = pin.gears[0]?.level ?? 1;
+        const fp = motorFootprint(layout, pin);
+        const Hm = gearZ(size, lv) + T + 1.5 + 4 - d.tile_h;
+        for (const leg of fp.legs) {
+          const legM = new THREE.Mesh(cyl(leg.r, Hm, 20), motorMat);
+          legM.position.set(pos.x + leg.x, pos.y + leg.y, d.tile_h + Hm / 2); s.group.add(legM);
+        }
+        for (const blk of fp.blocks) {
+          const shape = new THREE.Shape(blk.map(c => new THREE.Vector2(c.x, c.y)));
+          const arm = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: Hm, bevelEnabled: false }), motorMat);
+          arm.position.set(pos.x, pos.y, d.tile_h); s.group.add(arm);
+        }
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(NEMA.plate, NEMA.plate, 4), motorMat);
+        plate.position.set(pos.x, pos.y, d.tile_h + Hm - 2); plate.rotation.z = (pin.motor.dir * Math.PI) / 2; s.group.add(plate);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(NEMA.w, NEMA.w, 40), new THREE.MeshStandardMaterial({ color: 0x3a3f4a, metalness: 0.5, roughness: 0.5 }));
+        body.position.set(pos.x, pos.y, d.tile_h + Hm + 20); body.rotation.z = (pin.motor.dir * Math.PI) / 2; s.group.add(body);
+      } else if (pin.motor) {
         // the mount: legs, block, cradle and the motor body
         const lv = pin.gears[0]?.level ?? 1;
         const fp = motorFootprint(layout, pin);
@@ -226,7 +245,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const k = key(pin, gear.level);
         const speed = analysis.speed.get(k) ?? 0;
         const kind = kindOf(gear);
-        const plain = kind === "gear" || kind === "pulley" || kind === "ratchet" || kind === "partial" || kind === "geneva" || kind === "genevaWheel" || kind === "cam" || kind === "escwheel" || kind === "winch";
+        const plain = kind === "gear" || kind === "pulley" || kind === "ratchet" || kind === "partial" || kind === "geneva" || kind === "genevaWheel" || kind === "cam" || kind === "escwheel" || kind === "winch" || kind === "carrier" || kind === "bevel" || kind === "wormgear" || kind === "flywheel";
         const color = collide.has(k) ? COLORS.collide : k === inputKey ? COLORS.input : speed ? COLORS.driven : plain ? COLORS.idle : COLORS.addon;
         const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, flatShading: true });
         const z = gearZ(size, gear.level);
@@ -259,6 +278,42 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           crescent.position.z = d.level; mesh.add(crescent);
           const post = new THREE.Mesh(cylUp(postD(size) / 2, d.level + T + 1, 16), boltMat);
           post.position.set(gd.a, 0, T); mesh.add(post);
+        } else if (kind === "carrier") {
+          // the 60T carrier with four posts and two planets; the ring and its legs stand still
+          const pd = planetaryDims(size);
+          mesh = new THREE.Mesh(gearGeometry(PLN.carrier, d.module, T, boreR), mat);
+          const planets: THREE.Mesh[] = [];
+          for (let i = 0; i < 4; i++) {
+            const a = (i * Math.PI) / 2;
+            const post = new THREE.Mesh(cylUp(postD(size) / 2, 3 + T, 16), boltMat); post.position.set(pd.R * Math.cos(a), pd.R * Math.sin(a), T); mesh.add(post);
+            if (i % 2 === 0) { const pl = new THREE.Mesh(gearGeometry(PLN.planet, d.module, T, boreR), mat); pl.position.set(pd.R * Math.cos(a), pd.R * Math.sin(a), d.level); mesh.add(pl); planets.push(pl); }
+          }
+          planetsOf.set(k, planets);
+          const ringShape = new THREE.Shape(); ringShape.absarc(0, 0, pd.ringOR, 0, 2 * Math.PI, false);
+          const rh = new THREE.Path(); rh.absarc(0, 0, pd.ringIR, 0, 2 * Math.PI, true); ringShape.holes.push(rh);
+          const ring = new THREE.Mesh(new THREE.ExtrudeGeometry(ringShape, { depth: T, bevelEnabled: false, curveSegments: 48 }), addonMat);
+          ring.position.set(pos.x, pos.y, z + d.level); s.group.add(ring);
+          for (const sg of [-1, 1]) {
+            const [lx, ly] = gear.legs === "x" ? [sg * pd.legSteps * g, 0] : [0, sg * pd.legSteps * g];
+            const legH = z + d.level + T - d.tile_h;
+            const leg = new THREE.Mesh(cyl(pd.legR, legH, 20), addonMat); leg.position.set(pos.x + lx, pos.y + ly, d.tile_h + legH / 2); s.group.add(leg);
+            const armLen = pd.legSteps * g - pd.ringOR + 3;
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(gear.legs === "x" ? armLen : pd.legR * 2, gear.legs === "x" ? pd.legR * 2 : armLen, T), addonMat);
+            arm.position.set(pos.x + (gear.legs === "x" ? sg * (pd.ringOR - 3 + armLen / 2) : 0), pos.y + (gear.legs === "x" ? 0 : sg * (pd.ringOR - 3 + armLen / 2)), z + d.level + T / 2); s.group.add(arm);
+            const knob = new THREE.Mesh(cyl(d.knob_d / 2, 8), knobMat); knob.position.set(pos.x + lx, pos.y + ly, z + d.level + T + 4); s.group.add(knob);
+          }
+        } else if (kind === "bevel") {
+          const b = bracketDims(size), pr = pitchR(size, b.bevelT), m = d.module;
+          mesh = new THREE.Mesh(gearGeometry(gear.teeth, d.module, T, boreR), mat);
+          const hubM = new THREE.Mesh(cylUp(boreR + 3, b.bevelHub - T), mat); hubM.position.z = T; mesh.add(hubM);
+          const cone = new THREE.Mesh(new THREE.CylinderGeometry(pr - 3.5 * m, pr + 1.5 * m, 3.8 * m, 20).rotateX(Math.PI / 2).translate(0, 0, 1.9 * m), mat);
+          cone.position.z = b.bevelHub - 1.5 * m; mesh.add(cone);
+        } else if (kind === "wormgear") {
+          mesh = new THREE.Mesh(gearGeometry(gear.teeth, d.module, T, boreR), mat);
+        } else if (kind === "flywheel") {
+          mesh = new THREE.Mesh(cylUp(flyR(size), T, 48), mat);
+          const rp = flyR(size) - 3 - (boltD(size) * 1.6 + 0.3) / Math.cos(Math.PI / 6) / 2;
+          for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + (i * Math.PI) / 4; const nut = new THREE.Mesh(cylUp(boltD(size) * 0.8, T / 2, 6), boltMat); nut.position.set(rp * Math.cos(a), rp * Math.sin(a), T / 2 + 0.1); mesh.add(nut); }
         } else if (kind === "winch") {
           const rc = boreR + 2.5, rf = winchR(size);
           mesh = new THREE.Mesh(cylUp(rf, 2, 32), mat);
@@ -362,6 +417,9 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       } else if (kind === "anchor") {
         const ph = analysis.phase.get(key(partner.pin, partner.gear.level)) ?? 0;
         s.anims.push(() => { mesh.rotation.z = dir + anchorAngle(pm.rotation.z - ph, escDims(size).n, (4 * Math.PI) / 180); });
+      } else if (kind === "carrier") {
+        const planets = planetsOf.get(k) ?? [], ratio = PLN.sun / PLN.planet;
+        s.anims.push(() => { const rel = -(pm.rotation.z - mesh.rotation.z) * ratio; planets.forEach((pl, i) => { pl.rotation.z = rel + (i * Math.PI) / PLN.planet; }); });
       } else if (kind === "qrlever") {
         const t = partner.gear.throw ?? 2 * g;
         const pp = socketPos(layout, partner.pin.x, partner.pin.y), p0 = socketPos(layout, pin.x, pin.y);
@@ -404,6 +462,47 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     // fixtures: rails with their carriages, in the rail's own frame
     for (const info of analysis.fixtures) {
       const f = info.fixture;
+      if (f.kind === "bracket") {
+        const fr = railFrame(layout, f), b = bracketDims(size), L = fr.len, m = d.module;
+        const bad = badFixtures.has(f.id);
+        const railMat = new THREE.MeshStandardMaterial({ color: bad ? COLORS.collide : COLORS.rail, roughness: 0.7 });
+        const grp = new THREE.Group(); grp.position.set(fr.o.x, fr.o.y, d.tile_h); grp.rotation.z = fr.angle; grp.userData = { fixture: f.id };
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(L + b.housingT, b.housingW, b.barT), railMat); bar.position.set(L / 2, 0, b.barT / 2); grp.add(bar);
+        for (const u of [0, L]) {
+          const h = new THREE.Mesh(new THREE.BoxGeometry(b.housingT, b.housingW, b.shaftH), railMat); h.position.set(u, 0, b.shaftH / 2); grp.add(h);
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(b.housingW / 2, b.housingW / 2, b.housingT, 24).rotateZ(Math.PI / 2), railMat); cap.position.set(u, 0, b.shaftH); grp.add(cap);
+          const brg = new THREE.Mesh(new THREE.CylinderGeometry(boreR, boreR, b.housingT + 0.4, 24).rotateZ(Math.PI / 2), boltMat); brg.position.set(u, 0, b.shaftH); grp.add(brg);
+        }
+        for (let k2 = 1; k2 < f.span; k2++) { const head = new THREE.Mesh(cylUp(boltD(size) * 0.8, 1, 6), boltMat); head.position.set(k2 * g, 0, b.barT - 1); grp.add(head); }
+        // what turns with the shaft
+        const shaft = new THREE.Group(); shaft.position.set(0, 0, b.shaftH); grp.add(shaft);
+        const pr = pitchR(size, b.bevelT);
+        const u0 = info.drive ? -b.bevelD + pr - 3.8 * m : -b.housingT / 2 - 2;
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(boltR, boltR, L + b.housingT + 4 - u0, 16).rotateZ(Math.PI / 2), boltMat); rod.position.x = (u0 + L + b.housingT + 4) / 2; shaft.add(rod);
+        if (info.drive) {
+          const cone = new THREE.Mesh(new THREE.CylinderGeometry(pr + 1.5 * m, pr - 3.5 * m, 3.8 * m, 20).rotateZ(-Math.PI / 2), addonMat); cone.position.x = -b.bevelD + pr - 1.9 * m; shaft.add(cone);
+          const hubL = b.bevelD - pr - b.housingT / 2 - 0.5;
+          const hub = new THREE.Mesh(new THREE.CylinderGeometry(boreR + 2.5, boreR + 2.5, hubL, 20).rotateZ(Math.PI / 2), addonMat); hub.position.x = -b.bevelD + pr + hubL / 2; shaft.add(hub);
+          const bm = meshes.get(key(info.drive.pin, info.drive.gear.level));
+          if (bm) s.anims.push(() => { shaft.rotation.x = bm.rotation.z; });
+        }
+        if (info.wormGear) {
+          const core = new THREE.Mesh(new THREE.CylinderGeometry(b.wormD / 2 - 2.25 * m, b.wormD / 2 - 2.25 * m, b.wormL, 24).rotateZ(Math.PI / 2), addonMat); core.position.x = L / 2; shaft.add(core);
+          const hubW = new THREE.Mesh(new THREE.CylinderGeometry(boreR + 2.5, boreR + 2.5, L - b.housingT - 1, 20).rotateZ(Math.PI / 2), addonMat); hubW.position.x = L / 2; shaft.add(hubW);
+          const pitch = Math.PI * m, turns = b.wormL / pitch, rr = b.wormD / 2 - 1.1 * m;
+          class Helix extends THREE.Curve<THREE.Vector3> { constructor() { super(); } getPoint(t: number) { const a = t * turns * 2 * Math.PI; return new THREE.Vector3(L / 2 - b.wormL / 2 + t * b.wormL, rr * Math.cos(a), rr * Math.sin(a)); } }
+          const thread = new THREE.Mesh(new THREE.TubeGeometry(new Helix(), Math.round(turns * 24), 1.1 * m, 8, false), addonMat); shaft.add(thread);
+        }
+        if (selectedFixture === f.id) {
+          const w = b.housingW;
+          const outline = new THREE.Shape(); outline.moveTo(-w / 2 - 3, -w / 2 - 3); outline.lineTo(L + w / 2 + 3, -w / 2 - 3); outline.lineTo(L + w / 2 + 3, w / 2 + 3); outline.lineTo(-w / 2 - 3, w / 2 + 3); outline.closePath();
+          const inner = new THREE.Path(); inner.moveTo(-w / 2 - 1, -w / 2 - 1); inner.lineTo(L + w / 2 + 1, -w / 2 - 1); inner.lineTo(L + w / 2 + 1, w / 2 + 1); inner.lineTo(-w / 2 - 1, w / 2 + 1); inner.closePath();
+          outline.holes.push(inner);
+          const sel = new THREE.Mesh(new THREE.ExtrudeGeometry(outline, { depth: 0.3, bevelEnabled: false }), new THREE.MeshBasicMaterial({ color: COLORS.select })); sel.position.z = 0.1; grp.add(sel);
+        }
+        s.group.add(grp); s.fixtures.push(grp);
+        continue;
+      }
       const fr = railFrame(layout, f), rd = railDims(size);
       const railMat = new THREE.MeshStandardMaterial({ color: badFixtures.has(f.id) ? COLORS.collide : COLORS.rail, roughness: 0.7 });
       const carMat = new THREE.MeshStandardMaterial({ color: badFixtures.has(f.id) ? COLORS.collide : COLORS.carriage, roughness: 0.6, flatShading: true });
