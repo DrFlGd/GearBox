@@ -30,16 +30,25 @@ const tileCount = (key: string, label: string): ParamDef => ({ key, label, type:
 const faceSuffix = (p: Params) => (p.face && p.face !== "solid" ? `-${p.face}` : "");
 const flipOption = (ready: string): ParamDef => ({ key: "flip", label: "Orientation", type: "select", options: [{ value: "true", label: ready }, { value: "false", label: "As used" }] });
 
+/** Kits with an assembly view (scad/lib/assembly.scad), in menu order. */
+export const ASSEMBLY_KITS: [string, string][] = [
+  ["joint", "Joining two gears: dowel pins and M3 screws"], ["crank", "Hand crank"], ["pointer", "Pointer and dial"], ["motor", "N20 motor"], ["nema17", "NEMA 17 motor"],
+  ["ratchet", "Ratchet and pawl"], ["linkage", "Crank-rocker linkage"], ["rack", "Rack and pinion"], ["yoke", "Scotch yoke"], ["slider", "Crank slider"], ["cam", "Cam and follower"],
+  ["geneva", "Geneva drive"], ["quickreturn", "Quick return"], ["escapement", "Escapement"], ["spring", "Wind-up spring"], ["winch", "Winch"], ["planetary", "Planetary set"],
+  ["shaft", "Shaft bracket, bevel pair and worm"], ["flywheel", "Flywheel"], ["maggear", "Magnetic gears"], ["magcouple", "Magnetic face coupling"],
+];
+
 export const PART_KINDS: PartKind[] = [
   {
     id: "gear", title: "Gear", group: "Gears",
-    blurb: "Spur gear with a bearing seat in the hub and six peg holes on each face for couplers, cranks and pointers. Two gears mesh when their tooth counts add up to a multiple of 20.",
+    blurb: "Spur gear with a bearing seat in the hub and six pin holes in each face for steel dowel pins: three pins join two stacked gears, and cranks and pointers pin to the top face. Gears of 30 teeth and up also have six M3 holes (three head counterbores on top, three nut pockets underneath) so two stacked gears can be screwed together through a joint ring. Two gears mesh when their tooth counts add up to a multiple of 20.",
     params: [
       { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
       { key: "face", label: "Face pattern", type: "select", options: faceOptions, help: "patterns only appear when the rim is wide enough (40 teeth and up)" },
+      { key: "magnets", label: "Magnet pockets", type: "select", options: [{ value: "none", label: "None" }, { value: "top", label: "Top face (lower gear of a magnetic coupling)" }, { value: "bottom", label: "Bottom face (upper gear)" }], help: "six disc magnets for a magnetic slip coupling between two gears on one pin; 40 teeth and up" },
     ],
-    defaults: { teeth: 40, face: "spokes" },
-    name: p => `G${p.teeth}${faceSuffix(p)}`,
+    defaults: { teeth: 40, face: "spokes", magnets: "none" },
+    name: p => `G${p.teeth}${faceSuffix(p)}${p.magnets === "top" ? "-MT" : p.magnets === "bottom" ? "-MB" : ""}`,
   },
   {
     id: "compound", title: "Compound gear", group: "Gears",
@@ -81,8 +90,13 @@ export const PART_KINDS: PartKind[] = [
     params: [], defaults: {}, name: () => "BS",
   },
   {
-    id: "coupler", title: "Coupler half", group: "Pins",
-    blurb: "Flat ring with three pegs. Print two: one goes on the lower gear pegs down, the other on top flipped and turned 60 degrees, and the two gears turn as one.",
+    id: "joint_ring", title: "Joint ring", group: "Pins",
+    blurb: "1.8 mm ring that fills the gap between two screwed gears: holes for the three M3 screws and the three dowel pins. Turn the upper gear 60 degrees so its counterbores sit over the lower gear's nut pockets.",
+    params: [], defaults: {}, name: () => "JRING",
+  },
+  {
+    id: "coupler", title: "Coupler half (legacy)", group: "Pins",
+    blurb: "The old printed peg coupler, kept for gears printed before v0.8.0. Steel dowel pins replace it: three pins in the face holes join two gears.",
     params: [], defaults: {}, name: () => "CPL",
   },
   {
@@ -92,28 +106,29 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "crank", title: "Crank", group: "Add-ons",
-    blurb: "Hub ring that pegs into any gear's top face under the knob, with a thick arm and a press-fit socket for a post at the throw. A long post and the handle make a hand crank; a short post and a link make a crank-rocker linkage. Prints upside down.",
+    blurb: "Hub ring pinned to any gear's top face under the knob by three short steel dowel pins pressed into the ring, with a thick arm and a hex pocket at the throw. A kit bolt dropped in from below is the crank post: a long spacer, the handle and a nut make a hand crank; a bearing and a nut carry a link for a crank-rocker, a yoke or a quick-return lever. Prints upside down.",
     params: [
       { key: "throw", label: "Throw (mm)", type: "select", options: [20, 30, 40, 50, 60, 70, 80].map(v => ({ value: v, label: `${v} mm` })) },
-      flipOption("Print-ready (pegs up)"),
+      flipOption("Print-ready (hub ring up)"),
     ],
     defaults: { throw: 40, flip: "true" },
     name: p => `CRANK${p.throw}`,
   },
   {
-    id: "post", title: "Post", group: "Add-ons",
-    blurb: "Presses into the crank's socket. 11 mm carries one bearing (a link), 28 mm carries the handle or a spacer and a link. The cap presses into the hole on top.",
+    id: "post", title: "Post (legacy)", group: "Add-ons",
+    blurb: "The old printed crank post for cranks printed before v0.8.0; a kit bolt is the crank post now.",
     params: [{ key: "post_h", label: "Height (mm)", type: "number", min: 8, max: 40, step: 1 }],
     defaults: { post_h: 11 },
     name: p => (Number(p.post_h) === 11 ? "POST" : Number(p.post_h) === 28 ? "POSTH" : `POST${p.post_h}`),
   },
-  { id: "joint", title: "Joint post", group: "Add-ons", blurb: "Flanged post that joins two links to each other away from any pin: a bearing in each link, a 3 mm spacer between, the cap on top.", params: [], defaults: {}, name: () => "JOINT" },
-  { id: "handle", title: "Handle grip", group: "Add-ons", blurb: "Free-spinning grip that drops over the long post.", params: [], defaults: {}, name: () => "HANDLE" },
-  { id: "cap", title: "Post cap", group: "Add-ons", blurb: "Slotted stem presses into the top of a post and keeps whatever rides on it in place.", params: [], defaults: {}, name: () => "CAP" },
+  { id: "joint", title: "Joint post", group: "Add-ons", blurb: "Flanged post that joins two links to each other away from any pin: a bearing in each link, a 3 mm spacer between, the cap pinned on top.", params: [], defaults: {}, name: () => "JOINT" },
+  { id: "handle", title: "Handle grip", group: "Add-ons", blurb: "Free-spinning grip over the handle spacer on the crank bolt; the nut clamps the spacer, so the grip turns.", params: [], defaults: {}, name: () => "HANDLE" },
+  { id: "handle_spacer", title: "Handle spacer", group: "Add-ons", blurb: "The long spacer the handle grip turns on: it sits on the crank's boss and the nut clamps it.", params: [], defaults: {}, name: () => "SH" },
+  { id: "cap", title: "Post cap", group: "Add-ons", blurb: "Disc that sits on the bearing at the top of a printed post (slider post, joint post, planet posts). A steel dowel pin pressed through it into the post keeps it on.", params: [], defaults: {}, name: () => "CAP" },
   {
     id: "pointer", title: "Pointer", group: "Add-ons",
-    blurb: "Hub ring that pegs into a gear's top face with a thin arm that runs under the dial knob and shows past its rim. Prints upside down.",
-    params: [flipOption("Print-ready (pegs up)")], defaults: { flip: "true" }, name: () => "PTR",
+    blurb: "Hub ring pinned to a gear's top face by three short steel dowel pins, with a thin arm that runs under the dial knob and shows past its rim. Prints upside down.",
+    params: [flipOption("Print-ready (hub ring up)")], defaults: { flip: "true" }, name: () => "PTR",
   },
   {
     id: "dial_knob", title: "Dial knob", group: "Add-ons",
@@ -122,7 +137,7 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "pulley", title: "Pulley", group: "Add-ons",
-    blurb: "Grooved wheel for a rubber band on the same hub as a gear (bearing seat, peg holes). Its size is a tooth-count equivalent, so a P40 driving a P20 is 2:1 like the gears. Any centre distance works; cross the band to reverse.",
+    blurb: "Grooved wheel for a rubber band on the same hub as a gear (bearing seat, pin holes). Its size is a tooth-count equivalent, so a P40 driving a P20 is 2:1 like the gears. Any centre distance works; cross the band to reverse.",
     params: [{ key: "pulley_n", label: "Size", type: "select", options: toothOptions.map(o => ({ value: o.value, label: `${o.value} (${o.value} mm at M1 scale)` })) }],
     defaults: { pulley_n: 40 },
     name: p => `P${p.pulley_n}`,
@@ -136,7 +151,7 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "ratchet", title: "Ratchet wheel", group: "Add-ons",
-    blurb: "Twelve sawtooth teeth on the gear hub; joins to a gear with coupler halves. Turns clockwise past the pawl and locks the other way.",
+    blurb: "Twelve sawtooth teeth on the gear hub; joins to a gear with three dowel pins. Turns clockwise past the pawl and locks the other way.",
     params: [], defaults: {}, name: () => "RATCHET",
   },
   {
@@ -176,7 +191,7 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "carrier", title: "Planet carrier", group: "Drives",
-    blurb: "A 60T gear with four posts on its top face for 20T planets on bearings (two are enough), each kept on by a cap. A plain 20T sun on the pin above it drives the planets inside the ring: sun in, carrier out, 4:1.",
+    blurb: "A 60T gear with four posts on its top face for 20T planets on bearings (two are enough), each kept on by a cap pinned into the post. A plain 20T sun on the pin above it drives the planets inside the ring: sun in, carrier out, 4:1.",
     params: [], defaults: {}, name: () => "CARRIER",
   },
   {
@@ -208,6 +223,14 @@ export const PART_KINDS: PartKind[] = [
     defaults: { teeth: 40 },
     name: p => `WG${p.teeth}`,
   },
+  {
+    id: "mag_gear", title: "Magnetic gear", group: "Magnets",
+    blurb: "A disc with disc magnets standing in slots around its rim, north and south outward in turn (a dot marks north). Two of them on the grid turn each other through a 1 mm air gap like gears of 2.5 teeth per pole, with no contact: 16 poles behave as a 40T, so two MG16 sit four sockets apart. They slip instead of jamming, a built-in torque limiter.",
+    params: [{ key: "poles", label: "Poles (magnets)", type: "select", options: [12, 16, 20, 24].map(v => ({ value: v, label: `${v} magnets, like a ${2.5 * v}T` })) }],
+    defaults: { poles: 16 },
+    name: p => `MG${p.poles}`,
+  },
+  { id: "barrier", title: "Coupling barrier", group: "Magnets", blurb: "A 3 mm spacer with a 0.8 mm flange that fills the gap between the two gears of a magnetic face coupling. It is clamped between the bearings' inner races, so it stands still while both gears turn: torque through a wall.", params: [], defaults: {}, name: () => "MAGB" },
   { id: "flywheel", title: "Flywheel", group: "Drives", blurb: "A disc on the gear hub with eight nut pockets around the rim: drop in nuts for the mass. Smooths a crank's or an escapement's drive.", params: [], defaults: {}, name: () => "FLYWHEEL" },
   {
     id: "rail", title: "Slider rail", group: "Mechanisms",
@@ -313,8 +336,18 @@ export const PART_KINDS: PartKind[] = [
   { id: "winch_flange", title: "Winch flange", group: "Mechanisms", blurb: "Press-on top flange for the winch drum.", params: [], defaults: {}, name: () => "WFLANGE" },
   { id: "hook", title: "Hook", group: "Mechanisms", blurb: "Small hook for the end of the winch string.", params: [], defaults: {}, name: () => "HOOK" },
   {
+    id: "assembly", title: "Kit assembly", group: "Assemblies",
+    blurb: "A kit put together on a board tile: every printed part in the print colour and the hardware (bolts, nuts, bearings, dowel pins, M3 screws, magnets, motors) in steel grey. Exploded pulls everything apart along its bolt in the order it goes on. This is a picture to build from, not a part to print: download the kit zip from the left column.",
+    params: [
+      { key: "kit", label: "Kit", type: "select", options: ASSEMBLY_KITS.map(([value, label]) => ({ value, label })) },
+      { key: "explode", label: "View", type: "select", options: [{ value: 0, label: "Assembled" }, { value: 1, label: "Exploded" }] },
+    ],
+    defaults: { kit: "joint", explode: 0 },
+    name: p => `ASM-${p.kit}${Number(p.explode) ? "-x" : ""}`,
+  },
+  {
     id: "coupon", title: "Fit test coupon", group: "Test",
-    blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets, a dovetail pair, the bearing seat and the coupler peg holes. Print this first and tune the profile.",
+    blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets, a dovetail pair, the bearing seat, the dowel pin holes (slip fit in the bearing block's face, press fit in the strip) and a magnet pocket. Print this first and tune the profile.",
     params: [], defaults: {}, name: () => "COUPON",
   },
 ];
@@ -323,7 +356,10 @@ export const partKind = (id: string) => PART_KINDS.find(k => k.id === id);
 
 export const SIZES = ["M2", "M1.5"] as const;
 export type Size = (typeof SIZES)[number];
-export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; dial_r: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number> };
+export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; dial_r: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number>;
+  /** Hardware beyond the bolts: dowel pin sizes, the M3 screw, magnets, post bolt lengths (mm), the pin circle and the smallest radius that has screw holes. */
+  hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; pin_r: number; screw_min_r: number };
+};
 export type CatalogPart = { name: string; title: string; group: string; params: Params; expect?: Partial<Record<Size, number[]>> };
 export type Kit = { title: string; parts: string[]; hardware: string[] };
 export type Catalog = { standards: Record<Size, Standard>; mesh_rule: string; profiles: string[]; parts: CatalogPart[]; kits: Record<string, Kit> };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
-  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
+  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
   type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type MotorType, type Pin, type Teeth,
 } from "./model";
 import { analyze, billOfMaterials, key, label, ratioText } from "./rules";
@@ -32,13 +32,14 @@ const KINDS: { id: ItemKind; label: string; needsCrank?: boolean }[] = [
   { id: "cam", label: "Cam" }, { id: "follower", label: "Cam follower" }, { id: "geneva", label: "Geneva driver" }, { id: "genevaWheel", label: "Geneva wheel" },
   { id: "escwheel", label: "Escape wheel" }, { id: "anchor", label: "Anchor" }, { id: "winch", label: "Winch drum" },
   { id: "carrier", label: "Planet carrier (planetary set)" }, { id: "bevel", label: "Bevel gear (to a shaft bracket)" }, { id: "wormgear", label: "Worm gear (on a shaft bracket)" }, { id: "flywheel", label: "Flywheel" },
+  { id: "maggear", label: "Magnetic gear (meshes without touching)" },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];
 /** Kinds that turn on their bearing (they can be the input and carry a topper). */
-const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch", "carrier", "bevel", "wormgear", "flywheel"]);
+const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch", "carrier", "bevel", "wormgear", "flywheel", "maggear"]);
 /** Kinds posed by a partner rather than by the train. */
 const POSED: Partial<Record<ItemKind, string>> = { rocker: "oscillates with its crank", pawl: "fixed to the board", follower: "rides its cam", anchor: "rocks with its escape wheel", qrlever: "swings with its crank post" };
-const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "cam", "escwheel", "genevaWheel", "flywheel", "wormgear"]);
+const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "cam", "escwheel", "genevaWheel", "flywheel", "wormgear", "maggear"]);
 const DIRS = ["+x (right)", "+y (up the board)", "−x (left)", "−y (down)"];
 
 /** Phase 3 + 4: build a train on a virtual board, check it, animate it, print it. */
@@ -112,6 +113,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
     if (newKind === "geneva") item.teeth = 40;
     if (newKind === "carrier") { item.teeth = 60; item.legs = "y"; }
     if (newKind === "flywheel") item.teeth = 20;
+    if (newKind === "maggear") item.teeth = MAG_TEETH.includes(newTeeth) ? newTeeth : 40;
     if (newKind === "wormgear" || newKind === "bevel") item.teeth = newTeeth === 20 ? 20 : 40;
     if (selPin) updatePin(selPin.id, p => ({ ...p, gears: [...p.gears, item] }));
     else setLayout(l => ({ ...l, pins: [...l.pins, { id: newId(), x: selected.i, y: selected.j, gears: [item] }] }));
@@ -208,6 +210,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <button type="button" onClick={() => load(addonsLayout(size))}>Add-ons sampler</button>
             <button type="button" onClick={() => load(mechanismsLayout(size))}>Mechanisms sampler</button>
             <button type="button" onClick={() => load(drivesLayout(size))}>Drives sampler</button>
+            <button type="button" onClick={() => load(magnetsLayout(size))}>Magnets sampler</button>
             <button type="button" onClick={() => load(emptyLayout(size))}>Clear</button>
           </div>
         </div>
@@ -320,9 +323,10 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <h2>Layout</h2>
             <p className="blurb">Click a socket on the board to add a pin and an item. Click an item to change it, stack another level on it, or make it the input.</p>
             <p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p>
-            <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part, any other pair gets two coupler halves.</p>
+            <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part, any other pair is held by three steel dowel pins, plus three M3 screws through a joint ring when both are big enough (30T and up). Two plain 40T or bigger gears can be joined by magnets instead, through a fixed barrier.</p>
             <p className="hint">Add-ons: a pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p>
             <p className="hint">Drives: a planet carrier (a 60T gear with four posts) takes a plain 20T sun on the level above it, inside a ring gear whose legs bolt in four sockets away on either side; sun in, carrier out, 4:1. A bevel gear on level 1 turns a shaft bracket's shaft; the worm on the shaft turns a worm gear on level 4. A NEMA 17 sits on a socket with its mount's legs at (−2, 0) and (2, 0). A flywheel is a heavy disc on any pin.</p>
+            <p className="hint">Magnets: a magnetic gear has its magnets standing in the rim, poles alternating, and turns another magnetic gear across a 1 mm gap like a spur gear 2.5 times its magnet count (16 magnets = 40T), so the same spacing rule applies. It slips instead of stalling. It collides with toothed gears.</p>
             <p className="hint">Mechanisms: a cam wants its follower two sockets away on its level. A Geneva driver (a 40T with a post and a locking crescent one level up) indexes a Geneva wheel three sockets away, one level above it. An escape wheel wants its anchor two sockets away. A quick-return lever on a crank's row, two levels above its gear, swings with the crank post. A partial gear drives in bursts. A wind-up spring sits on a plain gear of {springMinTeeth(layout.size)}T or more. A slider rail bolts to the board and carries a rack, a scotch yoke or a crank slider.</p>
             {analysis.problems.length > 0 && <ul className="problems">{analysis.problems.map((p, i) => <li key={i} className="err">{p.text}</li>)}</ul>}
           </>
@@ -417,6 +421,11 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                           </select>
                         )}
                         {kind === "flywheel" && <span className="muted">Flywheel, {2 * d.grid - 2.5} mm radius</span>}
+                        {kind === "maggear" && (
+                          <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
+                            {MAG_TEETH.map(t => <option key={t} value={t}>{t / 2.5} magnets · turns like a {t}T</option>)}
+                          </select>
+                        )}
                         {kind === "qrlever" && <span className="muted">Quick-return lever</span>}
                         <button type="button" onClick={() => updatePin(selPin!.id, p => { const gears = p.gears.filter(x => x.level !== level); return gears.length ? { ...p, gears } : null; })}>Remove</button>
                       </div>
@@ -455,7 +464,10 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                       )}
                       <div className="row">
                         {level > 1 && gearAt(selPin!, level - 1) && !POSED[kind] && (
-                          <label className="check"><input type="checkbox" checked={g.joined} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, joined: e.target.checked }))} /> joined to level {level - 1}</label>
+                          <label className="check"><input type="checkbox" checked={g.joined} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, joined: e.target.checked, coupling: e.target.checked ? x.coupling : undefined }))} /> joined to level {level - 1}</label>
+                        )}
+                        {g.joined && (g.coupling === "magnetic" || (kind === "gear" && kindOf(gearAt(selPin!, level - 1)!) === "gear" && g.teeth >= MAG_COUPLE_MIN && gearAt(selPin!, level - 1)!.teeth >= MAG_COUPLE_MIN)) && (
+                          <label className="check"><input type="checkbox" checked={g.coupling === "magnetic"} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, coupling: e.target.checked ? "magnetic" : undefined }))} /> by magnets</label>
                         )}
                         {TURNING.has(kind) && <label className="check"><input type="radio" name="input" checked={isInput} onChange={() => setInput(selPin!.id, level)} /> input</label>}
                       </div>
@@ -474,6 +486,9 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                           )}
                         </div>
                       )}
+                      {g.joined && gearAt(selPin!, level - 1) && <p className="hint">{g.coupling === "magnetic"
+                        ? "Six magnets in each face, a fixed barrier between them: drive one gear and the other follows, slipping instead of stalling."
+                        : hasScrews(layout.size, g) && hasScrews(layout.size, gearAt(selPin!, level - 1)!) ? "Joined with three dowel pins and three M3 screws through a joint ring." : "Joined with three dowel pins (too small for the M3 screws)."}</p>}
                       {g.topper === "crank" && <p className="hint">A handle rides the post, or a rocker, a quick-return lever or a rail carriage at level {crankLinkLevel(level)} follows it.</p>}
                       {g.topper === "spring" && <p className="hint">The gear gets a wall for the spiral spring; the spring's boss grips the bearing's inner race, so the pin must not turn: wind it with the knob and let the train run down.</p>}
                     </div>

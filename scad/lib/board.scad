@@ -34,9 +34,17 @@ module dovetail_2d(grow = 0) {
 }
 
 // Which key goes at index i of m positions along one edge:
-// 1 = male, -1 = female, 0 = none. Alternating, with the middle skipped when m
-// is odd, so an edge mates with the reversed copy of itself.
-function key_kind(i, m) = (m % 2 == 1 && i == (m - 1) / 2) ? 0 : (i % 2 == 0 ? 1 : -1);
+// 1 = male, -1 = female, 0 = none. Two tiles meet edge to edge with one edge
+// reversed, so the pattern must be its own complement when reversed:
+// key_kind(m - 1 - i) == -key_kind(i). The first half alternates male, female,
+// ...; the second half mirrors it with the kinds swapped; an odd middle is
+// skipped. (A 2-socket edge has one position, the middle, and gets no key.)
+// m = 3: male, none, female.  m = 4: male, female, male, female.
+// m = 5: male, female, none, male, female.
+function key_kind(i, m) =
+    i < floor(m / 2) ? (i % 2 == 0 ? 1 : -1)
+    : (m % 2 == 1 && i == (m - 1) / 2) ? 0
+    : -key_kind(m - 1 - i, m);
 
 // Positions along the tile edges, walking counter-clockwise: [x, y, angle, kind]
 // angle is the outward normal of that edge.

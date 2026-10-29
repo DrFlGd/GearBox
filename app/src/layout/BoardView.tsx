@@ -16,7 +16,7 @@ type Props = {
   playing: boolean; onPick: (p: Pick) => void; onHover: (p: Pick) => void;
 };
 
-const COLORS = { driven: 0xe8b44c, idle: 0x7a8296, collide: 0xff6b62, input: 0x7ee787, board: 0x2b3240, boardTop: 0x343c4c, socket: 0x171a21, socketHover: 0xe8b44c, bolt: 0xb8bec9, knob: 0xd9dde5, select: 0x58a6ff, addon: 0xc9a2ff, band: 0x3c3c3c, motor: 0x4a5568, rail: 0x5c6b8a, carriage: 0x8fa3c7 };
+const COLORS = { driven: 0xe8b44c, idle: 0x7a8296, collide: 0xff6b62, input: 0x7ee787, board: 0x2b3240, boardTop: 0x343c4c, socket: 0x171a21, socketHover: 0xe8b44c, bolt: 0xb8bec9, knob: 0xd9dde5, select: 0x58a6ff, addon: 0xc9a2ff, band: 0x3c3c3c, motor: 0x4a5568, rail: 0x5c6b8a, carriage: 0x8fa3c7, north: 0xd9534f, south: 0x4f7fd9 };
 
 type LinkAnim = { l: Linkage; crankMesh: THREE.Mesh; coupler: THREE.Mesh; rocker: THREE.Mesh; rockerPos: THREE.Vector3; crankPos: THREE.Vector3; z: number; barH: number; barW: number };
 /** What the frame loop needs for a picked item: its own motion, or a fixed angle. */
@@ -165,6 +165,8 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     const boltR = Number(d.bolt.slice(1)) / 2;
     const bearingOd = bearingOD(size), boreR = bearingOd / 2;
     const boltMat = new THREE.MeshStandardMaterial({ color: COLORS.bolt, metalness: 0.6, roughness: 0.35 });
+    const northMat = new THREE.MeshStandardMaterial({ color: COLORS.north, roughness: 0.5 });
+    const southMat = new THREE.MeshStandardMaterial({ color: COLORS.south, roughness: 0.5 });
     const knobMat = new THREE.MeshStandardMaterial({ color: COLORS.knob, roughness: 0.6 });
     const addonMat = new THREE.MeshStandardMaterial({ color: COLORS.addon, roughness: 0.6 });
     const motorMat = new THREE.MeshStandardMaterial({ color: COLORS.motor, roughness: 0.7 });
@@ -245,7 +247,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const k = key(pin, gear.level);
         const speed = analysis.speed.get(k) ?? 0;
         const kind = kindOf(gear);
-        const plain = kind === "gear" || kind === "pulley" || kind === "ratchet" || kind === "partial" || kind === "geneva" || kind === "genevaWheel" || kind === "cam" || kind === "escwheel" || kind === "winch" || kind === "carrier" || kind === "bevel" || kind === "wormgear" || kind === "flywheel";
+        const plain = kind === "gear" || kind === "pulley" || kind === "ratchet" || kind === "partial" || kind === "geneva" || kind === "genevaWheel" || kind === "cam" || kind === "escwheel" || kind === "winch" || kind === "carrier" || kind === "bevel" || kind === "wormgear" || kind === "flywheel" || kind === "maggear";
         const color = collide.has(k) ? COLORS.collide : k === inputKey ? COLORS.input : speed ? COLORS.driven : plain ? COLORS.idle : COLORS.addon;
         const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, flatShading: true });
         const z = gearZ(size, gear.level);
@@ -255,7 +257,35 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const b = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(x1 - x0, y1 - y0), w, h), mat);
           b.position.set((x0 + x1) / 2, (y0 + y1) / 2, zc); b.rotation.z = Math.atan2(y1 - y0, x1 - x0); return b;
         };
-        if (kind === "gear") mesh = new THREE.Mesh(gearGeometry(gear.teeth, d.module, T, boreR), mat);
+        if (kind === "gear") {
+          mesh = new THREE.Mesh(gearGeometry(gear.teeth, d.module, T, boreR), mat);
+          // a magnetic face coupling: dots for the magnets in the joined faces, and the barrier between
+          const above = pin.gears.find(o => o.level === gear.level + 1);
+          const magTop = above?.joined && above.coupling === "magnetic", magBot = gear.joined && gear.coupling === "magnetic";
+          if (magTop || magBot) {
+            const mr = 11 * d.module, md = size === "M1.5" ? 4 : 6;
+            for (let i = 0; i < 6; i++) {
+              const dot = new THREE.Mesh(cylUp(md / 2, 0.6, 16), i % 2 ? southMat : northMat);
+              dot.position.set(mr * Math.cos((i * Math.PI) / 3), mr * Math.sin((i * Math.PI) / 3), magTop ? T : -0.6); mesh.add(dot);
+            }
+          }
+          if (magTop) {
+            const br = new THREE.Mesh(cyl(11 * d.module + (size === "M1.5" ? 2 : 3) + 4, 0.8, 48), new THREE.MeshStandardMaterial({ color: COLORS.rail, transparent: true, opacity: 0.55 }));
+            br.position.set(pos.x, pos.y, z + T + (d.level - T) / 2); s.group.add(br);
+          }
+        } else if (kind === "maggear") {
+          // a disc with its magnets standing in the rim, poles alternating
+          const r = itemR(size, gear), n = Math.round(gear.teeth / 2.5);
+          const disc = new THREE.Shape(); disc.absarc(0, 0, r, 0, 2 * Math.PI, false);
+          const bore = new THREE.Path(); bore.absarc(0, 0, boreR, 0, 2 * Math.PI, true); disc.holes.push(bore);
+          mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(disc, { depth: T, bevelEnabled: false, curveSegments: 48 }), mat);
+          const md = size === "M1.5" ? 4 : 6, mh = size === "M1.5" ? 2 : 3;
+          for (let i = 0; i < n; i++) {
+            const a = ((i + 0.5) * 2 * Math.PI) / n;
+            const pole = new THREE.Mesh(new THREE.BoxGeometry(mh, md, 0.8), i % 2 ? southMat : northMat);
+            pole.position.set((r - 1 - mh / 2) * Math.cos(a), (r - 1 - mh / 2) * Math.sin(a), T + 0.2); pole.rotation.z = a; mesh.add(pole);
+          }
+        }
         else if (kind === "partial") mesh = new THREE.Mesh(gearGeometry(gear.teeth, d.module, T, boreR, gear.keep ?? 0.5), mat);
         else if (kind === "pulley") mesh = new THREE.Mesh(pulleyGeometry(itemR(size, gear), T, boreR), mat);
         else if (kind === "ratchet") mesh = new THREE.Mesh(ratchetGeometry(d.grid - 2.5, 1.6 * d.module, T, boreR), mat);

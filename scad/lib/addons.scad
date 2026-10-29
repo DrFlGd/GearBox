@@ -1,11 +1,11 @@
 // addons.scad - phase 4a: what rides on a gear face or a pin besides gears.
 //
-//   crank(throw)       hub ring that pegs into a gear's top face, with a thick
-//                      arm and a press-fit socket for a post at `throw` mm
-//   post(h)            the post: a bearing or a handle rides on it, a cap holds it
-//   joint()            flanged post that joins two links to each other
-//   handle()           free-spinning grip that drops over a long post
-//   cap()              press-fit cap for the top of a post
+//   crank(throw)       hub ring pinned to a gear's top face, with a thick arm and
+//                      a bolt pocket at `throw` mm: a kit bolt is the crank post
+//   handle()           free-spinning grip over a long spacer on the crank bolt
+//   joint()            flanged post that joins two links, cap pinned on top
+//   cap()              disc keyed by a dowel pin into the top of a printed post
+//   post(h)            legacy printed crank post (before the bolt posts)
 //   pointer()          hub ring with a thin arm that reaches past the dial knob
 //   dial_knob()        the knob with a numbered disc: the pointer reads its rim
 //   pulley(n)          grooved wheel for rubber bands, diameter MOD * n like a gear
@@ -13,60 +13,75 @@
 //   ratchet()          12 tooth sawtooth wheel on the gear hub
 //   pawl(flip)         clamps on a pin two sockets away, a leaf spring tooth
 //
-// Every part prints flat without support. Parts with pegs (crank, pointer)
-// print pegs up, which is upside down from how they sit on the gear.
+// Every part prints flat without support. Cranks and pointers print hub ring up
+// (upside down from how they sit on the gear) so the hex pocket and pin holes face up.
 
 include <standard.scad>
 include <gear.scad>
 
-HUB_T   = 2;                          // ring under the knob: 3 mm gap, 1 mm to spare
 HUB_ID  = SPACER_OD + 1.5;            // clears the knob boss
 ARM_W   = 7 * MOD;                    // 14 / 10.5
-ARM_T   = LEVEL + HUB_T;              // thick part of a crank: its post starts at level + 2
+ARM_T   = LEVEL + 2;                  // thick part of a crank: the bolt's bearing seat starts at level + 2
 R_FREE  = KNOB_D / 2 + 1.5;           // beyond this radius a part may rise above the hub ring
-POST_D  = BOLT[0] - 0.1;              // a bearing's bore slides over it
-STEM_D  = 3 * MOD;                    // press-fit stem of the post, 6 / 4.5
+POST_D  = BOLT[0] - 0.1;              // printed posts (slider post, Geneva driver, legacy posts): a bearing's bore slides over it
+STEM_D  = 3 * MOD;                    // legacy press-fit stem of a printed post, 6 / 4.5
 STEM_H  = ARM_T - 2;
-CAP_D   = 3.2;                        // cap stem hole in the post top
+CAP_D   = PIN_D + fit("pin_press");   // a dowel pin pressed through the cap keys it into a post top
+CRANK_BOSS = 1;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin
 DIAL_R  = SMALL ? 13 : 17;            // dial knob disc: clears a neighbour's gear one level up
 DIAL_T  = 2.5;
 
-// Hub ring with three pegs down, as the coupler half has. z = 0 is the ring bottom.
+// Hub ring with three press-fit holes for the short hub pins (every other face
+// hole). The pins stand PIN_DEPTH - 0.1 proud below the ring and drop into the gear.
+// z = 0 is the ring bottom.
 module hub_ring(t = HUB_T) {
-    peg_h = PEG_DEPTH - 0.3;
+    d = PIN_D + fit("pin_press");
     difference() {
-        union() {
-            cylinder(d = CPL_OD, h = t);
-            for (i = [0, 2, 4]) rotate(i * 360 / PEG_N) translate([PEG_R, 0, -peg_h]) {
-                cylinder(d1 = PEG_D - 0.8, d2 = PEG_D, h = 0.4, $fn = 32);
-                translate([0, 0, 0.4 - EPS]) cylinder(d = PEG_D, h = peg_h - 0.4 + EPS, $fn = 32);
-            }
-        }
-        translate([0, 0, -peg_h - 1]) cylinder(d = HUB_ID, h = t + peg_h + 2);
+        cylinder(d = CPL_OD, h = t);
+        translate([0, 0, -1]) cylinder(d = HUB_ID, h = t + 2);
+        for (i = [0, 2, 4]) rotate(i * 360 / PIN_N) translate([PIN_R, 0, -1]) cylinder(d = d, h = t + 2, $fn = 32);
     }
 }
 
-// Crank: a hub ring, a thick arm beyond the knob and a socket for a post at
-// `throw` from the axis. The post top then sits two levels above the gear, so
-// a link on the post lines up with a link on a pin two levels up.
+// Bolt post: a kit bolt dropped through a part from below, hex head in a flush
+// pocket, a boss on top that presses only the bearing inner race, a nut above
+// the bearing (or the handle's spacer) holds it. z = 0 is the part's bottom, h its
+// top, boss the boss height.
+module bolt_pocket(h, boss) {
+    af = BOLT[1] + fit("nut_clear");
+    translate([0, 0, -EPS]) cylinder(d = af / cos(30), h = BOLT[2] + 0.2 + EPS, $fn = 6);
+    translate([0, 0, -1]) cylinder(d = BOLT[0] + fit("bolt_clear"), h = h + boss + 2);
+}
+// Shortest stock bolt for a post: shank through the part above the head, the boss,
+// what rides on it and a nut, plus a thread.
+function post_bolt(h, boss, rides) = let(l = h - BOLT[2] + boss + rides + NUT_H + 1) ceil(l / 5) * 5;
+function bolt_end_d() = (BOLT[1] + fit("nut_clear")) / cos(30) + 2 * BOSS_WALL + 0.8;   // wall around the hex pocket
+
+// Crank: a hub ring, a thick arm beyond the knob and a bolt pocket at `throw` from
+// the axis: a 1-level bolt is the crank post, its bearing (or the handle's
+// spacer) sits on the boss two levels above the gear, so a link on it lines up
+// with a link on a pin two levels up. A nut on top keeps it.
 module crank(throw = 2 * GRID) {
     assert(throw >= R_FREE + ARM_W / 2, "throw too short for the knob");
-    stem = STEM_D + fit("post_fit");
+    de = max(ARM_W + 2, bolt_end_d());
     difference() {
         union() {
             hub_ring();
             // thin arm from the hub to the thick part
             linear_extrude(HUB_T) hull() { translate([CPL_OD / 2 - ARM_W / 2, 0]) circle(d = ARM_W); translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); }
-            // thick arm to the post socket
-            linear_extrude(ARM_T) hull() { translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); translate([throw, 0]) circle(d = ARM_W + 2); }
+            // thick arm to the bolt pocket
+            linear_extrude(ARM_T) hull() { translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); translate([throw, 0]) circle(d = de); }
+            translate([throw, 0, ARM_T - EPS]) cylinder(d = SPACER_OD, h = CRANK_BOSS + EPS);
         }
-        translate([throw, 0, ARM_T - STEM_H]) cylinder(d = stem, h = STEM_H + EPS);
-        translate([0, 0, -PEG_DEPTH]) cylinder(d = HUB_ID, h = ARM_T + PEG_DEPTH + EPS);
+        translate([throw, 0, 0]) bolt_pocket(ARM_T, CRANK_BOSS);
+        translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
     }
 }
+function crank_top() = ARM_T + CRANK_BOSS;
+function crank_bolt(handle = false) = post_bolt(ARM_T, CRANK_BOSS, handle ? HANDLE_H + 1 : BEARING[2]);
 
-// Post: press the stem into a crank. A bearing (link) or the handle rides on
-// the post; the cap presses into the hole on top and keeps it there.
+// Legacy post: press the stem into an old crank. A bearing (link) or the handle
+// rides on the post; the cap pins into the hole on top and keeps it there.
 module post(h = GEAR_T + 3) {
     union() {
         translate([0, 0, -STEM_H]) cylinder(d = STEM_D, h = STEM_H + EPS);
@@ -82,9 +97,9 @@ module post(h = GEAR_T + 3) {
 }
 
 // Joint post: joins two links away from any pin. A flange underneath, a bearing
-// in each link with a 3 mm spacer between, the cap on top.
+// in each link with a 3 mm spacer between, the cap pinned on top.
 module joint() {
-    h = 2 * GEAR_T + SPACER_H + 2.5;
+    h = 2.5 + 2 * BEARING[2] + SPACER_H - 0.2;   // just under the upper bearing's top: the cap clamps both inner races
     difference() {
         union() {
             cylinder(d = POST_D + 6, h = 1.5);
@@ -92,34 +107,34 @@ module joint() {
             cylinder(d = POST_D, h = h - 0.5);
             translate([0, 0, h - 0.5]) cylinder(d1 = POST_D, d2 = POST_D - 1, h = 0.5);
         }
-        translate([0, 0, h - 5]) cylinder(d = CAP_D, h = 5 + EPS);
+        translate([0, 0, h - PIN_L + 1.5 + 0.3]) cylinder(d = CAP_D, h = PIN_L, $fn = 32);
     }
 }
 
-// Handle: a grip that spins on the long post.
-module handle(h = 26) {
+// Handle: a grip that spins over a spacer (HANDLE_H + 1 tall) on the crank's
+// bolt; the nut clamps the spacer, not the grip.
+HANDLE_H = SMALL ? 22 : 26;
+module handle(h = HANDLE_H) {
     difference() {
         union() {
-            cylinder(d = POST_D + 6, h = h);
-            for (z = [4 : 4 : h - 5]) translate([0, 0, z]) cylinder(d = POST_D + 7.5, h = 1.5);
+            cylinder(d = SPACER_OD + 7, h = h);
+            for (z = [4 : 4 : h - 5]) translate([0, 0, z]) cylinder(d = SPACER_OD + 8.5, h = 1.5);
         }
-        translate([0, 0, -EPS]) cylinder(d = POST_D + fit("bore_clear"), h = h + 2 * EPS);
+        translate([0, 0, -EPS]) cylinder(d = SPACER_OD + fit("bore_clear"), h = h + 2 * EPS);
     }
 }
 
-// Cap: a disc with a slotted stem that presses into the post top.
+// Cap: a disc for the top of a printed post (slider post, legacy posts). A dowel
+// pin pressed through its centre hole goes into the post and keys the cap on.
 module cap() {
     difference() {
-        union() {
-            cylinder(d = POST_D + 3, h = 1.5);
-            translate([0, 0, 1.5 - EPS]) cylinder(d = CAP_D + 0.2, h = 4.5);
-        }
-        translate([-0.4, -CAP_D, 2.5]) cube([0.8, 2 * CAP_D, 4]);
+        cylinder(d = POST_D + 3, h = 1.5);
+        translate([0, 0, -EPS]) cylinder(d = CAP_D, h = 1.5 + 2 * EPS, $fn = 32);
     }
 }
 
 // Pointer: hub ring and a thin arm that runs under the dial knob's disc and
-// shows past its rim. Prints pegs up.
+// shows past its rim. Prints hub ring up.
 module pointer() {
     reach = DIAL_R + 4;
     w = 3 * MOD;
@@ -128,7 +143,7 @@ module pointer() {
             hub_ring();
             linear_extrude(HUB_T) hull() { translate([CPL_OD / 2 - w, 0]) circle(d = 2 * w); translate([reach, 0]) circle(d = w); }
         }
-        translate([0, 0, -PEG_DEPTH]) cylinder(d = HUB_ID, h = ARM_T + PEG_DEPTH + EPS);
+        translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
     }
 }
 
@@ -182,8 +197,7 @@ module pulley(n = 40) {
         cylinder(d = d, h = GEAR_T);
         rotate_extrude() translate([d / 2, GEAR_T / 2]) hull() { circle(d = g); translate([g, 0]) circle(d = g); }
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        face_joints(GEAR_T, d / 2 - g - 1);
         face_pattern(n, n >= 40 ? "spokes" : "solid");
     }
 }
@@ -217,8 +231,8 @@ module ratchet() {
     difference() {
         linear_extrude(GEAR_T) ratchet_2d();
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        translate([0, 0, GEAR_T]) pin_holes();
+        mirror([0, 0, 1]) pin_holes();
     }
 }
 

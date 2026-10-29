@@ -20,7 +20,7 @@ const LS_KEY = "gearbox.settings";
 
 type Selection = { kindId: string; params: Params };
 type Settings = { size: Size; profile: Profile; overrides: Overrides; auto: boolean };
-type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; seconds: number; messages: string[]; log: string[] };
+type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; hw?: Uint8Array | null; seconds: number; messages: string[]; log: string[] };
 
 function loadSettings(): Settings {
   try {
@@ -91,10 +91,19 @@ export default function App() {
     if (c.busy) c.cancel();
     liveLog.current = [];
     setRender(r => ({ ...r, status: "rendering", name, log: [] }));
-    const result: RenderResult = await c.render(defs, "stl", line => { liveLog.current.push(line); if (liveLog.current.length % 20 === 0) bump(n => n + 1); });
+    const onLine = (line: string) => { liveLog.current.push(line); if (liveLog.current.length % 20 === 0) bump(n => n + 1); };
+    // an assembly renders twice: the printed parts, then the hardware for the steel-grey mesh
+    const asm = kind.id === "assembly";
+    const result: RenderResult = await c.render(asm ? [...defs, `layer="printed"`] : defs, "stl", onLine);
     if (result.messages[0] === "Cancelled") return;
-    setRender({ status: result.ok ? "done" : "error", name, stl: result.ok ? result.bytes : null, seconds: result.seconds, messages: result.messages, log: result.log });
-  }, [defs, name]);
+    let hw: Uint8Array | null = null, seconds = result.seconds;
+    if (asm && result.ok) {
+      const h = await c.render([...defs, `layer="hardware"`], "stl", onLine);
+      if (h.messages[0] === "Cancelled") return;
+      if (h.ok) hw = h.bytes; seconds += h.seconds;
+    }
+    setRender({ status: result.ok ? "done" : "error", name, stl: result.ok ? result.bytes : null, hw, seconds, messages: result.messages, log: result.log });
+  }, [defs, name, kind.id]);
 
   // Auto-render: the first time the engine is ready, and after each change (debounced).
   const lastRendered = useRef("");
@@ -196,7 +205,7 @@ export default function App() {
               <button type="button" disabled={!mesh || busy} onClick={() => download(meshToObj(mesh!, render.name), `${fileBase}.obj`, "model/obj")}>OBJ</button>
             </span>
           </div>
-          <Viewer stl={render.stl} busy={busy} grid={std.grid} />
+          <Viewer stl={render.stl} hardware={kind.id === "assembly" ? render.hw : null} busy={busy} grid={std.grid} />
           <LogPanel lines={render.status === "rendering" ? liveLog.current : render.log} messages={render.messages} />
         </main>
 
@@ -205,6 +214,31 @@ export default function App() {
           <p className="blurb">{kind.blurb}</p>
           <ParamForm params={kind.params} values={sel.params} onChange={setParam} />
           {problem && <p className="err">{problem}</p>}
+          <div className="download-box">
+            <button type="button" className="primary" disabled={!render.stl || busy} onClick={() => download(render.stl!, `${fileBase}.stl`, "model/stl")}>
+              {render.stl && !busy ? `Download ${fileBase}.stl` : busy ? "Rendering…" : "Render first, then download"}
+            </button>
+            <span className="row">
+              <button type="button" disabled={!mesh || busy} onClick={() => download(meshTo3mf(mesh!, render.name), `${fileBase}.3mf`, "model/3mf")}>3MF</button>
+              <button type="button" disabled={!mesh || busy} onClick={() => download(meshToObj(mesh!, render.name), `${fileBase}.obj`, "model/obj")}>OBJ</button>
+              <span className="muted small">this one part, as rendered above; kits and the whole catalog are in the left column</span>
+            </span>
+          </div>
+          {kind.id === "assembly" && catalog.kits[String(sel.params.kit)] && (() => {
+            const kit = catalog.kits[String(sel.params.kit)];
+            const counts = kit.parts.reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
+            return (
+              <div className="kit-contents">
+                <h3>In this kit</h3>
+                <ul>
+                  {Object.entries(counts).map(([n, c]) => <li key={n}>{c > 1 ? `${c} × ` : ""}<code>{n}</code> {catalogPart(n)?.title ?? ""}</li>)}
+                </ul>
+                <h3>Hardware <span className="muted small">(steel grey in the view)</span></h3>
+                <ul>{kit.hardware.map((h, i) => <li key={i}>{h}</li>)}</ul>
+                <p className="muted small">The download above is the whole assembly as one mesh, for looking at. Print the parts one by one from the kit zip.</p>
+              </div>
+            );
+          })()}
           {(kind.id === "gear" || kind.id === "compound") && Number.isFinite(teeth) && (
             <p className="hint">Meshes with: {meshesWith(teeth).map(t => `${t}T`).join(", ")}. Pitch diameter {std.module * teeth} mm, {std.grid} mm grid.</p>
           )}

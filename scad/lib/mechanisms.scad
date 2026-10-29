@@ -3,14 +3,14 @@
 //   rail(n)                 channel bolted along a row of n sockets, carriages slide on its ridge
 //   carriage()              plain carriage with a plug pocket on top: the yoke or the slider post plugs in
 //   rack_carriage(len, lv)  carriage with rack teeth at level `lv`; a gear on the next rows drives it
-//   yoke(lv, throw, reach)  scotch yoke: tower and arm with a slot that a crank post's bearing rides in
-//   slider_post(lv)         post on the carriage: a link from a crank post makes a crank slider
+//   yoke(lv, throw, reach)  scotch yoke: tower and arm with a slot that the crank bolt's bearing rides in
+//   slider_post(lv)         post on the carriage: a link from a crank bolt makes a crank slider
 //   cam(kind)               eccentric, heart or snail cam disc on the gear hub
 //   follower()              rocker arm on a pin two sockets from the cam, nose rides the cam
 //   geneva_driver(n)        40T gear with a locking crescent and drive post on top
 //   geneva_wheel(n)         n slot wheel three sockets away, one level above the driver gear
 //   partial_gear(t, keep)   gear with teeth on half or a quarter of its rim
-//   qr_lever(d, throw)      slotted lever: a crank post's bearing in the slot makes a quick return
+//   qr_lever(d, throw)      slotted lever: the crank bolt's bearing in the slot makes a quick return
 //   escape_wheel()          15 tooth escape wheel
 //   anchor(cw)              recoil anchor with a balance bar on a pin two sockets away
 //   spring_gear(t)          gear with a wall on its top face: the spiral spring winds inside it
@@ -123,21 +123,22 @@ module yoke(level = 1, throw = 20, reach = 3) {
     }
 }
 
-// Slider post: plugs into the carriage, its shoulder at level + 2 like a crank post,
-// so a link joins it to the crank post of a gear at `level`. Prints standing.
+// Slider post: plugs into the carriage, its shoulder at level + 2 like a crank bolt's
+// boss, so a link joins it to the crank of a gear at `level`. A pinned cap keeps the
+// link's bearing on. Prints standing.
 module slider_post(level = 1) {
     assert(level >= 1 && level <= 2, "slider: crank gear on level 1 or 2");
-    zs = lvl_z(level + 2);
-    h = zs + 1 + GEAR_T + 2.5;
+    zs = lvl_z(level + 2);                 // the link's bearing sits here, as on a crank bolt
+    h = zs + BEARING[2] - 0.2;             // just under the bearing top: the cap clamps the inner race
     difference() {
         union() {
             plug();
-            translate([0, 0, BASE_TOP - EPS]) cylinder(d = PLUG_W, h = zs - BASE_TOP + EPS);
-            translate([0, 0, zs - EPS]) cylinder(d = POST_D + 2, h = 1 + EPS);
+            translate([0, 0, BASE_TOP - EPS]) cylinder(d = PLUG_W, h = zs - 1 - BASE_TOP + EPS);
+            translate([0, 0, zs - 1 - EPS]) cylinder(d = POST_D + 2, h = 1 + EPS);
             translate([0, 0, zs]) cylinder(d = POST_D, h = h - zs - 0.5);
             translate([0, 0, h - 0.5]) cylinder(d1 = POST_D, d2 = POST_D - 1, h = 0.5);
         }
-        translate([0, 0, h - 5]) cylinder(d = CAP_D, h = 5 + EPS);
+        translate([0, 0, h - PIN_L + 1.5 + 0.3]) cylinder(d = CAP_D, h = PIN_L, $fn = 32);   // the cap's pin: 1.5 mm in the cap, the rest in the post
     }
 }
 
@@ -153,8 +154,8 @@ module cam(kind = "eccentric") {
     difference() {
         linear_extrude(GEAR_T) polygon([for (a = [0 : 2 : 358]) cam_r(kind, a) * [cos(a), sin(a)]]);
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        translate([0, 0, GEAR_T]) pin_holes();
+        mirror([0, 0, 1]) pin_holes();
     }
 }
 // Follower: pivots on a pin two sockets from the cam, its nose rides the cam, a
@@ -197,7 +198,7 @@ module geneva_driver(n = 6) {
         }
         bearing_seat(ledge_at_bottom = false);
         translate([0, 0, LEVEL - 1]) bearing_seat();
-        mirror([0, 0, 1]) peg_holes();
+        mirror([0, 0, 1]) pin_holes();
         rotate(30) face_pattern(40, "holes");   // between the holes, the post has solid material under it
     }
 }
@@ -213,8 +214,8 @@ module geneva_wheel(n = 6) {
             for (i = [0 : n - 1]) rotate(i * 360 / n + 180 / n) translate([GEN_C, 0]) circle(r = rl + 0.4);
         }
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        translate([0, 0, GEAR_T]) pin_holes();
+        mirror([0, 0, 1]) pin_holes();
     }
 }
 
@@ -232,22 +233,23 @@ module partial_gear(teeth = 40, keep = 0.5) {
 }
 
 // Quick return: slotted lever pivoting on a pin `d` grid steps from a crank; the
-// crank post's bearing rides in the slot. A post socket at the far end takes a link.
+// crank bolt's bearing rides in the slot. A bolt pocket at the far end takes a
+// 1-level bolt as the post for a link one level up.
 module qr_lever(d = 3, throw = 20) {
     D = d * GRID;
     r1 = D - throw - SLOT_W / 2 - 1; r2 = D + throw + SLOT_W / 2 + 1;
     assert(r1 >= BEARING[1] / 2 + 4, "quick return: the crank reaches the lever's pivot, use more distance or less throw");
     w = SLOT_W + 8;
-    rs = r2 + 4 + STEM_D;
-    stem = STEM_D + fit("post_fit");
+    de = max(w, bolt_end_d());
+    rs = r2 + de / 2 + 1;
     difference() {
         union() {
-            linear_extrude(GEAR_T) hull() { circle(d = w); translate([rs, 0]) circle(d = w); }
-            translate([rs, 0, 0]) cylinder(d = w - 2, h = STEM_H + 2);
+            linear_extrude(GEAR_T) hull() { circle(d = w); translate([rs, 0]) circle(d = de); }
+            translate([rs, 0, GEAR_T - EPS]) cylinder(d = SPACER_OD, h = SPACER_H + EPS);
         }
         bearing_seat();
         translate([0, 0, -1]) linear_extrude(GEAR_T + 2) hull() { translate([r1 + SLOT_W / 2, 0]) circle(d = SLOT_W); translate([r2 - SLOT_W / 2, 0]) circle(d = SLOT_W); }
-        translate([rs, 0, 2]) cylinder(d = stem, h = STEM_H + 1);
+        translate([rs, 0, 0]) bolt_pocket(GEAR_T, SPACER_H);
     }
 }
 
@@ -270,8 +272,8 @@ module escape_wheel() {
             (ESC_R - ESC_DEPTH) * [cos(p + 0.8 * beta), sin(p + 0.8 * beta)],
             (ESC_R - ESC_DEPTH) * [cos(p + 0.96 * beta), sin(p + 0.96 * beta)]]]);
         bearing_seat();
-        translate([0, 0, GEAR_T]) peg_holes();
-        mirror([0, 0, 1]) peg_holes();
+        translate([0, 0, GEAR_T]) pin_holes();
+        mirror([0, 0, 1]) pin_holes();
     }
 }
 function esc_t(qf, R, r) = let(s = sqrt(max(0, qf * qf - (R * R - r * r))), t1 = -qf + s, t2 = -qf - s) abs(t1) < abs(t2) ? t1 : t2;
@@ -365,7 +367,7 @@ module winch() {
         }
         bearing_seat(ledge_at_bottom = false);
         translate([0, 0, LEVEL - 1]) bearing_seat();
-        mirror([0, 0, 1]) peg_holes();
+        mirror([0, 0, 1]) pin_holes();
         translate([WINCH_CORE_R + 4, 0, -1]) cylinder(d = 2.4, h = 4, $fn = 16);
     }
 }
