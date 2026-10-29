@@ -21,6 +21,10 @@ function initialLayout(size: Size): Layout {
 }
 
 /** Phase 3: build a train on a virtual board, check it, animate it, print it. */
+// tiles across/down: 1..MAX_TILES (a 16x16 board of 8x8 tiles is 128x128 sockets, still fine to draw)
+const MAX_TILES = 16;
+const clampTiles = (v: string) => Math.min(MAX_TILES, Math.max(1, Math.round(Number(v) || 1)));
+
 export default function LayoutMode({ size, profile, overrides, render, engineReady }: Props) {
   const [layout, setLayoutRaw] = useState<Layout>(() => initialLayout(size));
   const [selected, setSelected] = useState<{ i: number; j: number } | null>(null);
@@ -106,9 +110,9 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
           </label>
           <label className="field"><span className="field-label">Tiles across × down</span>
             <div className="row">
-              <select value={layout.tiles.cols} onChange={e => resize({ cols: Number(e.target.value) })}>{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+              <input type="number" min={1} max={MAX_TILES} value={layout.tiles.cols} onChange={e => resize({ cols: clampTiles(e.target.value) })} />
               <span>×</span>
-              <select value={layout.tiles.rows} onChange={e => resize({ rows: Number(e.target.value) })}>{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select>
+              <input type="number" min={1} max={MAX_TILES} value={layout.tiles.rows} onChange={e => resize({ rows: clampTiles(e.target.value) })} />
             </div>
             <span className="field-help">{boardW(layout)} × {boardH(layout)} sockets, {boardW(layout) * d.grid} × {boardH(layout) * d.grid} mm</span>
           </label>
