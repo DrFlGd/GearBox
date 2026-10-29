@@ -12,12 +12,13 @@ include <standard.scad>
 
 // Everything removed from the tile for one socket, centred on the origin,
 // z = 0 at the plate underside, z = PLATE_T at the plate top.
-module socket_cut() {
+// turn = true turns the nut pocket 30 degrees (see NUT_STAGGER).
+module socket_cut(turn = false) {
     bolt = BOLT[0] + fit("bolt_clear");
     af = BOLT[1] + fit("nut_clear");
     translate([0, 0, -SKIRT_H - EPS]) cylinder(d = bolt, h = TILE_H + 2 * EPS);
     // nut pocket: open at the skirt bottom, ceiling is the plate underside
-    translate([0, 0, -SKIRT_H - EPS]) cylinder(d = af / cos(30), h = SKIRT_H + EPS, $fn = 6);
+    translate([0, 0, -SKIRT_H - EPS]) rotate(turn ? 30 : 0) cylinder(d = af / cos(30), h = SKIRT_H + EPS, $fn = 6);
 }
 
 // Boss under the plate that carries a nut pocket.
@@ -27,10 +28,15 @@ module socket_boss() {
 }
 
 // Dovetail key profile in XY: neck on the tile edge (y = 0), tail at y = depth.
-// grow: added all round for the female cut.
+// grow: added all round for the female cut (negative for a male key, so it fits
+// the slot with the clearance split between them). A male key (grow < 0) also
+// gets a root from inside the tile out to its neck, so the key is one solid with
+// the tile and not a loose piece standing c/2 off its edge.
+KEY_ROOT = 0.6;   // how far a male key's root reaches into the tile
 module dovetail_2d(grow = 0) {
     n = DOVETAIL[0] + 2 * grow; t = DOVETAIL[1] + 2 * grow; d = DOVETAIL[2] + grow;
     polygon([[-n / 2, -grow - EPS], [n / 2, -grow - EPS], [t / 2, d], [-t / 2, d]]);
+    if (grow < 0) translate([-n / 2, -KEY_ROOT]) square([n, KEY_ROOT - grow + EPS]);
 }
 
 // Which key goes at index i of m positions along one edge:
@@ -88,7 +94,7 @@ module tile(nx = 4, ny = 4, flip = false) {
         }
         // sockets
         for (i = [0 : nx - 1], j = [0 : ny - 1])
-            translate([hole_pos(i), hole_pos(j), SKIRT_H]) socket_cut();
+            translate([hole_pos(i), hole_pos(j), SKIRT_H]) socket_cut(NUT_STAGGER && (i + j) % 2 == 1);
         // female keys
         for (key = keys) if (key[3] == -1)
             translate([key[0], key[1], -EPS]) rotate(key[2] + 90) linear_extrude(TILE_H + 2 * EPS) dovetail_2d(c / 2);

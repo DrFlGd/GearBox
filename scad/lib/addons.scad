@@ -28,7 +28,7 @@ STEM_D  = 3 * MOD;                    // legacy press-fit stem of a printed post
 STEM_H  = ARM_T - 2;
 CAP_D   = PIN_D + fit("pin_press");   // a dowel pin pressed through the cap keys it into a post top
 CRANK_BOSS = 1;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin
-DIAL_R  = SMALL ? 13 : 17;            // dial knob disc: clears a neighbour's gear one level up
+DIAL_R  = sz(17, 13, 9);             // dial knob disc: clears a neighbour's gear one level up
 DIAL_T  = 2.5;
 
 // Hub ring with three press-fit holes for the short hub pins (every other face
@@ -113,7 +113,7 @@ module joint() {
 
 // Handle: a grip that spins over a spacer (HANDLE_H + 1 tall) on the crank's
 // bolt; the nut clamps the spacer, not the grip.
-HANDLE_H = SMALL ? 22 : 26;
+HANDLE_H = sz(26, 22, 18);
 module handle(h = HANDLE_H) {
     difference() {
         union() {
@@ -228,6 +228,7 @@ module ratchet_2d() {
         [r0 * cos(i * 30 + 2), r0 * sin(i * 30 + 2)]]]);
 }
 module ratchet() {
+    assert(SZ < 2, "the ratchet is not made in M1: on a 10 mm grid the 605 bearing fills the wheel");
     difference() {
         linear_extrude(GEAR_T) ratchet_2d();
         bearing_seat();
@@ -241,6 +242,7 @@ module ratchet() {
 // leaf spring whose tooth rides over the ratchet teeth one way and catches
 // them the other. `flip` mirrors it for the opposite direction.
 module pawl(flip = false) {
+    assert(SZ < 2, "the pawl is not made in M1 (no ratchet wheel fits the 10 mm grid)");
     bore = BOLT[0] + fit("bolt_clear");
     hub = 9 * MOD;
     leaf_t = 0.6 * MOD;

@@ -11,20 +11,29 @@ renders in the browser (OpenSCAD compiled to WebAssembly), nothing is uploaded.
 Ready-made STLs for every catalog part are on the
 [releases page](https://github.com/DrFlGd/GearBox/releases/latest).
 
-## Two sizes
+## Three sizes
 
-| | **M2** | **M1.5** |
-|---|---|---|
-| Gear module | 2 mm | 1.5 mm |
-| Hole pitch | 20 mm | 15 mm |
-| Smallest gear (20T) | 44 mm across | 33 mm across |
-| Bolt | M8 hex head (DIN 933) + M8 nut | M6 hex head + M6 nut |
-| Bearing | 608 (8 x 22 x 7), one per gear | 606 (6 x 17 x 6), one per gear |
-| Gear thickness / level pitch | 8 mm / 10 mm | 7 mm / 9 mm |
-| Tile height | 12 mm | 10 mm |
-| Bolt length for 1 / 2 / 3 levels | 30 / 40 / 50 mm | 25 / 35 / 40 mm |
+| | **M2** | **M1.5** | **M1** |
+|---|---|---|---|
+| Gear module | 2 mm | 1.5 mm | 1 mm |
+| Hole pitch | 20 mm | 15 mm | 10 mm |
+| Smallest gear (20T) | 44 mm across | 33 mm across | 22 mm across |
+| Bolt | M8 hex head (DIN 933) + M8 nut | M6 hex head + M6 nut | M5 hex head + M5 nut |
+| Bearing | 608 (8 x 22 x 7), one per gear | 606 (6 x 17 x 6), one per gear | 605 (5 x 14 x 5), one per gear |
+| Gear thickness / level pitch | 8 mm / 10 mm | 7 mm / 9 mm | 6 mm / 8 mm |
+| Tile height | 12 mm | 10 mm | 8.5 mm |
+| Bolt length for 1 / 2 / 3 levels | 30 / 40 / 50 mm | 25 / 35 / 40 mm | 20 / 30 / 40 mm |
 
-Both sizes share everything else: tooth counts 20 to 80 in steps of 10, the
+M1 is the desk-toy size. Its 20T gears are too small for the dowel pin
+holes (the 605 bearing fills the hub), so in M1 a 20T can only be the small
+half of a compound gear and cannot carry a crank or a pointer; 30T and up
+work as in the other sizes. On the 10 mm grid the M5 nut pockets alternate
+30 degrees so neighbouring pockets keep a wall between them.
+The ratchet and pawl, the escapement, the NEMA 17 mount, the stock
+quick-return levers, `SG40` and `MG12` do not fit the 10 mm grid and are not
+made in M1; the generator, the kits and the layout tester say so.
+
+All sizes share everything else: tooth counts 20 to 80 in steps of 10, the
 mesh rule (two gears mesh when their tooth counts add up to a multiple of 20,
 so 20+20, 20+40, 40+60, 30+50 and so on), the 2 mm gap between stacked gears,
 and the same part names. Pick one size for a board; parts do not mix.
@@ -60,14 +69,14 @@ and the same part names. Pick one size for a board; parts do not mix.
 
 ### Hardware for the interface
 
-| | **M2** | **M1.5** |
-|---|---|---|
-| Joint dowel pins (3 per joined pair) | 3 x 8 mm | 2 x 6 mm |
-| Hub dowel pins (3 per crank or pointer) | 3 x 6 mm | 2 x 4 mm |
-| Joint screws (3 per pair, 30T and up) | M3 x 14 socket head + M3 nut | M3 x 12 socket head + M3 nut |
-| Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut |
-| Shaft bracket shaft | M8 x 100 | M6 x 80 |
-| Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm |
+| | **M2** | **M1.5** | **M1** |
+|---|---|---|---|
+| Joint dowel pins (3 per joined pair) | 3 x 8 mm | 2 x 6 mm | 2 x 6 mm |
+| Hub dowel pins (3 per crank or pointer) | 3 x 6 mm | 2 x 4 mm | 2 x 4 mm |
+| Joint screws (3 per pair) | M3 x 14 + nut, 30T and up | M3 x 12 + nut, 30T and up | M3 x 10 + nut, 50T and up |
+| Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut | M5 x 35 / M5 x 20 + nut |
+| Shaft bracket shaft | M8 x 100 | M6 x 80 | M5 x 60 |
+| Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm | 3 x 2 mm |
 
 Hardened steel dowel pins (ISO 8734 / DIN 6325) are cheap in assortment
 boxes. The pin holes are a slip fit in gear faces and a press fit where a
@@ -195,7 +204,7 @@ bolts to the board and carries a sliding carriage.
 
 ```
 scad/gearbox.scad      one entry point for every part (desktop customizer or -D on the CLI)
-scad/lib/standard.scad both sizes: every shared dimension
+scad/lib/standard.scad all three sizes: every shared dimension
 scad/lib/tolerances.scad  print profiles: PLA, PETG, ABS; every clearance in one table
 scad/lib/board.scad    tiles, sockets, dovetail edges
 scad/lib/gear.scad     gears, compound gears, dowel pin and M3 screw joints, magnet pockets, face patterns
@@ -209,7 +218,7 @@ scad/lib/magnets.scad  magnetic gears and the face coupling's barrier
 scad/lib/assembly.scad every kit put together, with its hardware, for the Assembly part
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
-tools/render-catalog.mjs  render and check the whole catalog for one or both sizes
+tools/render-catalog.mjs  render and check the whole catalog for one size or all
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
 app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
@@ -224,7 +233,7 @@ app uses (OpenSCAD 2025.01, Manifold backend).
 ```sh
 git clone --recurse-submodules https://github.com/DrFlGd/GearBox
 npm install
-npm run render -- --profile PETG              # every part, both sizes, to out/<size>/PETG/*.stl
+npm run render -- --profile PETG              # every part, every size, to out/<size>/PETG/*.stl
 npm run render -- --size M1.5 --only COUPON,K,S3,BS   # just the M1.5 fit test kit
 npm run part -- -o out/G40.stl -D 'size="M1.5"' -D 'part="gear"' -D teeth=40 -D 'face="spokes"'
 ```

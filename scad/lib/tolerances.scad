@@ -13,6 +13,7 @@ _overrides = is_undef(overrides) ? [] : overrides;
 _tol = [
     ["bearing_bore_d",   22.10,  22.15,  22.20],  // gear seat for a 608 outer race (22.00), light press
     ["bearing606_bore_d",17.10,  17.15,  17.20],  // gear seat for a 606 outer race (17.00), light press
+    ["bearing605_bore_d",14.10,  14.15,  14.20],  // gear seat for a 605 outer race (14.00), light press
     ["bore_clear",        0.30,   0.35,   0.35],  // added to a printed bore that slides over a bolt
     ["bolt_clear",        0.40,   0.40,   0.45],  // added to a bolt's nominal diameter for a through hole
     ["nut_clear",         0.20,   0.25,   0.30],  // added across flats of a captive nut or bolt head pocket

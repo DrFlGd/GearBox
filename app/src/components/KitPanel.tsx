@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { catalog, catalogPart, type Overrides, type Profile, type Size } from "../parts";
+import { catalog, catalogPart, kitInSize, type Overrides, type Profile, type Size } from "../parts";
 import type { RenderResult } from "../engine/protocol";
 import { download } from "../download";
 import { buildKitZip, type KitItem } from "../kitzip";
@@ -9,7 +9,8 @@ type Props = { size: Size; profile: Profile; overrides: Overrides; render: (defs
 /** Renders every distinct part of a catalog kit in turn and downloads one zip of STLs. */
 export default function KitPanel({ size, profile, overrides, render, disabled, onBusy }: Props) {
   const [progress, setProgress] = useState<string | null>(null);
-  const [kit, setKit] = useState(Object.keys(catalog.kits)[0]);
+  const [kitPick, setKit] = useState(Object.keys(catalog.kits)[0]);
+  const kit = kitInSize(kitPick, size) ? kitPick : Object.keys(catalog.kits).find(k => kitInSize(k, size))!;
   const def = catalog.kits[kit];
   const names = def?.parts ?? [];
   const counts = new Map<string, number>();
@@ -33,7 +34,7 @@ export default function KitPanel({ size, profile, overrides, render, disabled, o
   return (
     <div className="panel-section">
       <select value={kit} onChange={e => setKit(e.target.value)} disabled={disabled}>
-        {Object.entries(catalog.kits).map(([k, v]) => <option key={k} value={k}>{v.title}</option>)}
+        {Object.entries(catalog.kits).filter(([k]) => kitInSize(k, size)).map(([k, v]) => <option key={k} value={k}>{v.title}</option>)}
       </select>
       <ul className="kit-list">
         {items.map(it => <li key={it.name}><b>{it.qty}×</b> {it.name} <span className="muted">{it.title}</span></li>)}

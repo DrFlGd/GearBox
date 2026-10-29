@@ -82,7 +82,7 @@ HOUSING_W = BEARING[1] + 8;
 BAR_T     = BOLT[2] + 0.7;              // bolt heads sit flush in the base bar
 BEVEL_T   = 20;
 BEVEL_D   = 2 * GRID;                   // bevel pin: two steps before the first housing
-BEVEL_HUB = GEAR_T + (SMALL ? 8.5 : 6); // hub height to the pitch base, so the apex lands on the shaft
+BEVEL_HUB = SHAFT_H - BEVEL_T * MOD / 2 - drv_z(1);   // hub height to the pitch base, so the apex lands on the shaft
 WORM_D    = 2 * GRID;                   // worm pitch diameter: a 20T wheel two rows out, a 40T three
 WORM_L    = 2 * GRID;
 function bracket_len(span) = span * GRID;
@@ -182,6 +182,7 @@ NEMA_LEGS = [[-2, 0], [2, 0]];
 NEMA_PLATE = 48; NEMA_PLATE_T = 4;
 function nema_h(level) = BASE_SPACER_H + (level - 1) * LEVEL + GEAR_T + MOUNT_GAP + NEMA_PLATE_T;
 module nema_mount(level = 1) {
+    assert(SZ < 2, "the NEMA 17 mount is not made in M1: the motor is wider than its legs' sockets");
     assert(level >= 1 && level <= 3, "level 1..3");
     H = nema_h(level);
     bolt = BOLT[0] + fit("bolt_clear");

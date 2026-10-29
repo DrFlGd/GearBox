@@ -27,13 +27,13 @@ function lvl_z(k) = BASE_SPACER_H + (k - 1) * LEVEL;
 
 // Rail and carriages ------------------------------------------------------------
 RAIL_W   = GRID - 4;                 // 16 / 11
-RAIL_T   = SMALL ? 2.5 : 3;          // base plate
-RIDGE    = [3 * MOD, 3 * MOD + 2, SMALL ? 2 : 2.5];  // dovetail ridge: neck, head, height
+RAIL_T   = sz(3, 2.5, 2);          // base plate
+RIDGE    = [3 * MOD, 3 * MOD + 2, sz(2.5, 2, 1.6)];  // dovetail ridge: neck, head, height
 TAB_D    = BOLT[1] + 5;              // bolt tab on the next row, knob boss presses it
 CAR_L    = 2 * GRID;                 // plain carriage length
 BASE_TOP = BASE_SPACER_H + LEVEL - 2;  // carriage top stays under level 2
 PLUG_W   = RAIL_W - 4;               // square plug of a tower or post
-PLUG_D   = SMALL ? 2 : 2.5;
+PLUG_D   = sz(2.5, 2, 1.6);
 
 module ridge_2d(grow = 0) {
     n = RIDGE[0] + 2 * grow; t = RIDGE[1] + 2 * grow; h = RIDGE[2] + grow;
@@ -265,6 +265,7 @@ ESC_DIP = 0.45 * MOD;               // pallet tip below the tooth tips at rest
 ESC_OUT = 0.6 * MOD;                // face reach beyond the tooth tips
 ESC_W = 0.3 * 2 * PI * ESC_R / ESC_N;
 module escape_wheel() {
+    assert(SZ < 2, "the escape wheel is not made in M1: its teeth would cut into the pin holes");
     beta = 360 / ESC_N;
     difference() {
         linear_extrude(GEAR_T) polygon([for (i = [0 : ESC_N - 1]) let(p = i * beta) each [
@@ -289,6 +290,7 @@ function esc_pallet(side) = let(
     Qin = Q + tin * f, Qout = Q + tout * f)
     [Qin, Qout, Qout + ESC_W * b, Qin + ESC_W * b];
 module anchor(cw = true) {
+    assert(SZ < 2, "the anchor is not made in M1 (no escape wheel in M1)");
     bar = 2.5 * GRID; w = ARM_W;
     af = BOLT[1] + fit("nut_clear");
     mirror(cw ? [0, 0, 0] : [1, 0, 0])
@@ -306,11 +308,11 @@ module anchor(cw = true) {
 }
 
 // Wind-up spring --------------------------------------------------------------------
-SPR_T      = SMALL ? 1.0 : 1.2;      // band thickness
+SPR_T      = sz(1.2, 1.0, 0.8);      // band thickness
 SPR_H      = GEAR_T - 1;
 SPR_TURNS  = 4.5;
-SPR_PITCH  = SMALL ? 2.5 : 3.2;
-SPR_R_IN   = SMALL ? 6.5 : 8;
+SPR_PITCH  = sz(3.2, 2.5, 2);
+SPR_R_IN   = sz(8, 6.5, 5);
 SPR_R_OUT  = SPR_R_IN + SPR_TURNS * SPR_PITCH;
 SPR_WALL_R = SPR_R_OUT + 2.5;        // wall inner radius: 24.9 / 20.25
 SPR_WALL_T = 2;

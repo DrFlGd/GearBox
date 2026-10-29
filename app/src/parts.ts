@@ -22,7 +22,11 @@ export type PartKind = {
   defaults: Params;
   /** Catalog-style short name for a set of params, e.g. G40, B4x4-M8. */
   name(p: Params): string;
+  /** The sizes it is made in, when not all of them. */
+  sizes?: readonly Size[];
 };
+/** Too big for M1's 10 mm grid and 605 bearing (see the asserts in the library). */
+const NOT_M1 = ["M2", "M1.5"] as const;
 
 const toothOptions = [20, 30, 40, 50, 60, 70, 80].map(t => ({ value: t, label: `${t} teeth` }));
 const faceOptions = ["solid", "spokes", "cross", "holes", "spiral"].map(v => ({ value: v, label: v }));
@@ -150,11 +154,13 @@ export const PART_KINDS: PartKind[] = [
     name: p => `L${p.holes}`,
   },
   {
+    sizes: NOT_M1,
     id: "ratchet", title: "Ratchet wheel", group: "Add-ons",
     blurb: "Twelve sawtooth teeth on the gear hub; joins to a gear with three dowel pins. Turns clockwise past the pawl and locks the other way.",
     params: [], defaults: {}, name: () => "RATCHET",
   },
   {
+    sizes: NOT_M1,
     id: "pawl", title: "Pawl", group: "Add-ons",
     blurb: "Clamps on a pin two sockets from the ratchet (the knob boss and the spacer grip it). A printed leaf spring carries the tooth. Flip it for a ratchet that must lock clockwise.",
     params: [{ key: "flip_pawl", label: "Direction", type: "select", options: [{ value: "false", label: "Locks counter-clockwise" }, { value: "true", label: "Locks clockwise" }] }],
@@ -176,6 +182,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => (p.shaft === "nema17" ? "PINION5" : "PINION"),
   },
   {
+    sizes: NOT_M1,
     id: "nema_mount", title: "NEMA 17 motor mount", group: "Motor",
     blurb: "Two legs bolt into the sockets at (-2, 0) and (2, 0) from the motor socket and carry a plate the stepper screws onto from below, shaft down into the PINION5 at level 1, 2 or 3. Prints legs down.",
     params: [{ key: "level", label: "Pinion level", type: "select", options: [1, 2, 3].map(v => ({ value: v, label: `level ${v}` })) }],
@@ -316,8 +323,9 @@ export const PART_KINDS: PartKind[] = [
     defaults: { d_steps: 3, throw: 20 },
     name: p => `QR${p.d_steps}-${p.throw}`,
   },
-  { id: "escape_wheel", title: "Escape wheel", group: "Mechanisms", blurb: "15 tooth ratchet-shaped wheel for the anchor escapement; it steps one tooth per swing of the anchor.", params: [], defaults: {}, name: () => "ESCWHEEL" },
+  { sizes: NOT_M1, id: "escape_wheel", title: "Escape wheel", group: "Mechanisms", blurb: "15 tooth ratchet-shaped wheel for the anchor escapement; it steps one tooth per swing of the anchor.", params: [], defaults: {}, name: () => "ESCWHEEL" },
   {
+    sizes: NOT_M1,
     id: "anchor", title: "Anchor", group: "Mechanisms",
     blurb: "Recoil anchor on a pin two sockets from the escape wheel, with a balance bar that sets the beat. Clamps on the pin with its nut.",
     params: [{ key: "cw", label: "Wheel runs", type: "select", options: [{ value: "true", label: "clockwise (standard)" }, { value: "false", label: "counter-clockwise (mirrored)" }] }],
@@ -354,13 +362,17 @@ export const PART_KINDS: PartKind[] = [
 
 export const partKind = (id: string) => PART_KINDS.find(k => k.id === id);
 
-export const SIZES = ["M2", "M1.5"] as const;
+export const SIZES = ["M2", "M1.5", "M1"] as const;
 export type Size = (typeof SIZES)[number];
 export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; dial_r: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number>;
   /** Hardware beyond the bolts: dowel pin sizes, the M3 screw, magnets, post bolt lengths (mm), the pin circle and the smallest radius that has screw holes. */
   hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; pin_r: number; screw_min_r: number };
 };
-export type CatalogPart = { name: string; title: string; group: string; params: Params; expect?: Partial<Record<Size, number[]>> };
+export type CatalogPart = { name: string; title: string; group: string; params: Params; sizes?: Size[]; expect?: Partial<Record<Size, number[]>> };
+/** A catalog part is made in a size unless its `sizes` list leaves it out. */
+export const partInSize = (p: CatalogPart, size: Size) => !p.sizes || p.sizes.includes(size);
+/** A kit is made in a size when every part in it is. */
+export const kitInSize = (kitId: string, size: Size) => (catalog.kits[kitId]?.parts ?? []).every(n => { const p = catalogPart(n); return !p || partInSize(p, size); });
 export type Kit = { title: string; parts: string[]; hardware: string[] };
 export type Catalog = { standards: Record<Size, Standard>; mesh_rule: string; profiles: string[]; parts: CatalogPart[]; kits: Record<string, Kit> };
 export const catalog = catalogJson as unknown as Catalog;
@@ -393,8 +405,15 @@ export function defines(kindId: string, params: Params, size: Size, profile: Pro
 }
 
 /** A human-readable problem with the parameters, or null. */
-export function validate(kindId: string, p: Params): string | null {
+export function validate(kindId: string, p: Params, size?: Size): string | null {
   if (kindId === "compound" && Number(p.teeth_upper) >= Number(p.teeth)) return "The upper gear must have fewer teeth than the lower gear.";
+  if (size) {
+    const k = partKind(kindId);
+    if (k?.sizes && !k.sizes.includes(size)) return `The ${k.title.toLowerCase()} is not made in ${size}: it does not fit the ${catalog.standards[size].grid} mm grid. Pick another size.`;
+    if (size === "M1" && kindId === "spring_gear" && Number(p.teeth) < 50) return "In M1 the spring needs a gear of 50 teeth or more.";
+    if (size === "M1" && kindId === "mag_gear" && Number(p.poles) < 16) return "In M1 a magnetic gear needs 16 magnets or more.";
+    if (kindId === "assembly" && !kitInSize(String(p.kit), size)) return `This kit is not made in ${size}: some of its parts do not fit the ${catalog.standards[size].grid} mm grid.`;
+  }
   return null;
 }
 

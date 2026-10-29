@@ -9,7 +9,8 @@ part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, cou
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
-size = "M2"; // [M2, M1.5]
+// M1: module 1, 10 mm grid, M5 bolts, 605 bearings.
+size = "M2"; // [M2, M1.5, M1]
 
 /* [Gear] */
 teeth = 40;        // [20:10:80]

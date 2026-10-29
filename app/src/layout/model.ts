@@ -76,6 +76,8 @@ export type Layout = {
 };
 
 export const std = (size: Size): Standard => catalog.standards[size];
+/** The M2, M1.5 or M1 value of a size-specific constant (sz() in standard.scad). */
+export const sz = <T,>(size: Size, m2: T, m15: T, m1: T): T => (size === "M1" ? m1 : size === "M1.5" ? m15 : m2);
 export const boardW = (l: Layout) => l.tile.nx * l.tiles.cols;
 export const boardH = (l: Layout) => l.tile.ny * l.tiles.rows;
 /** Socket centre in mm. */
@@ -116,12 +118,12 @@ export function escDims(size: Size) {
   return { C, R, alpha, n: 15, depth: 0.22 * R, bar: 2.5 * std(size).grid };
 }
 export const slotW = (size: Size) => bearingOD(size) + 0.5;
-export const springWallR = (size: Size) => { const s = std(size); const small = size === "M1.5"; return (small ? 6.5 : 8) + 4.5 * (small ? 2.5 : 3.2) + 2.5 + 2 + (s.module === 2 ? 0 : 0); };
-export const springMinTeeth = (size: Size) => (size === "M1.5" ? 40 : 30);
+export const springWallR = (size: Size) => sz(size, 8, 6.5, 5) + 4.5 * sz(size, 3.2, 2.5, 2) + 2.5 + 2;
+export const springMinTeeth = (size: Size) => sz(size, 30, 40, 50);
 export const winchR = (size: Size) => std(size).grid + 2;
 export function railDims(size: Size) {
-  const s = std(size); const small = size === "M1.5";
-  const w = s.grid - 4, t = small ? 2.5 : 3, ridge = small ? 2 : 2.5;
+  const s = std(size);
+  const w = s.grid - 4, t = sz(size, 3, 2.5, 2), ridge = sz(size, 2.5, 2, 1.6);
   return { w, t, ridge, tabR: (boltD(size) * 1.6 + 5) / 2 + 0.3, carL: 2 * s.grid, baseTop: 2 + s.level - 2, plugW: w - 4, top: t + ridge };
 }
 // Phase 4c dimensions, in step with scad/lib/drives.scad ---------------------------------
@@ -133,7 +135,7 @@ export function planetaryDims(size: Size) {
 export const SHAFT_LEVEL = 4;
 export function bracketDims(size: Size) {
   const s = std(size), bw = Number(s.bearing.split("x")[2]) || 7;
-  return { shaftH: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2, housingT: bw + 1, housingW: bearingOD(size) + 8, barT: size === "M1.5" ? 4.7 : 6, bevelD: 2 * s.grid, bevelHub: s.gear_thickness + (size === "M1.5" ? 8.5 : 6), wormD: 2 * s.grid, wormL: 2 * s.grid, bevelT: 20 };
+  return { shaftH: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2, housingT: bw + 1, housingW: bearingOD(size) + 8, barT: sz(size, 6, 4.7, 4.2), bevelD: 2 * s.grid, bevelHub: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2 - 10 * s.module - 2, wormD: 2 * s.grid, wormL: 2 * s.grid, bevelT: 20 };
 }
 export const flyR = (size: Size) => 2 * std(size).grid - 2.5;
 export const NEMA = { w: 42.3, plate: 48, legSteps: 2 };
@@ -142,13 +144,13 @@ export const motorType = (p: Pin): MotorType => p.motor?.type ?? "n20";
 /** A magnetic gear's `teeth` is the spur gear it behaves like: 2.5 x its pole count. */
 export const MAG_TEETH: Teeth[] = [30, 40, 50, 60];
 export const magPoles = (g: Gear) => Math.round(g.teeth / 2.5);
-export const magnetSize = (size: Size) => (size === "M1.5" ? { d: 4, h: 2 } : { d: 6, h: 3 });
+export const magnetSize = (size: Size) => sz(size, { d: 6, h: 3 }, { d: 4, h: 2 }, { d: 3, h: 2 });
 export const MAGF_N = 6;                 // magnets in each face of a magnetic coupling
 export const MAG_COUPLE_MIN = 40;        // both gears of a face coupling: 40T or more
 /** Radius out to which an item's faces are free for the joint holes (0: pins only, no screws). */
 export function jointR(size: Size, g: Gear): number {
   const s = std(size), m = s.module, rr = (t: number) => pitchR(size, t) - 1.25 * m;
-  const nutAF = size === "M1.5" ? 10.3 : 13.3;
+  const nutAF = sz(size, 13.3, 10.3, 8.3);
   switch (kindOf(g)) {
     case "gear": case "partial": return rr(g.teeth);
     case "pulley": return (m * g.teeth + 2) / 2 - 3.2 - 1;
@@ -161,6 +163,9 @@ export function jointR(size: Size, g: Gear): number {
 }
 /** Two items joined with pins also get three M3 screws when both have room for them. */
 export const hasScrews = (size: Size, g: Gear) => jointR(size, g) >= std(size).hardware.screw_min_r;
+/** Room for the dowel pin holes (has_pins in standard.scad). Only M1's 20T gears and P20 pulleys lack it;
+ *  kinds without a joint radius here are assumed to have it. */
+export const hasPins = (size: Size, g: Gear) => { const r = jointR(size, g); return r === 0 || r >= std(size).hardware.pin_r + 1.15 + 0.8; };
 
 /** Local z of the bottom of level k above the plate top (same as lvl_z in OpenSCAD). */
 export const lvlZ = (size: Size, k: number) => 2 + (k - 1) * std(size).level;
@@ -237,7 +242,8 @@ export const newId = () => `p${Date.now().toString(36)}${(counter++).toString(36
 
 /** The plan's gate: a 1:16 reduction on three pins, two 20:80 stages. */
 export function exampleLayout(size: Size): Layout {
-  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, topper: "crank", throw: 60 }] };
+  // (an M1 20T is too small for the crank's pins, so in M1 the input has no crank)
+  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, ...(size === "M1" ? {} : { topper: "crank" as const, throw: 60 }) }] };
   const b: Pin = { id: "b", x: 6, y: 2, gears: [{ level: 1, teeth: 80, joined: false }, { level: 2, teeth: 20, joined: true }] };
   const c: Pin = { id: "c", x: 9, y: 6, gears: [{ level: 2, teeth: 80, joined: false, topper: "pointer" }] };
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 3, rows: 2 }, pins: [a, b, c], bands: [], fixtures: [], input: { pin: "a", level: 1 }, rpm: 10 };
@@ -287,7 +293,7 @@ export function mechanismsLayout(size: Size): Layout {
  *  through a magnetic face coupling, a 40T with a pointer on the level above. */
 export function magnetsLayout(size: Size): Layout {
   const pins: Pin[] = [
-    { id: "a", x: 2, y: 3, gears: [{ level: 1, teeth: 40, joined: false, kind: "maggear", topper: "crank", throw: 20 }] },
+    { id: "a", x: 2, y: 3, gears: [{ level: 1, teeth: 40, joined: false, kind: "maggear", ...(size === "M1" ? { topper: "pointer" as const } : { topper: "crank" as const, throw: 20 }) }] },
     { id: "b", x: 6, y: 3, gears: [{ level: 1, teeth: 40, joined: false, kind: "maggear" }, { level: 2, teeth: 40, joined: true }, { level: 3, teeth: 40, joined: true, coupling: "magnetic", topper: "pointer" }] },
     { id: "c", x: 9, y: 3, gears: [{ level: 2, teeth: 20, joined: false }] },
   ];

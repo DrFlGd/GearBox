@@ -68,7 +68,7 @@ jobs:
         run: |
           for p in PLA PETG ABS; do
             node tools/render-catalog.mjs --profile $p --out out
-            for s in M2 M1.5; do
+            for s in M2 M1.5 M1; do
               (cd out/$s && zip -qr ../../gearbox-${{ steps.ver.outputs.tag }}-stl-$s-$p.zip $p)
             done
           done

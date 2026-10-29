@@ -33,7 +33,8 @@ module bearing_seat(ledge_at_bottom = true) {
 
 // Pin holes in a face: a slip fit for the dowel pins. z = 0 is the face, holes go
 // down to -PIN_DEPTH.
-module pin_holes() {
+// r_outer: how far the body reaches; no holes when it is too small for them (M1 20T).
+module pin_holes(r_outer = undef) if (is_undef(r_outer) || has_pins(r_outer)) {
     d = PIN_D + fit("pin_slip");
     translate([0, 0, -PIN_DEPTH])
         for (i = [0 : PIN_N - 1]) rotate(i * 360 / PIN_N) translate([PIN_R, 0, 0]) cylinder(d = d, h = PIN_DEPTH + EPS, $fn = 32);
@@ -47,13 +48,13 @@ module peg_holes() { pin_holes(); }   // old name
 // upper one 60 degrees so its counterbored holes sit over the lower one's nut
 // holes, put the joint ring in the gap, and drive three screws down. Every hole
 // keeps at least 3.6 mm of plastic under a head or over a nut.
-SCREW_D    = 3;                       // M3 for both sizes
+SCREW_D    = 3;                       // M3 in every size
 SCREW_R    = PIN_R + 4;               // 18.3 / 14.8: the nut pocket stays clear of the bearing seat
 SCREW_HEAD = [5.5, 3];                // socket head cap screw: diameter, height
 SCREW_NUT  = [5.5, 2.4];              // nut: across flats, height
 SCREW_NUT_UP = 1.0;                   // the nut sits this far above the bottom face
 JRING_T    = 1.8;                     // joint ring: fills the 2 mm gap between two screwed gears
-SCREW_L    = (GEAR_T - SCREW_HEAD[1] - 0.2) + 2 + (GEAR_T - SCREW_NUT_UP + 0.2);   // 14 / 12
+SCREW_L    = (GEAR_T - SCREW_HEAD[1] - 0.2) + 2 + (GEAR_T - SCREW_NUT_UP + 0.2);   // 14 / 12 / 10
 SCREW_NAME = str("M3 x ", round(SCREW_L));
 // radius the pockets need, with a fixed clearance so the same gears get screws in every print profile
 function screw_r_out() = SCREW_R + (SCREW_NUT[0] + 0.3) / cos(30) / 2 + 1;
@@ -68,8 +69,9 @@ module screw_holes(thickness = GEAR_T) {   // z = 0 is the bottom face
 }
 // Both joints in both faces of a part `thickness` tall whose body reaches r_outer.
 module face_joints(thickness = GEAR_T, r_outer = 0) {
-    translate([0, 0, thickness]) pin_holes();
-    mirror([0, 0, 1]) pin_holes();
+    rp = r_outer > 0 ? r_outer : undef;
+    translate([0, 0, thickness]) pin_holes(rp);
+    mirror([0, 0, 1]) pin_holes(rp);
     if (has_screws(r_outer)) screw_holes(thickness);
 }
 
@@ -86,7 +88,7 @@ module joint_ring() {
 
 // Magnet pockets in a face for the magnetic face coupling: six disc magnets on a
 // circle outside the pin holes, alternating poles. z = 0 is the face.
-MAGNET   = SMALL ? [4, 2] : [6, 3]; // [diameter, height] of the kit's disc magnets
+MAGNET   = sz([6, 3], [4, 2], [3, 2]); // [diameter, height] of the kit's disc magnets
 MAGF_R   = 11 * MOD;                // pocket circle radius: 22 / 16.5, needs a 40T or bigger gear
 MAGF_N   = 6;
 module magnet_pockets(n = MAGF_N, r = MAGF_R) {
@@ -160,8 +162,8 @@ module compound_gear(teeth_lower, teeth_upper, face = "solid") {
         }
         bearing_seat(ledge_at_bottom = false);              // lower: bearing from below, ledge on top
         translate([0, 0, LEVEL - 1]) bearing_seat();        // upper: ledge, then bearing from above
-        translate([0, 0, h_upper]) pin_holes();
-        mirror([0, 0, 1]) pin_holes();
+        translate([0, 0, h_upper]) pin_holes(gear_rr(teeth_upper));
+        mirror([0, 0, 1]) pin_holes(gear_rr(teeth_lower));
         face_pattern(teeth_lower, face);
     }
 }
