@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
   ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
-  boltD, pitchR, planetaryDims, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, tipR, topLevel, winchR, type Layout,
+  boltD, magnetSize, pitchR, sz, planetaryDims, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, tipR, topLevel, winchR, type Layout,
 } from "./model";
 import { anchorAngle, followerAngle, sliderX, yokeX } from "./motion";
 import { key, motorFootprint, type Analysis, type Linkage, type Motion } from "./rules";
@@ -263,14 +263,14 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const above = pin.gears.find(o => o.level === gear.level + 1);
           const magTop = above?.joined && above.coupling === "magnetic", magBot = gear.joined && gear.coupling === "magnetic";
           if (magTop || magBot) {
-            const mr = 11 * d.module, md = size === "M1.5" ? 4 : 6;
+            const mr = 11 * d.module, md = magnetSize(size).d;
             for (let i = 0; i < 6; i++) {
               const dot = new THREE.Mesh(cylUp(md / 2, 0.6, 16), i % 2 ? southMat : northMat);
               dot.position.set(mr * Math.cos((i * Math.PI) / 3), mr * Math.sin((i * Math.PI) / 3), magTop ? T : -0.6); mesh.add(dot);
             }
           }
           if (magTop) {
-            const br = new THREE.Mesh(cyl(11 * d.module + (size === "M1.5" ? 2 : 3) + 4, 0.8, 48), new THREE.MeshStandardMaterial({ color: COLORS.rail, transparent: true, opacity: 0.55 }));
+            const br = new THREE.Mesh(cyl(11 * d.module + magnetSize(size).d / 2 + 4, 0.8, 48), new THREE.MeshStandardMaterial({ color: COLORS.rail, transparent: true, opacity: 0.55 }));
             br.position.set(pos.x, pos.y, z + T + (d.level - T) / 2); s.group.add(br);
           }
         } else if (kind === "maggear") {
@@ -279,7 +279,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const disc = new THREE.Shape(); disc.absarc(0, 0, r, 0, 2 * Math.PI, false);
           const bore = new THREE.Path(); bore.absarc(0, 0, boreR, 0, 2 * Math.PI, true); disc.holes.push(bore);
           mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(disc, { depth: T, bevelEnabled: false, curveSegments: 48 }), mat);
-          const md = size === "M1.5" ? 4 : 6, mh = size === "M1.5" ? 2 : 3;
+          const md = magnetSize(size).d, mh = magnetSize(size).h;
           for (let i = 0; i < n; i++) {
             const a = ((i + 0.5) * 2 * Math.PI) / n;
             const pole = new THREE.Mesh(new THREE.BoxGeometry(mh, md, 0.8), i % 2 ? southMat : northMat);
@@ -419,7 +419,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const wh = new THREE.Path(); wh.absarc(0, 0, rw - 2, 0, 2 * Math.PI, true); wall.holes.push(wh);
           const wallM = new THREE.Mesh(new THREE.ExtrudeGeometry(wall, { depth: h + 2.5, bevelEnabled: false, curveSegments: 32 }), mat);
           wallM.position.z = T; mesh.add(wallM);
-          const small = size === "M1.5", rIn = small ? 6.5 : 8, pitch = small ? 2.5 : 3.2, band = small ? 1 : 1.2, turns = 4.5;
+          const rIn = sz(size, 8, 6.5, 5), pitch = sz(size, 3.2, 2.5, 2), band = sz(size, 1.2, 1, 0.8), turns = 4.5;
           const sp = new THREE.Shape();
           const N = 180;
           for (let i = 0; i <= N; i++) { const a = (i / N) * turns * 2 * Math.PI, r = rIn + (pitch * a) / (2 * Math.PI) + band / 2; const p = [r * Math.cos(a), r * Math.sin(a)]; if (i === 0) sp.moveTo(p[0], p[1]); else sp.lineTo(p[0], p[1]); }

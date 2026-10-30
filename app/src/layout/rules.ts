@@ -2,7 +2,7 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, MAG_COUPLE_MIN, PLN, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, MAGF_N, MAG_COUPLE_MIN, PLN, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Layout, type Pin,
 } from "./model";
@@ -318,6 +318,15 @@ export function analyze(l: Layout): Analysis {
       }
     }
   }
+  // items the library does not make in M1
+  if (l.size === "M1") {
+    for (const g0 of gears) {
+      const kd = kindOf(g0.gear);
+      if (kd === "ratchet" || kd === "pawl" || kd === "escwheel" || kd === "anchor") problems.push({ text: `the ${label(g0.gear)} is not made in M1`, pin: g0.pin.id, level: g0.gear.level });
+      if (kd === "maggear" && g0.gear.teeth < 40) problems.push({ text: "in M1 a magnetic gear needs 16 magnets or more", pin: g0.pin.id, level: g0.gear.level });
+    }
+    for (const pin of l.pins) if (pin.motor && motorType(pin) === "nema17") problems.push({ text: "the NEMA 17 mount is not made in M1", pin: pin.id });
+  }
   // stack rules
   const noTopper = new Set(["pawl", "follower", "anchor", "qrlever", "rocker", "geneva", "winch", "carrier", "bevel"]);
   for (const pin of l.pins) {
@@ -331,6 +340,11 @@ export function analyze(l: Layout): Analysis {
       const kind = kindOf(x);
       const below = gearAt(pin, x.level - 1);
       if (x.joined && !below) problems.push({ text: `level ${x.level} is joined to an empty level below`, pin: pin.id, level: x.level });
+      const compound = !!below && kindOf(below) === "gear" && kind === "gear" && !below.topper && below.teeth > x.teeth && x.coupling !== "magnetic";
+      if (x.joined && below && x.coupling !== "magnetic" && !compound && (!hasPins(l.size, x) || !hasPins(l.size, below)))
+        problems.push({ text: `a ${label(!hasPins(l.size, x) ? x : below)} in ${l.size} is too small for the dowel pins: join it only as the small half of a compound gear`, pin: pin.id, level: x.level });
+      if ((x.topper === "crank" || x.topper === "pointer") && !hasPins(l.size, x))
+        problems.push({ text: `a ${label(x)} in ${l.size} is too small for the dowel pins a ${x.topper} needs: use a bigger gear`, pin: pin.id, level: x.level });
       if (x.coupling === "magnetic" && below) {
         if (!x.joined) problems.push({ text: `level ${x.level} has a magnetic coupling but is not joined`, pin: pin.id, level: x.level });
         if (kindOf(x) !== "gear" || kindOf(below) !== "gear" || x.teeth < MAG_COUPLE_MIN || below.teeth < MAG_COUPLE_MIN || x.topper === "spring" || below.topper)

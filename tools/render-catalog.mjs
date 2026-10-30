@@ -4,6 +4,7 @@
 //   node tools/render-catalog.mjs [--out out] [--size M2|M1.5|all] [--profile PETG] [--only G40,K] [--format stl|obj]
 // Output goes to <out>/<size>/<profile>/<name>.<format>.
 // --write-expect updates the catalog's expected sizes from this run.
+// A part with a `sizes` list is only rendered in those sizes.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +29,7 @@ const parts = catalog.parts.filter(p => !only.length || only.includes(p.name));
 let failed = 0, total = 0;
 for (const size of sizes) {
   for (const p of parts) {
+    if (p.sizes && !p.sizes.includes(size)) continue;   // a part not made in this size
     total++;
     const defines = [`size="${size}"`, `profile="${profile}"`, ...Object.entries(p.params).map(([k, v]) => `${k}=${typeof v === "string" ? JSON.stringify(v) : v}`)];
     const output = path.join(outDir, size, profile, `${p.name}.${format}`);

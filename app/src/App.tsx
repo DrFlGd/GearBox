@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderClient } from "./engine/client";
 import type { RenderResult } from "./engine/protocol";
 import {
-  PART_KINDS, PROFILES, SIZES, catalog, catalogPart, defines, meshesWith, parseTolerances, partKind, validate,
+  PART_KINDS, PROFILES, SIZES, catalog, catalogPart, partInSize, defines, meshesWith, parseTolerances, partKind, validate,
   type Overrides, type Params, type ParamValue, type Profile, type Size,
 } from "./parts";
 import { parseBinaryStl, meshTo3mf } from "./export/threemf";
@@ -67,7 +67,7 @@ export default function App() {
   const kind = partKind(sel.kindId) ?? PART_KINDS[0];
   const matchingPreset = catalog.parts.find(p => p.params.part === kind.id && Object.entries(sel.params).every(([k, v]) => (p.params[k] ?? kind.defaults[k]) === v));
   const name = matchingPreset?.name ?? kind.name(sel.params);
-  const problem = validate(kind.id, sel.params);
+  const problem = validate(kind.id, sel.params, settings.size);
   const defs = useMemo(() => defines(kind.id, sel.params, settings.size, settings.profile, settings.overrides), [kind.id, sel.params, settings.size, settings.profile, settings.overrides]);
   const std = catalog.standards[settings.size];
   const defsKey = defs.join("\n");
@@ -168,14 +168,14 @@ export default function App() {
             <div key={g} className="group">
               <h3>{g}</h3>
               {PART_KINDS.filter(k => k.group === g).map(k => (
-                <button key={k.id} type="button" className={"item" + (k.id === kind.id ? " on" : "")} onClick={() => pickKind(k.id)} disabled={kitBusy}>{k.title}</button>
+                <button key={k.id} type="button" className={"item" + (k.id === kind.id ? " on" : "")} onClick={() => pickKind(k.id)} disabled={kitBusy || (!!k.sizes && !k.sizes.includes(settings.size))} title={k.sizes && !k.sizes.includes(settings.size) ? `not made in ${settings.size}` : undefined}>{k.title}</button>
               ))}
             </div>
           ))}
           <h2>Catalog presets</h2>
           <select className="preset" value={matchingPreset?.name ?? ""} onChange={e => pickPreset(e.target.value)} disabled={kitBusy}>
             <option value="">Custom…</option>
-            {catalog.parts.map(p => <option key={p.name} value={p.name}>{p.name} · {p.title}</option>)}
+            {catalog.parts.filter(p => partInSize(p, settings.size)).map(p => <option key={p.name} value={p.name}>{p.name} · {p.title}</option>)}
           </select>
           <h2>Kits</h2>
           <KitPanel size={settings.size} profile={settings.profile} overrides={settings.overrides} disabled={kitBusy || engine !== "ready"} onBusy={b => { setKitBusy(b); if (b && client.current!.busy) client.current!.cancel(); }}

@@ -35,6 +35,8 @@ const KINDS: { id: ItemKind; label: string; needsCrank?: boolean }[] = [
   { id: "maggear", label: "Magnetic gear (meshes without touching)" },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];
+/** Items too big for M1's 10 mm grid (the library refuses to make them in M1). */
+const NOT_IN_M1 = new Set<ItemKind>(["ratchet", "pawl", "escwheel", "anchor"]);
 /** Kinds that turn on their bearing (they can be the input and carry a topper). */
 const TURNING = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "geneva", "genevaWheel", "cam", "escwheel", "winch", "carrier", "bevel", "wormgear", "flywheel", "maggear"]);
 /** Kinds posed by a partner rather than by the train. */
@@ -207,9 +209,9 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
           </label>
           <div className="row">
             <button type="button" onClick={() => load(exampleLayout(size))}>1:16 example</button>
-            <button type="button" onClick={() => load(addonsLayout(size))}>Add-ons sampler</button>
-            <button type="button" onClick={() => load(mechanismsLayout(size))}>Mechanisms sampler</button>
-            <button type="button" onClick={() => load(drivesLayout(size))}>Drives sampler</button>
+            <button type="button" onClick={() => load(addonsLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Add-ons sampler</button>
+            <button type="button" onClick={() => load(mechanismsLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Mechanisms sampler</button>
+            <button type="button" onClick={() => load(drivesLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Drives sampler</button>
             <button type="button" onClick={() => load(magnetsLayout(size))}>Magnets sampler</button>
             <button type="button" onClick={() => load(emptyLayout(size))}>Clear</button>
           </div>
@@ -423,7 +425,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                         {kind === "flywheel" && <span className="muted">Flywheel, {2 * d.grid - 2.5} mm radius</span>}
                         {kind === "maggear" && (
                           <select value={g.teeth} onChange={e => updateGear(selPin!.id, level, x => ({ ...x, teeth: Number(e.target.value) as Teeth }))}>
-                            {MAG_TEETH.map(t => <option key={t} value={t}>{t / 2.5} magnets · turns like a {t}T</option>)}
+                            {MAG_TEETH.filter(t => layout.size !== "M1" || t >= 40).map(t => <option key={t} value={t}>{t / 2.5} magnets · turns like a {t}T</option>)}
                           </select>
                         )}
                         {kind === "qrlever" && <span className="muted">Quick-return lever</span>}
@@ -494,7 +496,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                     </div>
                   ) : (
                     <div className="row">
-                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={kd.needsCrank && !crankPins.length}>{kd.label}</option>)}</select>
+                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={(kd.needsCrank && !crankPins.length) || (layout.size === "M1" && NOT_IN_M1.has(kd.id))}>{kd.label}{layout.size === "M1" && NOT_IN_M1.has(kd.id) ? " (not in M1)" : ""}</option>)}</select>
                       {(newKind === "gear" || newKind === "pulley" || newKind === "partial" || newKind === "wormgear" || newKind === "bevel") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{(newKind === "wormgear" || newKind === "bevel" ? [20, 40] as Teeth[] : TEETH).map(t => <option key={t} value={t}>{newKind === "pulley" ? `P${t}` : `${t} teeth`}</option>)}</select>}
                       <button type="button" onClick={() => addItem(level)}>Add</button>
                     </div>
@@ -502,7 +504,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                 </div>
               );
             })}
-            {!selPin && <div className="form"><div className="row"><button type="button" onClick={() => addMotor("n20")}>Put an N20 motor here</button><button type="button" onClick={() => addMotor("nema17")}>Put a NEMA 17 here</button></div><div className="row"><button type="button" onClick={() => addFixture("rail")}>Start a slider rail here</button><button type="button" onClick={() => addFixture("bracket")}>Start a shaft bracket here</button></div></div>}
+            {!selPin && <div className="form"><div className="row"><button type="button" onClick={() => addMotor("n20")}>Put an N20 motor here</button><button type="button" onClick={() => addMotor("nema17")} disabled={layout.size === "M1"} title={layout.size === "M1" ? "not made in M1" : undefined}>Put a NEMA 17 here</button></div><div className="row"><button type="button" onClick={() => addFixture("rail")}>Start a slider rail here</button><button type="button" onClick={() => addFixture("bracket")}>Start a shaft bracket here</button></div></div>}
             {selPin && <button type="button" className="link" onClick={() => { updatePin(selPin.id, () => null); setSelected(null); }}>Remove pin</button>}
             {analysis.problems.filter(p => p.pin === selPin?.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
           </>
