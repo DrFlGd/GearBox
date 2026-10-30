@@ -77,6 +77,7 @@ and the same part names. Pick one size for a board; parts do not mix.
 | Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut | M5 x 35 / M5 x 20 + nut |
 | Shaft bracket shaft | M8 x 100 | M6 x 80 | M5 x 60 |
 | Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm | 3 x 2 mm |
+| Hex sleeve bearings (2 per sleeve) | 688 (8 x 16 x 5) | 686 (6 x 13 x 5) | 685 (5 x 11 x 5) |
 
 Hardened steel dowel pins (ISO 8734 / DIN 6325) are cheap in assortment
 boxes. The pin holes are a slip fit in gear faces and a press fit where a
@@ -327,6 +328,35 @@ a drop of CA glue keeps them in.
   that fills the gap and stands still. Turn the lower gear and the upper one
   follows through the wall. Any gear of 40T or more can carry the magnets
   (`magnets = "top"` or `"bottom"` in the generator).
+
+## Hex sleeve (experiment)
+
+A quicker way to stack gears and levers that turn together: no pins, no
+screws. `HXS2` and `HXS4` are hex tubes for two or four levels that turn on
+the pin's bolt on two small bearings pressed into their ends (688 for M2,
+686 for M1.5, 685 for M1). A printed core tube (`HXC2`, `HXC4`, same
+levels as the sleeve) sits between the two bearings' inner races, so the
+knob clamps the races and the sleeve stays free. The pin is otherwise the
+usual one: base spacer under the sleeve, knob on top, a bolt for the
+sleeve's levels.
+
+Hex-bore parts slide down onto the sleeve, rest on its bottom flange and
+turn with it:
+
+- `HG20`, `HG30`, `HG40`, `HG60`: hex-bore gears, 1 mm thinner than
+  standard gears with their tops level with them, so they mesh with
+  standard gears on the next pin. (No `HG20` in M1: its root circle is too
+  close to the hex.)
+- `HSP0` fills the 3 mm gap to the next level; `HSP1` skips a level as well.
+- `HL4` is a lever with seats for standard bearings two and three grid
+  steps out, to drive a link or a slot from a stack.
+
+The `hexsleeve` kit builds one 4-level stack (`HG40`, `HSP0`, `HG30`,
+`HSP1`, `HL4`) next to a standard pin with free `G20` and `G30` gears, so
+the lever turns both of them at different speeds. The lever sits on level
+4, above the second pin's knob. Print the sleeve standing; the hex fit
+uses the profile's slot clearance, so print the coupon first and adjust
+that value if parts are tight on the sleeve.
 
 ## Assemblies
 

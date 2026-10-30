@@ -5,7 +5,7 @@
 // libraries folder). Run `npm run render` to build the whole catalog.
 
 /* [Part] */
-part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, joint_ring, handle_spacer, assembly, coupler, post, joint]
+part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, joint_ring, handle_spacer, assembly, coupler, post, joint]
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
@@ -32,6 +32,7 @@ post_h = 11;       // [8:1:40] post height above the crank arm; 11 carries a bea
 level = 1;         // [1:1:3] motor mounts: level of the pinion; rack: level of the teeth; yoke, slider post: level of the crank gear; ring: level of the planets
 pulley_n = 40;     // [20:10:80] pulley diameter as a tooth count: MOD x n mm
 holes = 3;         // [2:1:6] link: bearing seats, one grid step apart
+hex_levels = 2;    // [0:1:4] hex sleeve and core: levels they span (1..4); hex spacer: empty levels it bridges (0..2)
 flip_pawl = false; // pawl for a ratchet that locks the other way
 
 /* [Mechanisms] */
@@ -52,7 +53,7 @@ span = 4;          // [2:1:4] shaft bracket: sockets between its housings
 shaft = "n20";     // [n20, nema17] pinion: which motor shaft it fits
 
 /* [Assembly] */
-kit = "joint";     // [joint, crank, pointer, motor, nema17, ratchet, linkage, rack, yoke, slider, cam, geneva, quickreturn, escapement, spring, winch, planetary, shaft, flywheel, maggear, magcouple]
+kit = "joint";     // [joint, crank, pointer, motor, nema17, ratchet, linkage, rack, yoke, slider, cam, geneva, quickreturn, escapement, spring, winch, planetary, shaft, flywheel, maggear, magcouple, hexsleeve]
 explode = 0;       // [0:1:1] 0 assembled, 1 exploded along each bolt
 layer = "all";     // [all, printed, hardware]
 
@@ -71,6 +72,7 @@ include <lib/motor.scad>
 include <lib/mechanisms.scad>
 include <lib/drives.scad>
 include <lib/magnets.scad>
+include <lib/hexsleeve.scad>
 include <lib/assembly.scad>
 
 // turn a part upside down for printing (cranks and pointers: hub ring up; carriages: flat top down)
@@ -129,5 +131,10 @@ else if (part == "nema_mount")  nema_mount(level);
 else if (part == "flywheel")    flywheel();
 else if (part == "mag_gear")    mag_gear(poles);
 else if (part == "barrier")     barrier();
+else if (part == "hex_sleeve")  hex_sleeve(hex_levels);
+else if (part == "hex_core")    hex_core(hex_levels);
+else if (part == "hex_gear")    hex_gear(teeth, face);
+else if (part == "hex_spacer")  hex_spacer(hex_levels);
+else if (part == "hex_lever")   hex_lever(holes);
 else if (part == "assembly")    assembly(kit, explode, layer);
 else assert(false, str("unknown part: ", part));

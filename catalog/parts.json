@@ -1586,6 +1586,166 @@
         "M1.5": [45, 45, 3],
         "M1": [33, 33, 3]
       }
+    },
+    {
+      "name": "HXS2",
+      "title": "Hex sleeve, 2 levels",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_sleeve",
+        "hex_levels": 2
+      },
+      "expect": {
+        "M2": [27.09, 27.09, 18],
+        "M1.5": [23.63, 23.63, 16],
+        "M1": [21.32, 21.32, 14]
+      }
+    },
+    {
+      "name": "HXS4",
+      "title": "Hex sleeve, 4 levels",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_sleeve",
+        "hex_levels": 4
+      },
+      "expect": {
+        "M2": [27.09, 27.09, 38],
+        "M1.5": [23.63, 23.63, 34],
+        "M1": [21.32, 21.32, 30]
+      }
+    },
+    {
+      "name": "HXC2",
+      "title": "Hex sleeve core tube, 2 levels",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_core",
+        "hex_levels": 2
+      },
+      "expect": {
+        "M2": [10, 10, 7],
+        "M1.5": [8, 8, 5],
+        "M1": [6.6, 6.6, 3]
+      }
+    },
+    {
+      "name": "HXC4",
+      "title": "Hex sleeve core tube, 4 levels",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_core",
+        "hex_levels": 4
+      },
+      "expect": {
+        "M2": [10, 10, 27],
+        "M1.5": [8, 8, 23],
+        "M1": [6.6, 6.6, 19]
+      }
+    },
+    {
+      "name": "HG20",
+      "title": "Hex-bore gear 20T",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_gear",
+        "teeth": 20
+      },
+      "sizes": [
+        "M2",
+        "M1.5"
+      ],
+      "expect": {
+        "M2": [43.98, 43.98, 7],
+        "M1.5": [32.99, 32.99, 6]
+      }
+    },
+    {
+      "name": "HG30",
+      "title": "Hex-bore gear 30T",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_gear",
+        "teeth": 30,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [63.77, 63.99, 7],
+        "M1.5": [47.82, 47.99, 6],
+        "M1": [31.88, 32, 5]
+      }
+    },
+    {
+      "name": "HG40",
+      "title": "Hex-bore gear 40T",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_gear",
+        "teeth": 40,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 7],
+        "M1.5": [62.99, 62.99, 6],
+        "M1": [42, 42, 5]
+      }
+    },
+    {
+      "name": "HG60",
+      "title": "Hex-bore gear 60T",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_gear",
+        "teeth": 60,
+        "face": "spokes"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 7],
+        "M1.5": [92.99, 92.99, 6],
+        "M1": [62, 62, 5]
+      }
+    },
+    {
+      "name": "HSP0",
+      "title": "Hex spacer, next level",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_spacer",
+        "hex_levels": 0
+      },
+      "expect": {
+        "M2": [27.5, 27.5, 3],
+        "M1.5": [24.03, 24.03, 3],
+        "M1": [21.72, 21.72, 3]
+      }
+    },
+    {
+      "name": "HSP1",
+      "title": "Hex spacer, skips a level",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_spacer",
+        "hex_levels": 1
+      },
+      "expect": {
+        "M2": [27.5, 27.5, 13],
+        "M1.5": [24.03, 24.03, 12],
+        "M1": [21.72, 21.72, 11]
+      }
+    },
+    {
+      "name": "HL4",
+      "title": "Hex lever, 4 holes (bearing seats on the outer two)",
+      "group": "hexsleeve",
+      "params": {
+        "part": "hex_lever",
+        "holes": 4
+      },
+      "expect": {
+        "M2": [88.25, 28.5, 7],
+        "M1.5": [69.02, 25.03, 6],
+        "M1": [51.36, 22.72, 5]
+      }
     }
   ],
   "kits": {
@@ -1994,6 +2154,31 @@
         "1 bolt (2-level length), 1 nut, 2 bearings",
         "12 neodymium disc magnets (6 x 3 mm for M2, 4 x 2 mm for M1.5, 3 x 2 mm for M1), poles alternating as the dots show",
         "(the barrier stands still between the gears: drive one, the other follows)"
+      ]
+    },
+    "hexsleeve": {
+      "title": "Hex sleeve stack",
+      "parts": [
+        "HXS4",
+        "HXC4",
+        "HG40",
+        "HG30",
+        "HSP0",
+        "HSP1",
+        "HL4",
+        "K",
+        "BS",
+        "G20",
+        "G30",
+        "S3",
+        "K",
+        "BS"
+      ],
+      "hardware": [
+        "2 small bearings pressed into the sleeve ends: 688 (8 x 16 x 5) for M2, 686 (6 x 13 x 5) for M1.5, 685 (5 x 11 x 5) for M1",
+        "2 standard bearings pressed into the lever, 2 for the gears on the second pin",
+        "1 bolt (4-level length), 1 bolt (2-level length), 2 nuts",
+        "(the hex parts slide onto the sleeve and turn together; the second pin's gears turn freely, three sockets away)"
       ]
     }
   }

@@ -39,7 +39,7 @@ export const ASSEMBLY_KITS: [string, string][] = [
   ["joint", "Joining two gears: dowel pins and M3 screws"], ["crank", "Hand crank"], ["pointer", "Pointer and dial"], ["motor", "N20 motor"], ["nema17", "NEMA 17 motor"],
   ["ratchet", "Ratchet and pawl"], ["linkage", "Crank-rocker linkage"], ["rack", "Rack and pinion"], ["yoke", "Scotch yoke"], ["slider", "Crank slider"], ["cam", "Cam and follower"],
   ["geneva", "Geneva drive"], ["quickreturn", "Quick return"], ["escapement", "Escapement"], ["spring", "Wind-up spring"], ["winch", "Winch"], ["planetary", "Planetary set"],
-  ["shaft", "Shaft bracket, bevel pair and worm"], ["flywheel", "Flywheel"], ["maggear", "Magnetic gears"], ["magcouple", "Magnetic face coupling"],
+  ["shaft", "Shaft bracket, bevel pair and worm"], ["flywheel", "Flywheel"], ["maggear", "Magnetic gears"], ["magcouple", "Magnetic face coupling"], ["hexsleeve", "Hex sleeve stack"],
 ];
 
 export const PART_KINDS: PartKind[] = [
@@ -238,6 +238,44 @@ export const PART_KINDS: PartKind[] = [
     name: p => `MG${p.poles}`,
   },
   { id: "barrier", title: "Coupling barrier", group: "Magnets", blurb: "A 3 mm spacer with a 0.8 mm flange that fills the gap between the two gears of a magnetic face coupling. It is clamped between the bearings' inner races, so it stands still while both gears turn: torque through a wall.", params: [], defaults: {}, name: () => "MAGB" },
+  {
+    id: "hex_sleeve", title: "Hex sleeve", group: "Hex sleeve",
+    blurb: "A printed hex tube that turns on the pin's bolt on two small bearings pressed into its ends (688 for M2, 686 for M1.5, 685 for M1), with the core tube between their inner races. Hex-bore gears, spacers and levers slide onto it and turn together: no pins or screws, and a stack comes apart by sliding parts off the top. Base spacer below, knob on top, as on any pin. Prints standing.",
+    params: [{ key: "hex_levels", label: "Levels", type: "select", options: [1, 2, 3, 4].map(v => ({ value: v, label: `${v} level${v > 1 ? "s" : ""}` })) }],
+    defaults: { hex_levels: 2 },
+    name: p => `HXS${p.hex_levels}`,
+  },
+  {
+    id: "hex_core", title: "Hex sleeve core", group: "Hex sleeve",
+    blurb: "The thin tube inside a hex sleeve, between its two bearings' inner races, so the bolt clamps the races and not the sleeve. Make it for the same number of levels as the sleeve.",
+    params: [{ key: "hex_levels", label: "Levels", type: "select", options: [1, 2, 3, 4].map(v => ({ value: v, label: `${v} level${v > 1 ? "s" : ""}` })) }],
+    defaults: { hex_levels: 2 },
+    name: p => `HXC${p.hex_levels}`,
+  },
+  {
+    id: "hex_gear", title: "Hex-bore gear", group: "Hex sleeve",
+    blurb: "A gear with a hex bore that slides onto the hex sleeve, 1 mm thinner than a standard gear so a 3 mm gap is left to the next level. It meshes with standard gears on the next pin like any gear of its size.",
+    params: [
+      { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
+      { key: "face", label: "Face pattern", type: "select", options: faceOptions.filter(o => o.value === "solid" || o.value === "spokes") },
+    ],
+    defaults: { teeth: 40, face: "spokes" },
+    name: p => `HG${p.teeth}${faceSuffix(p)}`,
+  },
+  {
+    id: "hex_spacer", title: "Hex spacer", group: "Hex sleeve",
+    blurb: "A hex-bore ring between two parts on the sleeve: the 3 mm gap to the next level, or that plus one or two empty levels.",
+    params: [{ key: "hex_levels", label: "Empty levels", type: "select", options: [0, 1, 2].map(v => ({ value: v, label: v ? `skips ${v} level${v > 1 ? "s" : ""}` : "next level" })) }],
+    defaults: { hex_levels: 0 },
+    name: p => `HSP${p.hex_levels}`,
+  },
+  {
+    id: "hex_lever", title: "Hex lever", group: "Hex sleeve",
+    blurb: "A lever one level thick with a hex hole at the hub end and flush seats for standard bearings from two grid steps out (the first step is too close to the hex), to drive a link or a slot from a stack.",
+    params: [{ key: "holes", label: "Holes", type: "select", options: [3, 4, 5, 6].map(v => ({ value: v, label: `${v} holes, ${v - 2} bearing seat${v > 3 ? "s" : ""}` })) }],
+    defaults: { holes: 4 },
+    name: p => `HL${p.holes}`,
+  },
   { id: "flywheel", title: "Flywheel", group: "Drives", blurb: "A disc on the gear hub with eight nut pockets around the rim: drop in nuts for the mass. Smooths a crank's or an escapement's drive.", params: [], defaults: {}, name: () => "FLYWHEEL" },
   {
     id: "rail", title: "Slider rail", group: "Mechanisms",
@@ -412,6 +450,7 @@ export function validate(kindId: string, p: Params, size?: Size): string | null 
     if (k?.sizes && !k.sizes.includes(size)) return `The ${k.title.toLowerCase()} is not made in ${size}: it does not fit the ${catalog.standards[size].grid} mm grid. Pick another size.`;
     if (size === "M1" && kindId === "spring_gear" && Number(p.teeth) < 50) return "In M1 the spring needs a gear of 50 teeth or more.";
     if (size === "M1" && kindId === "mag_gear" && Number(p.poles) < 16) return "In M1 a magnetic gear needs 16 magnets or more.";
+    if (size === "M1" && kindId === "hex_gear" && Number(p.teeth) < 30) return "In M1 a hex-bore gear needs 30 teeth or more: a 20T has no wall left around the hex.";
     if (kindId === "assembly" && !kitInSize(String(p.kit), size)) return `This kit is not made in ${size}: some of its parts do not fit the ${catalog.standards[size].grid} mm grid.`;
   }
   return null;

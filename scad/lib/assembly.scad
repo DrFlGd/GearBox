@@ -18,6 +18,7 @@ include <motor.scad>
 include <mechanisms.scad>
 include <drives.scad>
 include <magnets.scad>
+include <hexsleeve.scad>
 
 _EX = 7;
 function gz(k) = lvl_z(k) - 1;                  // bottom of a gear on level k
@@ -326,8 +327,39 @@ module asm_magcouple() {
     ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
 }
 
+// hex sleeve: one stack on a 4-level sleeve (gear, gear, an empty level, lever)
+// turning together, meshing with two free standard gears on the next pin; the
+// lever sits above that pin's knob
+module hw_small_bearing(b) asm_h() difference() { cylinder(d = b[1], h = b[2]); translate([0, 0, -1]) cylinder(d = b[0], h = b[2] + 2); }
+module asm_hexsleeve() {
+    n = 4; h = hex_sleeve_h(n); z0 = gz(1); b = HEX_BEARING;
+    asm_tile(-1, -1, 6, 3);
+    asm_p() ex(0.6) base_spacer();
+    ex(0.9) translate([0, 0, z0 + HEX_FLANGE]) hw_small_bearing(b);
+    asm_p() ex(1.6) translate([0, 0, z0]) hex_sleeve(n);
+    asm_p() ex(2.4) translate([0, 0, z0 + HEX_FLANGE + b[2]]) hex_core(n);
+    ex(3) translate([0, 0, z0 + h - b[2]]) hw_small_bearing(b);
+    asm_p() {
+        ex(3.6) translate([0, 0, lvl_z(1)]) hex_gear(40, "spokes");
+        ex(4.2) translate([0, 0, lvl_z(1) + HEX_GEAR_T]) hex_spacer(0);
+        ex(4.8) translate([0, 0, lvl_z(2)]) hex_gear(30);
+        ex(5.4) translate([0, 0, lvl_z(2) + HEX_GEAR_T]) hex_spacer(1);
+        ex(6) translate([0, 0, lvl_z(4)]) rotate(120) hex_lever(4);
+    }
+    for (i = [2, 3]) ex(6.6) rotate(120) translate([i * GRID, 0, lvl_z(4)]) hw_bearing();
+    zk = z0 + h;
+    asm_p() ex(7.2) translate([0, 0, zk]) knob();
+    ex(8.4) translate([0, 0, zk + KNOB_BOSS_H + KNOB_FLOOR]) hw_bolt(stock_bolt(n));
+    ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
+    at(3, 0) {
+        std_pin([1, 2]);
+        asm_p() ex(2) translate([0, 0, gz(1)]) rotate(180 / 20) gear(20);
+        asm_p() ex(4) translate([0, 0, gz(2)]) rotate(180 / 30) gear(30);
+    }
+}
+
 ASSEMBLIES = ["joint", "crank", "pointer", "motor", "nema17", "ratchet", "linkage", "rack", "yoke", "slider", "cam", "geneva",
-              "quickreturn", "escapement", "spring", "winch", "planetary", "shaft", "flywheel", "maggear", "magcouple"];
+              "quickreturn", "escapement", "spring", "winch", "planetary", "shaft", "flywheel", "maggear", "magcouple", "hexsleeve"];
 module assembly(kit = "joint", explode = 0, layer = "all") {
     $explode = explode; $layer = layer;
     if (kit == "joint") asm_joint();
@@ -351,5 +383,6 @@ module assembly(kit = "joint", explode = 0, layer = "all") {
     else if (kit == "flywheel") asm_flywheel();
     else if (kit == "maggear") asm_maggear();
     else if (kit == "magcouple") asm_magcouple();
+    else if (kit == "hexsleeve") asm_hexsleeve();
     else assert(false, str("no assembly for kit ", kit));
 }
