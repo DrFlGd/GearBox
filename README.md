@@ -358,6 +358,20 @@ the lever turns both of them at different speeds. The lever sits on level
 uses the profile's slot clearance, so print the coupon first and adjust
 that value if parts are tight on the sleeve.
 
+## Jaw gears (M2 test)
+
+Another pinless joint, for gears that each keep their own bearing. `JG20`,
+`JG30` and `JG40` have three crescent jaws standing 4.5 mm on the top face
+and three matching pockets 3 mm deep in the bottom face. The jaws sit on
+the hub between the bearing seat and the 20T's root circle, so any jaw gear
+stacks on any other: the upper gear's pockets drop over the lower gear's
+jaws across the 2 mm gap and take 2.5 mm of them, with the profile's slot
+clearance all round. The gears print bottom down with no supports. The jaw
+tops are chamfered, the pocket mouths are chamfered against elephant foot,
+and the pocket ceilings are short bridges. The `jaws` kit stacks all three
+on one 3-level pin. This is M2 only for now; M1.5 and M1 would need the jaws
+sized for their 30T.
+
 ## Assemblies
 
 The **Assembly** part in the generator shows a whole kit put together on its

@@ -39,7 +39,7 @@ export const ASSEMBLY_KITS: [string, string][] = [
   ["joint", "Joining two gears: dowel pins and M3 screws"], ["crank", "Hand crank"], ["pointer", "Pointer and dial"], ["motor", "N20 motor"], ["nema17", "NEMA 17 motor"],
   ["ratchet", "Ratchet and pawl"], ["linkage", "Crank-rocker linkage"], ["rack", "Rack and pinion"], ["yoke", "Scotch yoke"], ["slider", "Crank slider"], ["cam", "Cam and follower"],
   ["geneva", "Geneva drive"], ["quickreturn", "Quick return"], ["escapement", "Escapement"], ["spring", "Wind-up spring"], ["winch", "Winch"], ["planetary", "Planetary set"],
-  ["shaft", "Shaft bracket, bevel pair and worm"], ["flywheel", "Flywheel"], ["maggear", "Magnetic gears"], ["magcouple", "Magnetic face coupling"], ["hexsleeve", "Hex sleeve stack"],
+  ["shaft", "Shaft bracket, bevel pair and worm"], ["flywheel", "Flywheel"], ["maggear", "Magnetic gears"], ["magcouple", "Magnetic face coupling"], ["hexsleeve", "Hex sleeve stack"], ["jaws", "Jaw gear stack (M2 test)"],
 ];
 
 export const PART_KINDS: PartKind[] = [
@@ -238,6 +238,17 @@ export const PART_KINDS: PartKind[] = [
     name: p => `MG${p.poles}`,
   },
   { id: "barrier", title: "Coupling barrier", group: "Magnets", blurb: "A 3 mm spacer with a 0.8 mm flange that fills the gap between the two gears of a magnetic face coupling. It is clamped between the bearings' inner races, so it stands still while both gears turn: torque through a wall.", params: [], defaults: {}, name: () => "MAGB" },
+  {
+    sizes: ["M2"],
+    id: "jaw_gear", title: "Jaw gear (test)", group: "Gears",
+    blurb: "A test of pinless joining for M2: three crescent jaws stand on the top face and three matching pockets are cut in the bottom, so any jaw gear stacks on any other across the 2 mm gap between levels. Each gear keeps its own bearing; the jaws carry the torque. Prints bottom down with no supports (the pocket ceilings are short bridges).",
+    params: [
+      { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
+      { key: "face", label: "Face pattern", type: "select", options: faceOptions.filter(o => o.value === "solid" || o.value === "spokes") },
+    ],
+    defaults: { teeth: 40, face: "spokes" },
+    name: p => `JG${p.teeth}${faceSuffix(p)}`,
+  },
   {
     id: "hex_sleeve", title: "Hex sleeve", group: "Hex sleeve",
     blurb: "A printed hex tube that turns on the pin's bolt on two small bearings pressed into its ends (688 for M2, 686 for M1.5, 685 for M1), with the core tube between their inner races. Hex-bore gears, spacers and levers slide onto it and turn together: no pins or screws, and a stack comes apart by sliding parts off the top. Base spacer below, knob on top, as on any pin. Prints standing.",

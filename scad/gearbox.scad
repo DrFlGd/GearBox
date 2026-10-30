@@ -5,7 +5,7 @@
 // libraries folder). Run `npm run render` to build the whole catalog.
 
 /* [Part] */
-part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, joint_ring, handle_spacer, assembly, coupler, post, joint]
+part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, jaw_gear, joint_ring, handle_spacer, assembly, coupler, post, joint]
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
@@ -53,7 +53,7 @@ span = 4;          // [2:1:4] shaft bracket: sockets between its housings
 shaft = "n20";     // [n20, nema17] pinion: which motor shaft it fits
 
 /* [Assembly] */
-kit = "joint";     // [joint, crank, pointer, motor, nema17, ratchet, linkage, rack, yoke, slider, cam, geneva, quickreturn, escapement, spring, winch, planetary, shaft, flywheel, maggear, magcouple, hexsleeve]
+kit = "joint";     // [joint, crank, pointer, motor, nema17, ratchet, linkage, rack, yoke, slider, cam, geneva, quickreturn, escapement, spring, winch, planetary, shaft, flywheel, maggear, magcouple, hexsleeve, jaws]
 explode = 0;       // [0:1:1] 0 assembled, 1 exploded along each bolt
 layer = "all";     // [all, printed, hardware]
 
@@ -73,6 +73,7 @@ include <lib/mechanisms.scad>
 include <lib/drives.scad>
 include <lib/magnets.scad>
 include <lib/hexsleeve.scad>
+include <lib/jaws.scad>
 include <lib/assembly.scad>
 
 // turn a part upside down for printing (cranks and pointers: hub ring up; carriages: flat top down)
@@ -136,5 +137,6 @@ else if (part == "hex_core")    hex_core(hex_levels);
 else if (part == "hex_gear")    hex_gear(teeth, face);
 else if (part == "hex_spacer")  hex_spacer(hex_levels);
 else if (part == "hex_lever")   hex_lever(holes);
+else if (part == "jaw_gear")    jaw_gear(teeth, face);
 else if (part == "assembly")    assembly(kit, explode, layer);
 else assert(false, str("unknown part: ", part));

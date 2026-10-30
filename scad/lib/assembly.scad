@@ -19,6 +19,7 @@ include <mechanisms.scad>
 include <drives.scad>
 include <magnets.scad>
 include <hexsleeve.scad>
+include <jaws.scad>
 
 _EX = 7;
 function gz(k) = lvl_z(k) - 1;                  // bottom of a gear on level k
@@ -358,8 +359,15 @@ module asm_hexsleeve() {
     }
 }
 
+// jaw gears: three on one pin, each on its own bearing, joined by the jaws
+module asm_jaws() {
+    asm_tile(-1, -1, 3, 3);
+    std_pin([1, 2, 3]);
+    asm_p() for (k = [1 : 3]) ex(2 * k) translate([0, 0, gz(k)]) jaw_gear([40, 30, 20][k - 1], "spokes");
+}
+
 ASSEMBLIES = ["joint", "crank", "pointer", "motor", "nema17", "ratchet", "linkage", "rack", "yoke", "slider", "cam", "geneva",
-              "quickreturn", "escapement", "spring", "winch", "planetary", "shaft", "flywheel", "maggear", "magcouple", "hexsleeve"];
+              "quickreturn", "escapement", "spring", "winch", "planetary", "shaft", "flywheel", "maggear", "magcouple", "hexsleeve", "jaws"];
 module assembly(kit = "joint", explode = 0, layer = "all") {
     $explode = explode; $layer = layer;
     if (kit == "joint") asm_joint();
@@ -384,5 +392,6 @@ module assembly(kit = "joint", explode = 0, layer = "all") {
     else if (kit == "maggear") asm_maggear();
     else if (kit == "magcouple") asm_magcouple();
     else if (kit == "hexsleeve") asm_hexsleeve();
+    else if (kit == "jaws") asm_jaws();
     else assert(false, str("no assembly for kit ", kit));
 }

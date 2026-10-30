@@ -1746,6 +1746,54 @@
         "M1.5": [69.02, 25.03, 6],
         "M1": [51.36, 22.72, 5]
       }
+    },
+    {
+      "name": "JG20",
+      "title": "Jaw gear 20T (test: jaws on top, pockets underneath)",
+      "group": "test",
+      "params": {
+        "part": "jaw_gear",
+        "teeth": 20,
+        "face": "spokes"
+      },
+      "sizes": [
+        "M2"
+      ],
+      "expect": {
+        "M2": [43.98, 43.98, 12.5]
+      }
+    },
+    {
+      "name": "JG30",
+      "title": "Jaw gear 30T (test: jaws on top, pockets underneath)",
+      "group": "test",
+      "params": {
+        "part": "jaw_gear",
+        "teeth": 30,
+        "face": "spokes"
+      },
+      "sizes": [
+        "M2"
+      ],
+      "expect": {
+        "M2": [63.77, 63.99, 12.5]
+      }
+    },
+    {
+      "name": "JG40",
+      "title": "Jaw gear 40T (test: jaws on top, pockets underneath)",
+      "group": "test",
+      "params": {
+        "part": "jaw_gear",
+        "teeth": 40,
+        "face": "spokes"
+      },
+      "sizes": [
+        "M2"
+      ],
+      "expect": {
+        "M2": [83.99, 83.99, 12.5]
+      }
     }
   ],
   "kits": {
@@ -2179,6 +2227,22 @@
         "2 standard bearings pressed into the lever, 2 for the gears on the second pin",
         "1 bolt (4-level length), 1 bolt (2-level length), 2 nuts",
         "(the hex parts slide onto the sleeve and turn together; the second pin's gears turn freely, three sockets away)"
+      ]
+    },
+    "jaws": {
+      "title": "Jaw gear stack (M2 test)",
+      "parts": [
+        "JG40",
+        "JG30",
+        "JG20",
+        "BS",
+        "S3",
+        "S3",
+        "K"
+      ],
+      "hardware": [
+        "1 bolt (3-level length, M8 x 50), 1 nut, 3 bearings",
+        "(stack the gears on one pin in any order: each gear's pockets drop over the jaws of the gear below)"
       ]
     }
   }
