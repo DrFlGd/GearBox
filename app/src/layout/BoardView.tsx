@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { studio, type Studio } from "../components/look";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
   ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
@@ -22,8 +23,8 @@ type LinkAnim = { l: Linkage; crankMesh: THREE.Mesh; coupler: THREE.Mesh; rocker
 /** What the frame loop needs for a picked item: its own motion, or a fixed angle. */
 type ItemData = { pin: string; level: number; motion?: Motion; fixed: number };
 
-const cyl = (r: number, h: number, seg = 24) => new THREE.CylinderGeometry(r, r, h, seg).rotateX(Math.PI / 2);
-const cylUp = (r: number, h: number, seg = 24) => cyl(r, h, seg).translate(0, 0, h / 2);
+const cyl = (r: number, h: number, seg = 40) => new THREE.CylinderGeometry(r, r, h, Math.max(seg, 32)).rotateX(Math.PI / 2);
+const cylUp = (r: number, h: number, seg = 40) => cyl(r, h, seg).translate(0, 0, h / 2);
 
 /** The virtual board: tiles, sockets, bolts, gears, add-ons and fixtures; click to pick, animated when playing. */
 export default function BoardView({ layout, analysis, selected, selectedFixture, playing, onPick, onHover }: Props) {
@@ -31,7 +32,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
   const st = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     group: THREE.Group; gears: THREE.Object3D[]; fixtures: THREE.Object3D[]; sockets: THREE.InstancedMesh | null; socketIndex: { i: number; j: number }[];
-    links: LinkAnim[]; anims: ((theta: number) => void)[]; theta: number; last: number; playing: boolean; rpm: number; hoverIdx: number; fittedFor: string;
+    links: LinkAnim[]; anims: ((theta: number) => void)[]; theta: number; last: number; playing: boolean; rpm: number; hoverIdx: number; fittedFor: string; look: Studio;
   } | null>(null);
   const cb = useRef({ onPick, onHover });
   cb.current = { onPick, onHover };
@@ -46,11 +47,9 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     camera.up.set(0, 0, 1);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.12;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.3));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.5); keyLight.position.set(80, -120, 200); scene.add(keyLight);
-    const fill = new THREE.DirectionalLight(0xbfd4ff, 0.5); fill.position.set(-120, 60, 60); scene.add(fill);
+    const look = studio(renderer, scene);
     const group = new THREE.Group(); scene.add(group);
-    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "" };
+    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "", look };
     st.current = s;
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
@@ -118,7 +117,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     };
     raf = requestAnimationFrame(loop);
     return () => {
-      cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); renderer.dispose();
+      cancelAnimationFrame(raf); ro.disconnect(); controls.dispose(); look.dispose(); renderer.dispose();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointermove", onMove);
@@ -249,7 +248,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const kind = kindOf(gear);
         const plain = kind === "gear" || kind === "pulley" || kind === "ratchet" || kind === "partial" || kind === "geneva" || kind === "genevaWheel" || kind === "cam" || kind === "escwheel" || kind === "winch" || kind === "carrier" || kind === "bevel" || kind === "wormgear" || kind === "flywheel" || kind === "maggear";
         const color = collide.has(k) ? COLORS.collide : k === inputKey ? COLORS.input : speed ? COLORS.driven : plain ? COLORS.idle : COLORS.addon;
-        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, flatShading: true });
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
         const z = gearZ(size, gear.level);
         let mesh: THREE.Mesh;
         const hub = (r: number) => new THREE.Mesh(cylUp(r, T), mat);
@@ -535,7 +534,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       }
       const fr = railFrame(layout, f), rd = railDims(size);
       const railMat = new THREE.MeshStandardMaterial({ color: badFixtures.has(f.id) ? COLORS.collide : COLORS.rail, roughness: 0.7 });
-      const carMat = new THREE.MeshStandardMaterial({ color: badFixtures.has(f.id) ? COLORS.collide : COLORS.carriage, roughness: 0.6, flatShading: true });
+      const carMat = new THREE.MeshStandardMaterial({ color: badFixtures.has(f.id) ? COLORS.collide : COLORS.carriage, roughness: 0.6 });
       const grp = new THREE.Group();
       grp.position.set(fr.o.x, fr.o.y, d.tile_h); grp.rotation.z = fr.angle;
       grp.userData = { fixture: f.id };
@@ -623,6 +622,15 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       s.camera.position.set(cx, cy - dist * 0.55, dist * 0.85);
       s.camera.near = Math.max(0.1, dist / 100); s.camera.far = dist * 20; s.camera.updateProjectionMatrix();
     }
+    // shadows: solid parts cast and catch them; flat markers (sockets, selection rings, outlines) stay out
+    s.group.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || (m as THREE.InstancedMesh).isInstancedMesh) return;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      if (mats.some(x => (x as THREE.MeshBasicMaterial).isMeshBasicMaterial)) return;
+      m.castShadow = m.receiveShadow = true;
+    });
+    s.look.fit(new THREE.Box3().setFromObject(s.group));
   }, [layout, analysis, selected, selectedFixture]);
 
   return <div className="viewer board" ref={host} />;

@@ -324,6 +324,13 @@ library and engine, so opening a part, kit zip or print plate again loads
 at once; any change to those renders fresh. The fit overrides in Settings are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
+The 3D views share one look (`app/src/components/look.ts`): curved surfaces
+shade smooth while edges sharper than 35 degrees stay crisp, a soft room
+environment and a shadow-casting key light give depth, and a contact shadow
+sits under the model. It is display only, so it changes no render, download
+or cached model. The Layout tab draws its gears in the browser with true
+involute teeth on the same pitch, tip and root circles as the printed gears.
+
 ### The layout tester
 
 The **Layout** tab in the app is a virtual board. Click a socket to add a pin
