@@ -2,9 +2,9 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, MAG_COUPLE_MIN, PLN, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, MAGF_N, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
-  type Band, type Fixture, type Gear, type Layout, type Pin,
+  type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
 import { escapeAngle, gateE, genevaAngle, rangeOver, sliderX, yokeX } from "./motion";
 import { catalog, type Size } from "../parts";
@@ -142,7 +142,11 @@ export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): Fixture
   return out;
 }
 
-export function analyze(l: Layout): Analysis {
+/** Two stacked items can join with jaws: jaws on the lower one's top face, pockets in the upper one's bottom. */
+export const jawPair = (size: Size, below: Gear, above: Gear) => hasJaws(size, below, "top") && hasJaws(size, above, "bottom");
+
+/** `joint`: how the kit export joins stacked items (jaws by default). */
+export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
   const s = std(l.size);
   const m = s.module, g = s.grid;
   const pairs: Pair[] = [];
@@ -341,10 +345,11 @@ export function analyze(l: Layout): Analysis {
       const below = gearAt(pin, x.level - 1);
       if (x.joined && !below) problems.push({ text: `level ${x.level} is joined to an empty level below`, pin: pin.id, level: x.level });
       const compound = !!below && kindOf(below) === "gear" && kind === "gear" && !below.topper && below.teeth > x.teeth && x.coupling !== "magnetic";
-      if (x.joined && below && x.coupling !== "magnetic" && !compound && (!hasPins(l.size, x) || !hasPins(l.size, below)))
-        problems.push({ text: `a ${label(!hasPins(l.size, x) ? x : below)} in ${l.size} is too small for the dowel pins: join it only as the small half of a compound gear`, pin: pin.id, level: x.level });
-      if ((x.topper === "crank" || x.topper === "pointer") && !hasPins(l.size, x))
-        problems.push({ text: `a ${label(x)} in ${l.size} is too small for the dowel pins a ${x.topper} needs: use a bigger gear`, pin: pin.id, level: x.level });
+      // with jaws, a pair too small for them falls back to dowel pins
+      if (x.joined && below && x.coupling !== "magnetic" && !compound && !(joint === "jaws" && jawPair(l.size, below, x)) && (!hasPins(l.size, x) || !hasPins(l.size, below)))
+        problems.push({ text: `a ${label(!hasPins(l.size, x) ? x : below)} in ${l.size} is too small for the ${joint === "jaws" ? "jaws or the " : ""}dowel pins: join it only as the small half of a compound gear`, pin: pin.id, level: x.level });
+      if ((x.topper === "crank" || x.topper === "pointer") && !(joint === "jaws" && hasJaws(l.size, x, "top")) && !hasPins(l.size, x))
+        problems.push({ text: `a ${label(x)} in ${l.size} is too small for the ${joint === "jaws" ? "jaws or the " : ""}dowel pins a ${x.topper} needs: use a bigger gear`, pin: pin.id, level: x.level });
       if (x.coupling === "magnetic" && below) {
         if (!x.joined) problems.push({ text: `level ${x.level} has a magnetic coupling but is not joined`, pin: pin.id, level: x.level });
         if (kindOf(x) !== "gear" || kindOf(below) !== "gear" || x.teeth < MAG_COUPLE_MIN || below.teeth < MAG_COUPLE_MIN || x.topper === "spring" || below.topper)
@@ -591,8 +596,11 @@ export function analyze(l: Layout): Analysis {
 
 export type BomLine = { name: string; title: string; qty: number; params?: Record<string, string | number> };
 
-/** What to print and buy for a layout. Printed parts carry catalog-style names and params for the kit zip. */
-export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomLine[] } {
+/** What to print and buy for a layout. Printed parts carry catalog-style names and params for the kit zip.
+ *  With jaws, each item's top face gets jaws only where something is joined onto it (or a crank or
+ *  pointer keys onto it) and is flat otherwise, so a free item can sit right above it; a joined pair
+ *  too small for the jaws gets dowel pin holes in both faces instead. */
+export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: BomLine[]; hardware: BomLine[] } {
   const s = std(l.size);
   const printed = new Map<string, BomLine>();
   const hardware = new Map<string, BomLine>();
@@ -603,7 +611,7 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
   const bolt = (levels: number, qty = 1) => addH(`bolt-${levels}`, `${s.bolt} x ${s.bolt_lengths[String(levels)] ?? "?"} mm hex bolt`, qty);
   const bearing = (qty = 1) => addH("bearing", `${s.bearing} bearing`, qty);
   const spacer = (h: number, qty = 1) => addP(`S${h}`, `Spacer ${h} mm`, { part: "spacer", spacer_h: h }, qty);
-  const hw = s.hardware, mag = magnetSize(l.size);
+  const hw = s.hardware, mag = magnetSize(l.size), jaws = joint === "jaws";
   const dowel = (qty = 1) => addH("pin", `${hw.pin} steel dowel pin`, qty);
   const hubPins = () => addH("pin-hub", `${hw.pin_hub} steel dowel pin (hub ring)`, 3);
   const cap = (qty = 1) => { addP("CAP", "Post cap", { part: "cap" }, qty); dowel(qty); };   // each cap is keyed by a pin in its post
@@ -661,18 +669,40 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
       addH("nut", `${s.nut} nut`, 2);
       continue;
     }
-    if (topG.topper === "pointer") addP("DIALK", "Dial knob", { part: "dial_knob" }); else addP("K", "Bolt knob", { part: "knob" });
+    const dialOnJaws = topG.topper === "pointer" && jaws && hasJaws(l.size, topG, "top");
+    if (topG.topper === "pointer") addP(dialOnJaws ? "DIALK" : jaws ? "DIALK-P" : "DIALK", "Dial knob", { part: "dial_knob", ...(jaws && !dialOnJaws ? { joint: "pins" } : {}) }); else addP("K", "Bolt knob", { part: "knob" });
     addP("BS", "Base spacer", { part: "base_spacer" });
-    bolt(Math.min(4, used));
+    if (dialOnJaws) { const lv = String(Math.min(4, used)); addH(`dial-bolt-${lv}`, `${s.bolt} x ${s.dial_bolt_lengths[lv] ?? "?"} mm hex bolt (under the dial knob)`); }
+    else bolt(Math.min(4, used));
     addH("nut", `${s.nut} nut`);
     const sorted = [...pin.gears].sort((a, b) => a.level - b.level);
     if (sorted[0].level > 1) spacer(s.level, sorted[0].level - 1); // empty levels under the first item
+    // The faces of an item with jaws: [joint_top, joint_bottom] params ("" for the default), a name
+    // suffix and a title note. `upper` is the item whose top face counts (a compound's upper gear).
+    const faces = (lower: Gear, upper: Gear) => {
+      if (!jaws) return { params: {}, suffix: "", note: "" };
+      const idx = sorted.indexOf(upper), above = sorted[idx + 1], below = sorted[sorted.indexOf(lower) - 1];
+      // (a face too small for the jaws has pin holes anyway)
+      let top = "", bottom = "";
+      const topJaws = hasJaws(l.size, upper, "top");
+      if (upper.topper === "crank" || upper.topper === "pointer") top = "";
+      else if (above && above.joined && above.coupling !== "magnetic" && above.level === upper.level + 1) top = !jawPair(l.size, upper, above) && topJaws ? "pins" : "";
+      else if (topJaws && !(above?.joined && above.coupling === "magnetic")) top = "flat";   // nothing keys onto it: keep the face flat for whatever sits above
+      if (lower.joined && below && lower.coupling !== "magnetic" && !jawPair(l.size, below, lower) && hasJaws(l.size, lower, "bottom")) bottom = "pins";
+      const params: Record<string, string> = {};
+      if (top) params.joint_top = top;
+      if (bottom) params.joint_bottom = bottom;
+      const suffix = (top === "flat" ? "-FT" : top === "pins" ? "-PT" : "") + (bottom === "pins" ? "-PB" : "");
+      const note = [top === "flat" ? "flat top" : top === "pins" ? "pin holes on top" : "", bottom === "pins" ? "pin holes underneath" : ""].filter(Boolean).join(", ");
+      return { params, suffix, note: note ? `, ${note}` : "" };
+    };
     for (let i = 0; i < sorted.length; i++) {
       const x = sorted[i];
       const above = sorted[i + 1];
       const kind = kindOf(x);
       if (kind === "gear" && !x.topper && above?.joined && above.coupling !== "magnetic" && kindOf(above) === "gear" && x.teeth > above.teeth && above.level === x.level + 1) {
-        addP(`G${x.teeth}-${above.teeth}`, `Compound ${x.teeth}T over ${above.teeth}T`, { part: "compound", teeth: x.teeth, teeth_upper: above.teeth, face: "spokes" });
+        const f = faces(x, above);
+        addP(`G${x.teeth}-${above.teeth}${f.suffix}`, `Compound ${x.teeth}T over ${above.teeth}T${f.note}`, { part: "compound", teeth: x.teeth, teeth_upper: above.teeth, face: "spokes", ...f.params });
         bearing(2);
         spacer(3); // between the compound's two bearings
         i++; // the upper gear is part of the compound
@@ -680,18 +710,19 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
         if (sorted[i + 1]) joinTo(above, sorted[i + 1]);
         continue;
       }
+      const f = faces(x, x), sf = f.suffix, nt = f.note, fp = f.params;
       switch (kind) {
         case "gear":
-          if (x.topper === "spring") addP(`SG${x.teeth}`, `Spring gear ${x.teeth}T`, { part: "spring_gear", teeth: x.teeth });
+          if (x.topper === "spring") addP(`SG${x.teeth}${sf}`, `Spring gear ${x.teeth}T${nt}`, { part: "spring_gear", teeth: x.teeth, ...fp });
           else if ((above?.joined && above.coupling === "magnetic") || (x.joined && x.coupling === "magnetic")) {
             const side = above?.joined && above.coupling === "magnetic" ? "top" : "bottom";
-            addP(`G${x.teeth}-M${side === "top" ? "T" : "B"}`, `Gear ${x.teeth}T, magnet pockets in the ${side} face`, { part: "gear", teeth: x.teeth, magnets: side });
+            addP(`G${x.teeth}-M${side === "top" ? "T" : "B"}${sf}`, `Gear ${x.teeth}T, magnet pockets in the ${side} face${nt}`, { part: "gear", teeth: x.teeth, magnets: side, ...fp });
             magnets(MAGF_N);
-          } else addP(`G${x.teeth}`, `Gear ${x.teeth}T`, { part: "gear", teeth: x.teeth, face: x.teeth >= 40 ? "spokes" : "solid" });
+          } else addP(`G${x.teeth}${sf}`, `Gear ${x.teeth}T${nt}`, { part: "gear", teeth: x.teeth, face: x.teeth >= 40 ? "spokes" : "solid", ...fp });
           bearing(); break;
-        case "partial": addP(`G${x.teeth}${x.keep === 0.25 ? "Q" : "H"}`, `Intermittent gear ${x.teeth}T, teeth on ${x.keep === 0.25 ? "a quarter" : "half"} the rim`, { part: "partial", teeth: x.teeth, keep: x.keep === 0.25 ? "quarter" : "half" }); bearing(); break;
-        case "pulley": addP(`P${x.teeth}`, `Pulley ${x.teeth}`, { part: "pulley", pulley_n: x.teeth }); bearing(); break;
-        case "ratchet": addP("RATCHET", "Ratchet wheel", { part: "ratchet" }); bearing(); break;
+        case "partial": addP(`G${x.teeth}${x.keep === 0.25 ? "Q" : "H"}${sf}`, `Intermittent gear ${x.teeth}T, teeth on ${x.keep === 0.25 ? "a quarter" : "half"} the rim${nt}`, { part: "partial", teeth: x.teeth, keep: x.keep === 0.25 ? "quarter" : "half", ...fp }); bearing(); break;
+        case "pulley": addP(`P${x.teeth}${sf}`, `Pulley ${x.teeth}${nt}`, { part: "pulley", pulley_n: x.teeth, ...fp }); bearing(); break;
+        case "ratchet": addP(`RATCHET${sf}`, `Ratchet wheel${nt}`, { part: "ratchet", ...fp }); bearing(); break;
         case "pawl": addP(x.pawlCw ? "PAWL-L" : "PAWL", x.pawlCw ? "Pawl, locks clockwise" : "Pawl", { part: "pawl", flip_pawl: x.pawlCw ? "true" : "false" }); break;
         case "rocker": {
           const rk = x.rocker!;
@@ -700,55 +731,61 @@ export function billOfMaterials(l: Layout): { printed: BomLine[]; hardware: BomL
           addP("JOINT", "Joint post", { part: "joint" }); spacer(3); cap();
           break;
         }
-        case "cam": { const c = x.cam ?? "eccentric"; addP(`CAM-${c[0].toUpperCase()}`, `${c[0].toUpperCase()}${c.slice(1)} cam`, { part: "cam", cam: c }); bearing(); break; }
+        case "cam": { const c = x.cam ?? "eccentric"; addP(`CAM-${c[0].toUpperCase()}${sf}`, `${c[0].toUpperCase()}${c.slice(1)} cam${nt}`, { part: "cam", cam: c, ...fp }); bearing(); break; }
         case "follower": addP("FOLLOWER", "Cam follower arm", { part: "follower" }); bearing(); addH("band", "rubber band or O-ring"); break;
-        case "geneva": addP(`GENEVA${x.slots ?? 6}-D`, `Geneva driver, ${x.slots ?? 6} slot, on a 40T gear`, { part: "geneva_driver", slots: x.slots ?? 6 }); bearing(2); spacer(3); break;
-        case "genevaWheel": addP(`GENEVA${x.slots ?? 6}`, `Geneva wheel, ${x.slots ?? 6} slots`, { part: "geneva_wheel", slots: x.slots ?? 6 }); bearing(); break;
+        case "geneva": addP(`GENEVA${x.slots ?? 6}-D${sf}`, `Geneva driver, ${x.slots ?? 6} slot, on a 40T gear${nt}`, { part: "geneva_driver", slots: x.slots ?? 6, ...fp }); bearing(2); spacer(3); break;
+        case "genevaWheel": addP(`GENEVA${x.slots ?? 6}${sf}`, `Geneva wheel, ${x.slots ?? 6} slots${nt}`, { part: "geneva_wheel", slots: x.slots ?? 6, ...fp }); bearing(); break;
         case "qrlever": {
           const cp = x.crank ? pinById(l, x.crank) : undefined;
           const c = cp?.gears.find(o => o.topper === "crank");
           const d = cp ? Math.round(Math.hypot(cp.x - pin.x, cp.y - pin.y)) : 3, t = c?.throw ?? 2 * s.grid;
           addP(`QR${d}-${t}`, `Quick-return lever, pivot ${d} steps from a ${t} mm crank`, { part: "qr_lever", d_steps: d, throw: t }); bearing(); break;
         }
-        case "escwheel": addP("ESCWHEEL", "Escape wheel, 15 teeth", { part: "escape_wheel" }); bearing(); break;
+        case "escwheel": addP(`ESCWHEEL${sf}`, `Escape wheel, 15 teeth${nt}`, { part: "escape_wheel", ...fp }); bearing(); break;
         case "anchor": addP(x.anchorCw === false ? "ANCHOR-L" : "ANCHOR", `Anchor with balance bar, wheel runs ${x.anchorCw === false ? "counter-clockwise" : "clockwise"}`, { part: "anchor", cw: x.anchorCw === false ? "false" : "true" }); bearing(); addH("nut", `${s.nut} nut`); break;
-        case "winch": addP("WINCH", "Winch drum, two levels", { part: "winch" }); addP("WFLANGE", "Winch top flange", { part: "winch_flange" }); addP("HOOK", "String hook", { part: "hook" }); bearing(2); spacer(3); addH("string", "1 m of string"); break;
+        case "winch": addP(`WINCH${sf}`, `Winch drum, two levels${nt}`, { part: "winch", ...fp }); addP("WFLANGE", "Winch top flange", { part: "winch_flange" }); addP("HOOK", "String hook", { part: "hook" }); bearing(2); spacer(3); addH("string", "1 m of string"); break;
         case "carrier": {
-          addP("CARRIER", "Planet carrier, 60T with four posts", { part: "carrier" }); bearing();
-          addP("G20", "Gear 20T", { part: "gear", teeth: 20, face: "solid" }, 2); bearing(2); cap(2);   // two planets
+          addP(`CARRIER${sf}`, `Planet carrier, 60T with four posts${nt}`, { part: "carrier", ...fp }); bearing();
+          if (jaws) addP("G20-FT", "Gear 20T, flat top", { part: "gear", teeth: 20, face: "solid", joint_top: "flat" }, 2);   // two planets
+          else addP("G20", "Gear 20T", { part: "gear", teeth: 20, face: "solid" }, 2);
+          bearing(2); cap(2);
           addP(`RING-L${x.level + 1}`, `Planetary ring gear over level ${x.level + 1}`, { part: "ring", level: x.level + 1, flip: "true" });
           addP("K", "Bolt knob", { part: "knob" }, 2); bolt(Math.min(4, x.level + 1), 2); addH("nut", `${s.nut} nut`, 2);
           break;
         }
-        case "bevel": addP(x.teeth === 40 ? "BEVEL40" : "BEVEL", `Bevel gear on a ${x.teeth}T spur`, { part: "bevel", teeth: x.teeth }); bearing(); break;
-        case "wormgear": addP(`WG${x.teeth}`, `Worm gear ${x.teeth}T`, { part: "worm_gear", teeth: x.teeth }); bearing(); break;
-        case "flywheel": addP("FLYWHEEL", "Flywheel, eight nut pockets", { part: "flywheel" }); bearing(); addH("nut", `${s.nut} nut`, 8); break;
-        case "maggear": { const n = magPoles(x); addP(`MG${n}`, `Magnetic gear, ${n} magnets (like a ${x.teeth}T)`, { part: "mag_gear", poles: n }); bearing(); magnets(n); break; }
+        case "bevel": addP(`${x.teeth === 40 ? "BEVEL40" : "BEVEL"}${sf}`, `Bevel gear on a ${x.teeth}T spur${nt}`, { part: "bevel", teeth: x.teeth, ...fp }); bearing(); break;
+        case "wormgear": addP(`WG${x.teeth}${sf}`, `Worm gear ${x.teeth}T${nt}`, { part: "worm_gear", teeth: x.teeth, ...fp }); bearing(); break;
+        case "flywheel": addP(`FLYWHEEL${sf}`, `Flywheel, eight nut pockets${nt}`, { part: "flywheel", ...fp }); bearing(); addH("nut", `${s.nut} nut`, 8); break;
+        case "maggear": { const n = magPoles(x); addP(`MG${n}${sf}`, `Magnetic gear, ${n} magnets (like a ${x.teeth}T)${nt}`, { part: "mag_gear", poles: n, ...fp }); bearing(); magnets(n); break; }
       }
       topper(x);
       if (above) joinTo(x, above);
     }
     // what goes between an item and the next one up its pin: spacers, and for a joined pair
-    // three dowel pins (plus three M3 screws, nuts and the joint ring when both have room),
-    // or for a magnetic coupling the barrier in place of the spacer
+    // nothing with jaws (or three dowel pins where they do not fit), three dowel pins with pins,
+    // plus three screws, nuts and the joint ring with bolts when both have room; for a
+    // magnetic coupling the barrier in place of the spacer
     function joinTo(x: Gear, above: Gear) {
       if (above.joined && above.coupling === "magnetic") { addP("MAGB", "Magnetic coupling barrier", { part: "barrier" }); return; }
-      if (above.joined) {
+      if (above.joined && !(jaws && jawPair(l.size, x, above))) {
         dowel(3);
-        if (hasScrews(l.size, x) && hasScrews(l.size, above)) {
-          addH("m3screw", `${hw.screw} socket head screw`, 3); addH("m3nut", "M3 nut", 3);
+        if (joint === "bolts" && hasScrews(l.size, x) && hasScrews(l.size, above)) {
+          const m = hw.screw.split(" ")[0];
+          addH("m3screw", `${hw.screw} socket head screw`, 3); addH("m3nut", `${m} nut`, 3);
           addP("JRING", "Joint ring for screwed gears", { part: "joint_ring" });
         }
       }
       spacersBetween(x.level + levelsUsed(l.size, x) - 1, above.level);
     }
     function topper(x: Gear) {
-      if (x.topper === "pointer") { addP("PTR", "Pointer", { part: "pointer", flip: "true" }); hubPins(); }
+      // with jaws a crank or pointer keys onto the item's jaws; on an item too small for them it takes the pins
+      const keyed = !jaws || hasJaws(l.size, x, "top"), p: Record<string, string> = keyed ? {} : { joint: "pins" }, ps = keyed ? "" : "-P";
+      if (x.topper === "pointer") { addP(`PTR${ps}`, `Pointer${keyed ? "" : ", pinned"}`, { part: "pointer", flip: "true", ...p }); if (!jaws || !keyed) hubPins(); }
       if (x.topper === "spring") addP("SPRING", "Spiral wind-up spring", { part: "spring" });
       if (x.topper === "crank") {
         const t = x.throw ?? 2 * s.grid;
-        addP(`CRANK${t}`, `Crank, ${t} mm throw`, { part: "crank", throw: t, flip: "true" });
-        hubPins();
+        addP(`CRANK${t}${ps}`, `Crank, ${t} mm throw${keyed ? "" : ", pinned"}`, { part: "crank", throw: t, flip: "true", ...p });
+        if (!jaws || !keyed) hubPins();
         // the post is a kit bolt, head in the arm's pocket, with a nut on top of what rides it
         const fx = fixtureCranks.get(pin.id);
         if (linkageCranks.has(pin.id)) postBolt(hw.crank_bolt);                                // the link's bearing is counted with the rocker

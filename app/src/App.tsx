@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderClient } from "./engine/client";
 import type { RenderResult } from "./engine/protocol";
 import {
-  PART_KINDS, PROFILES, SIZES, catalog, catalogPart, partInSize, defines, meshesWith, parseTolerances, partKind, validate,
-  type Overrides, type Params, type ParamValue, type Profile, type Size,
+  JOINTS, PART_KINDS, PROFILES, SIZES, catalog, catalogPart, kitHardware, kitParts, partInSize, defines, meshesWith, parseTolerances, partKind, validate,
+  type Joint, type Overrides, type Params, type ParamValue, type Profile, type Size,
 } from "./parts";
+import JointPicker from "./components/JointPicker";
 import { parseBinaryStl, meshTo3mf } from "./export/threemf";
 import { meshToObj } from "./export/obj";
 import { download } from "./download";
@@ -20,7 +21,7 @@ const REPO = "https://github.com/DrFlGd/GearBox";
 const LS_KEY = "gearbox.settings";
 
 type Selection = { kindId: string; params: Params };
-type Settings = { size: Size; profile: Profile; overrides: Overrides; auto: boolean };
+type Settings = { size: Size; profile: Profile; overrides: Overrides; joint: Joint; auto: boolean };
 type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; hw?: Uint8Array | null; seconds: number; messages: string[]; log: string[]; cached?: boolean };
 
 function loadSettings(): Settings {
@@ -28,8 +29,8 @@ function loadSettings(): Settings {
     const s = JSON.parse(localStorage.getItem(LS_KEY) ?? "{}");
     const h = new URLSearchParams(location.hash.replace(/^#/, ""));
     const hs = h.get("size");
-    return { size: SIZES.includes(hs as Size) ? (hs as Size) : SIZES.includes(s.size) ? s.size : "M2", profile: PROFILES.includes(s.profile) ? s.profile : "PETG", overrides: s.overrides ?? {}, auto: s.auto ?? true };
-  } catch { return { size: "M2", profile: "PETG", overrides: {}, auto: true }; }
+    return { size: SIZES.includes(hs as Size) ? (hs as Size) : SIZES.includes(s.size) ? s.size : "M2", profile: PROFILES.includes(s.profile) ? s.profile : "PETG", overrides: s.overrides ?? {}, joint: JOINTS.includes(s.joint) ? s.joint : "jaws", auto: s.auto ?? true };
+  } catch { return { size: "M2", profile: "PETG", overrides: {}, joint: "jaws", auto: true }; }
 }
 
 /** Selection from the URL hash (#part=gear&teeth=40), so a part can be linked. */
@@ -68,7 +69,7 @@ export default function App() {
   const matchingPreset = catalog.parts.find(p => p.params.part === kind.id && Object.entries(sel.params).every(([k, v]) => (p.params[k] ?? kind.defaults[k]) === v));
   const name = matchingPreset?.name ?? kind.name(sel.params);
   const problem = validate(kind.id, sel.params, settings.size);
-  const defs = useMemo(() => defines(kind.id, sel.params, settings.size, settings.profile, settings.overrides), [kind.id, sel.params, settings.size, settings.profile, settings.overrides]);
+  const defs = useMemo(() => defines(kind.id, sel.params, settings.size, settings.profile, settings.overrides, settings.joint), [kind.id, sel.params, settings.size, settings.profile, settings.overrides, settings.joint]);
   const std = catalog.standards[settings.size];
   const defsKey = defs.join("\n");
 
@@ -159,6 +160,7 @@ export default function App() {
 
       {mode === "layout" ? (
         <LayoutMode size={settings.size} profile={settings.profile} overrides={settings.overrides} engineReady={engine === "ready"}
+          joint={settings.joint} onJoint={j => setSettings(s => ({ ...s, joint: j }))}
           render={defs => client.current!.render(defs)} />
       ) : (
       <div className="layout">
@@ -178,7 +180,7 @@ export default function App() {
             {catalog.parts.filter(p => partInSize(p, settings.size)).map(p => <option key={p.name} value={p.name}>{p.name} · {p.title}</option>)}
           </select>
           <h2>Kits</h2>
-          <KitPanel size={settings.size} profile={settings.profile} overrides={settings.overrides} disabled={kitBusy || engine !== "ready"} onBusy={b => { setKitBusy(b); if (b && client.current!.busy) client.current!.cancel(); }}
+          <KitPanel size={settings.size} profile={settings.profile} overrides={settings.overrides} joint={settings.joint} disabled={kitBusy || engine !== "ready"} onBusy={b => { setKitBusy(b); if (b && client.current!.busy) client.current!.cancel(); }}
             render={defs => client.current!.render(defs)} />
         </aside>
 
@@ -220,15 +222,15 @@ export default function App() {
           {kind.id === "assembly" && (() => {
             const kitId = String(sel.params.kit), kit = catalog.kits[kitId];
             if (!kit) return null;
-            const key = [kitId, settings.size, settings.profile, JSON.stringify(settings.overrides)].join("|");
-            const base = `gearbox-${kitId}-print-${settings.size}-${settings.profile}`;
+            const key = [kitId, settings.size, settings.profile, settings.joint, JSON.stringify(settings.overrides)].join("|");
+            const base = `gearbox-${kitId}-print-${settings.size}-${settings.profile}${settings.joint === "jaws" ? "" : `-${settings.joint}`}`;
             const getPlate = async () => {
               if (plateCache.current?.key === key) return plateCache.current.plate;
-              const counts = kit.parts.reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
+              const counts = kitParts(kit, settings.joint).reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
               const items = Object.entries(counts).flatMap(([n, qty]) => { const cp = catalogPart(n); return cp ? [{ name: n, title: cp.title, qty, params: cp.params }] : []; });
               setKitBusy(true);
               try {
-                const plate = await buildPrintPlate({ items, size: settings.size, profile: settings.profile, overrides: settings.overrides, render: d => client.current!.render(d), onProgress: t => setPlateProgress(`Rendering ${t}`) });
+                const plate = await buildPrintPlate({ items, size: settings.size, profile: settings.profile, overrides: settings.overrides, joint: settings.joint, render: d => client.current!.render(d), onProgress: t => setPlateProgress(`Rendering ${t}`) });
                 plateCache.current = { key, plate };
                 setPlateProgress(plate.failed.length ? `Failed to render: ${plate.failed.join(", ")}` : `${plate.placed.length} parts on ${plate.plates} plate${plate.plates > 1 ? "s" : ""} (220 mm bed)`);
                 return plate;
@@ -262,7 +264,7 @@ export default function App() {
           </div>}
           {kind.id === "assembly" && catalog.kits[String(sel.params.kit)] && (() => {
             const kit = catalog.kits[String(sel.params.kit)];
-            const counts = kit.parts.reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
+            const counts = kitParts(kit, settings.joint).reduce<Record<string, number>>((m, n) => ({ ...m, [n]: (m[n] ?? 0) + 1 }), {});
             return (
               <div className="kit-contents">
                 <h3>In this kit</h3>
@@ -270,7 +272,7 @@ export default function App() {
                   {Object.entries(counts).map(([n, c]) => <li key={n}>{c > 1 ? `${c} × ` : ""}<code>{n}</code> {catalogPart(n)?.title ?? ""}</li>)}
                 </ul>
                 <h3>Hardware <span className="muted small">(steel grey in the view)</span></h3>
-                <ul>{kit.hardware.map((h, i) => <li key={i}>{h}</li>)}</ul>
+                <ul>{kitHardware(kit, settings.joint).map((h, i) => <li key={i}>{h}</li>)}</ul>
               </div>
             );
           })()}
@@ -279,6 +281,8 @@ export default function App() {
           )}
           {matchingPreset?.expect?.[settings.size] && <p className="hint">Catalog size: {matchingPreset.expect[settings.size]!.map(v => v.toFixed(1)).join(" × ")} mm</p>}
           <p className="hint">{std.title}. Bolt lengths: {Object.entries(std.bolt_lengths).map(([l, mm]) => `${l} level${l === "1" ? "" : "s"} ${mm} mm`).join(", ")}.</p>
+          <h2>Joints</h2>
+          <JointPicker joint={settings.joint} size={settings.size} onJoint={j => setSettings(s => ({ ...s, joint: j }))} />
           <h2>Print profile</h2>
           <ProfilePanel profile={settings.profile} overrides={settings.overrides} rows={tolRows}
             onProfile={p => setSettings(s => ({ ...s, profile: p }))} onOverrides={o => setSettings(s => ({ ...s, overrides: o }))} />

@@ -20,7 +20,7 @@
 // Flywheel: a disc on the gear hub with eight nut pockets around the rim for
 // the mass.
 
-// Needs standard.scad, gear.scad, addons.scad, motor.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, addons.scad, motor.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 function drv_z(k) = BASE_SPACER_H + (k - 1) * LEVEL;   // bottom of level k above the plate
@@ -67,7 +67,7 @@ module carrier() {
             }
         }
         bearing_seat();
-        face_joints(GEAR_T, gear_rr(PLN_CARRIER));
+        face_joints(GEAR_T, gear_rr(PLN_CARRIER), $joint_top = JAWS ? "flat" : "auto");   // the sun turns freely above it
         for (i = [0 : 3]) rotate(i * 90) translate([PLN_R, 0, GEAR_T + hp - PIN_L + 1.5 + 0.3]) cylinder(d = CAP_D, h = PIN_L, $fn = 32);
         for (i = [0 : 3]) rotate(45 + i * 90) translate([18 * MOD, 0, -EPS]) cylinder(d = 8 * MOD, h = GEAR_T + 2 * EPS);
     }
@@ -125,7 +125,7 @@ module bevel_pin(teeth = 20) {
         }
         bearing_seat();
         translate([0, 0, BEARING[2] + 0.5]) cylinder(d = BOLT[0] + 1 + fit("bore_clear"), h = 100);
-        mirror([0, 0, 1]) pin_holes();
+        bottom_cut(undef, gear_rr(teeth));
     }
 }
 
@@ -168,7 +168,10 @@ module worm_part(span = 4) {
 module worm_gear_part(teeth = 20) {
     assert(teeth == 20 || teeth == 40, "worm gear: 20 or 40 teeth");
     difference() {
-        worm_gear(mod = MOD, teeth = teeth, worm_diam = WORM_D, thickness = GEAR_T, profile_shift = 0, pressure_angle = PA, backlash = fit("backlash"), anchor = BOTTOM);
+        union() {
+            worm_gear(mod = MOD, teeth = teeth, worm_diam = WORM_D, thickness = GEAR_T, profile_shift = 0, pressure_angle = PA, backlash = fit("backlash"), anchor = BOTTOM);
+            face_jaws(GEAR_T, gear_rr(teeth) - 1);
+        }
         bearing_seat();
         face_joints(GEAR_T, gear_rr(teeth) - 1);
     }
@@ -208,9 +211,12 @@ module flywheel() {
     depth = SMALL ? NUT_H : NUT_H - 0.5;
     rp = FLY_R - 3 - af / cos(30) / 2;
     difference() {
-        cylinder(r = FLY_R, h = GEAR_T);
+        union() {
+            cylinder(r = FLY_R, h = GEAR_T);
+            face_jaws(GEAR_T, FLY_R - 2 - af / cos(30));   // the nut pockets come down from the top: they pass the jaw pockets' depth by 0.4 mm only
+        }
         bearing_seat();
-        face_joints(GEAR_T, FLY_R - 3 - af / cos(30));
+        face_joints(GEAR_T, FLY_R - 3 - af / cos(30), FLY_R - 2 - af / cos(30));
         for (i = [0 : 7]) rotate(22.5 + i * 45) translate([rp, 0, GEAR_T - depth]) cylinder(d = af / cos(30), h = depth + EPS, $fn = 6);
     }
 }

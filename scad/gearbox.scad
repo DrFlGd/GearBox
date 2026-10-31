@@ -12,6 +12,15 @@ part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, cou
 // M1: module 1, 10 mm grid, M5 bolts, 605 bearings.
 size = "M2"; // [M2, M1.5, M1]
 
+/* [Joint] */
+// How stacked parts join. jaws: three tapered jaws on each top face, pockets
+// underneath, no hardware. pins: the legacy dowel pin holes. bolts: dowel pins
+// plus a screw clamp (M3 for M2, M2.5 for M1.5, M2 for M1) on parts with room.
+joint = "jaws";        // [jaws, pins, bolts]
+// One face set apart from `joint` (the layout's kit export picks these per level):
+joint_top = "auto";    // [auto, jaws, flat, pins] flat: nothing on the top face
+joint_bottom = "auto"; // [auto, pockets, groove, flat, pins] groove: a free part above a jaw part
+
 /* [Gear] */
 teeth = 40;        // [20:10:80]
 teeth_upper = 20;  // [20:10:80] compound only: the smaller gear on top
@@ -64,6 +73,7 @@ overrides = [];
 
 include <lib/standard.scad>
 include <lib/gear.scad>
+include <lib/jaws.scad>
 include <lib/pin.scad>
 include <lib/board.scad>
 include <lib/coupon.scad>
@@ -73,7 +83,6 @@ include <lib/mechanisms.scad>
 include <lib/drives.scad>
 include <lib/magnets.scad>
 include <lib/hexsleeve.scad>
-include <lib/jaws.scad>
 include <lib/assembly.scad>
 
 // turn a part upside down for printing (cranks and pointers: hub ring up; carriages: flat top down)

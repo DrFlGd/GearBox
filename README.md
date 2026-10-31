@@ -24,10 +24,10 @@ Ready-made STLs for every catalog part are on the
 | Tile height | 12 mm | 10 mm | 8.5 mm |
 | Bolt length for 1 / 2 / 3 levels | 30 / 40 / 50 mm | 25 / 35 / 40 mm | 20 / 30 / 40 mm |
 
-M1 is the desk-toy size. Its 20T gears are too small for the dowel pin
-holes (the 605 bearing fills the hub), so in M1 a 20T can only be the small
-half of a compound gear and cannot carry a crank or a pointer; 30T and up
-work as in the other sizes. On the 10 mm grid the M5 nut pockets alternate
+M1 is the desk-toy size. Its 20T gears are too small for any joint, jaws
+or dowel pins (the 605 bearing fills the hub), so in M1 a 20T can only be
+the small half of a compound gear and cannot carry a crank or a pointer;
+30T and up work as in the other sizes. On the 10 mm grid the M5 nut pockets alternate
 30 degrees so neighbouring pockets keep a wall between them.
 The ratchet and pawl, the escapement, the NEMA 17 mount, the stock
 quick-return levers, `SG40` and `MG12` do not fit the 10 mm grid and are not
@@ -53,17 +53,39 @@ and the same part names. Pick one size for a board; parts do not mix.
   under the first bearing; a 3 mm spacer sits between bearings; the knob's
   boss is the last spacer. Spacers press only the bearing inner races, so
   every gear turns freely.
-- **Gear.** One bearing pressed into the hub, six dowel pin holes on each
-  face, and on gears of 30T and up six M3 screw holes as well (see below).
-- **Joining two gears.** Steel dowel pins, not printed pegs: three pins sit
-  in the pin holes of the lower gear's top face and the upper gear drops onto
-  them, so the two turn as one. On 30T and bigger gears three M3 socket head
-  screws clamp the pair: every other screw hole has a counterbore for the
-  head on top and a hex pocket for the nut underneath, so turn the upper gear
-  60 degrees and each screw goes down through a counterbore into the nut
-  pocket of the gear below. The printed `JRING` joint ring fills the 2 mm
-  gap between the gears so the screws clamp on plastic, not on the bearings.
-  Compound gears (60T over 20T etc.) are one part and need neither.
+- **Gear.** One bearing pressed into the hub, three jaws on the top face and
+  three matching pockets in the bottom face (with the default joint, below).
+- **Joining two gears.** Three tapered crescent jaws stand on every gear's
+  top face, and the gear above drops its pockets over them across the 2 mm
+  gap between levels, so the two turn as one with no hardware. The jaws'
+  end flanks lean in 20 degrees, so the upper gear settles onto the wedge
+  with about 0.1 mm to spare each side instead of the full slot clearance:
+  about ±0.4 degrees of play in M2, where the straight jaws of the first
+  test rocked about ±3. The jaws sit on one band per size, so any gear
+  stacks on any other: in M2 between the bearing seat and a 20T's root, in
+  M1.5 as a thinner jaw on the old pin-hole circle (a 20T keeps its joint),
+  in M1 on a 30T's band (an M1 20T has no joint). For a gear that turns
+  free above another, either print the lower gear with a flat top (`-FT`,
+  `joint_top = "flat"`; the layout tester's kit export does this) or the
+  free gear with a groove underneath that the jaws turn in (`G40F` and so
+  on, `joint_bottom = "groove"`). A part too small for the band (the
+  ratchet, the cams, `WG20`, and in M1 `GENEVA6`, the winch and the
+  flywheel) takes the dowel pin holes instead and joins with pins whichever
+  joint is picked. Compound gears (60T over 20T etc.) are one part and need
+  no joint.
+- **Other joints.** The generator, the kit zips and the layout tester's
+  export have a **Joints** switch for every part that takes a joint:
+  - *Jaws* (default): as above.
+  - *Dowel pins*: the legacy joint. Six dowel pin holes in each face; three
+    steel pins sit in the lower gear's top face and the upper gear drops
+    onto them (the printed `CPL` coupler fits the same holes).
+  - *Pins + screws*: the dowel pins, plus three socket head screws clamping
+    the pair on 30T and bigger gears (40T and up in M1): M3 for M2, M2.5 for
+    M1.5, M2 for M1. Every other screw hole has a counterbore for the head
+    on top and a hex pocket for the nut underneath, so turn the upper gear
+    60 degrees and each screw goes down through a counterbore into the nut
+    pocket of the gear below. The printed `JRING` joint ring fills the 2 mm
+    gap so the screws clamp on plastic, not on the bearings.
 - **Bushing.** A printed ring that replaces a bearing where a gear only turns
   now and then.
 
@@ -71,9 +93,10 @@ and the same part names. Pick one size for a board; parts do not mix.
 
 | | **M2** | **M1.5** | **M1** |
 |---|---|---|---|
-| Joint dowel pins (3 per joined pair) | 3 x 8 mm | 2 x 6 mm | 2 x 6 mm |
-| Hub dowel pins (3 per crank or pointer) | 3 x 6 mm | 2 x 4 mm | 2 x 4 mm |
-| Joint screws (3 per pair) | M3 x 14 + nut, 30T and up | M3 x 12 + nut, 30T and up | M3 x 10 + nut, 50T and up |
+| Jaws (default joint) | none | none | none |
+| Joint dowel pins (3 per joined pair; pins and pins + screws) | 3 x 8 mm | 2 x 6 mm | 2 x 6 mm |
+| Hub dowel pins (3 per crank or pointer; pins and pins + screws) | 3 x 6 mm | 2 x 4 mm | 2 x 4 mm |
+| Joint screws (3 per pair; pins + screws) | M3 x 14 + nut, 30T and up | M2.5 x 12 + nut, 30T and up | M2 x 10 + nut, 40T and up |
 | Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut | M5 x 35 / M5 x 20 + nut |
 | Shaft bracket shaft | M8 x 100 | M6 x 80 | M5 x 60 |
 | Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm | 3 x 2 mm |
@@ -81,28 +104,37 @@ and the same part names. Pick one size for a board; parts do not mix.
 
 Hardened steel dowel pins (ISO 8734 / DIN 6325) are cheap in assortment
 boxes. The pin holes are a slip fit in gear faces and a press fit where a
-pin stays put (hub rings, post tops); both are in the print profile.
+pin stays put (hub rings, post tops); both are in the print profile, as are
+the jaws' flank clearance (`jaw_flank`) and radial clearance (`slot_clear`).
+The `JOINT` post's cap and the planetary carrier's caps keep their dowel pin
+with every joint.
 
 ## Add-ons (phase 4a)
 
-Everything here rides on the same three interfaces: the pin holes in a
-gear's face, a bolt pin with bearings, or the sockets themselves.
+Everything here rides on the same three interfaces: the joint on a gear's
+face (jaws, or pin holes with the other joints), a bolt pin with bearings, or
+the sockets themselves.
 
 - **Crank.** A thin hub ring sits on the top face of any gear under the knob,
-  keyed by three short dowel pins pressed into the ring; beyond the knob the
-  arm is a full level thick. The crank post is a bolt from the kit: its head
+  keyed by three tapered sockets that drop over the gear's jaws (with the
+  pin joints, by three short dowel pins pressed into the ring); a collar
+  round the jaws stiffens it, and beyond the knob the arm is a full level
+  thick. The crank post is a bolt from the kit: its head
   sits in a hex pocket under the arm at the throw (20 to 80 mm) and the shank
   stands up. With the `SH` handle spacer, the `HANDLE` grip over it and a nut
   on top (`M8 x 45`) it is a hand crank; with a bearing and a link or a slot
   over it (`M8 x 25`) it drives a rocker, a lever or a carriage. Cranks and
   pointers print upside down (hub ring up), which is how the app renders
   them.
-- **Pointer and dial knob.** The pointer is a hub ring with a flat arm. The
-  dial knob replaces the knob on that pin: a disc with clock numbers and 60
-  ticks under the grip. The pointer runs under the disc and shows past its
-  rim, so it reads without parallax and any gear can carry one.
+- **Pointer and dial knob.** The pointer is a hub ring with a flat arm,
+  keyed on the jaws like the crank. The dial knob replaces the knob on that
+  pin: a disc with clock numbers and 60 ticks under the grip, standing high
+  enough to clear the jaw tops, so its bolt is the dial bolt length the
+  layout tester's bill lists (5 mm longer in some M1.5 and M1 stacks). The
+  pointer runs under the disc and shows past its rim, so it reads without
+  parallax and any gear can carry one.
 - **Pulleys.** `P20` to `P80` are grooved wheels on the gear hub (bearing,
-  pin holes), sized like gears, so `P40` over `P20` is 2:1. Any centre
+  jaws), sized like gears, so `P40` over `P20` is 2:1. Any centre
   distance works with a rubber band or O-ring; cross the band to reverse.
 - **Links.** `L2` to `L6` are bars with bearing seats one grid step apart,
   one level thick. A link pivots on a pin like a gear does, or on a crank
@@ -110,9 +142,10 @@ gear's face, a bolt pin with bearings, or the sockets themselves.
   a 3 mm spacer between, a `CAP` on top keyed by a dowel pin pressed into
   the post).
 - **Ratchet and pawl.** The ratchet is a 12 tooth sawtooth wheel on the gear
-  hub. The pawl clamps on a pin two sockets away along the grid (the knob
-  boss and the spacer under it grip it) and a printed leaf spring carries
-  the tooth: the wheel turns clockwise past it and locks the other way.
+  hub; it is too small for the jaws, so it joins a gear above or below with
+  dowel pins whichever joint is picked. The pawl clamps on a pin two
+  sockets away along the grid (the knob boss and the spacer under it grip
+  it) and a printed leaf spring carries the tooth: the wheel turns clockwise past it and locks the other way.
   `PAWL-L` is the mirror image for a wheel that must lock clockwise.
 - **N20 motor.** The mount bolts into the sockets at (−1, 2) and (1, 2) from
   the motor socket with two 1-level bolts and knobs, and holds an N20
@@ -145,7 +178,8 @@ bolts to the board and carries a sliding carriage.
   piston drive.
 - **Cams.** `CAM-E` (eccentric, sine lift), `CAM-H` (heart, even rise and
   fall) and `CAM-S` (snail, slow rise and a drop) are discs on the gear hub
-  lifting half a grid step. `FOLLOWER` is an arm on a pin two sockets away
+  lifting half a grid step (joined with dowel pins: a cam is too small for
+  the jaws). `FOLLOWER` is an arm on a pin two sockets away
   with a round nose on the cam and a tail for a rubber band that holds it
   down.
 - **Geneva drive.** `GENEVA6-D` and `GENEVA8-D` are 40T gears with a drive
@@ -164,7 +198,7 @@ bolts to the board and carries a sliding carriage.
   (clamped by its nut). The wheel steps one tooth per swing. `ANCHOR-L` is
   the mirror image for a wheel that runs counter-clockwise.
 - **Wind-up spring.** `SG30` to `SG80` are gears with a wall on the top
-  face; `SPRING` is a printed spiral (PETG works best) whose boss grips the
+  face (and no jaws there); `SPRING` is a printed spiral (PETG works best) whose boss grips the
   bearing's inner race and whose hook catches the wall. Hold the pin with
   its knob, wind the gear, let the train run down.
 - **Winch.** `WINCH` is a two-level drum with a bottom flange on two
@@ -177,7 +211,7 @@ bolts to the board and carries a sliding carriage.
   `CAP` keyed by a dowel pin. A plain `G20` sun sits on the same pin one level up, inside the
   `RING-L2` (or `RING-L3`) 60T ring gear whose legs bolt into the sockets
   four steps away on either side with knobs. Sun in, carrier out: 4:1, same
-  direction. Drive the sun through a gear joined on top of it (dowel pins);
+  direction. Drive the sun through a gear joined on top of it (on its jaws);
   the carrier meshes like any 60T (a 20T four sockets away, a 40T on a
   3-4-5 diagonal).
 - **Shaft bracket.** `BRACKET` is a bar along a socket row with a bearing
@@ -205,10 +239,12 @@ bolts to the board and carries a sliding carriage.
 
 ```
 scad/gearbox.scad      one entry point for every part (desktop customizer or -D on the CLI)
+scad/fit-check.scad    interference checks for the face joint (jaws, grooves, cranks, knobs)
 scad/lib/standard.scad all three sizes: every shared dimension
 scad/lib/tolerances.scad  print profiles: PLA, PETG, ABS; every clearance in one table
 scad/lib/board.scad    tiles, sockets, dovetail edges
-scad/lib/gear.scad     gears, compound gears, dowel pin and M3 screw joints, magnet pockets, face patterns
+scad/lib/gear.scad     gears, compound gears, dowel pin and screw joints, magnet pockets, face patterns
+scad/lib/jaws.scad     the face joint: tapered jaws, pockets and grooves, the joint switch, the straight jaw test gears
 scad/lib/pin.scad      knob, spacers, bushing
 scad/lib/coupon.scad   the fit test coupon
 scad/lib/addons.scad   crank, posts, handle, cap, pointer, dial knob, pulley, link, ratchet, pawl
@@ -236,6 +272,7 @@ git clone --recurse-submodules https://github.com/DrFlGd/GearBox
 npm install
 npm run render -- --profile PETG              # every part, every size, to out/<size>/PETG/*.stl
 npm run render -- --size M1.5 --only COUPON,K,S3,BS   # just the M1.5 fit test kit
+npm run render -- --size M2 --joint pins      # the dowel pin parts, to out/M2/PETG-pins/ (or --joint bolts)
 npm run part -- -o out/G40.stl -D 'size="M1.5"' -D 'part="gear"' -D teeth=40 -D 'face="spokes"'
 ```
 
@@ -279,11 +316,17 @@ the same level mesh when their tooth counts add up to a multiple of 20 and
 their pins are that many twentieths of the grid apart (20T+20T two sockets,
 20T+80T five sockets, or a 3-4-5 diagonal). Joining a stacked gear to the one
 below carries motion between levels: a bigger gear under a smaller one is
-one compound part, any other pair is pinned, and screwed too when both are
-30T or more; two plain 40T or bigger gears can be joined by magnets instead.
-The bill of materials counts tiles, gears, knobs, spacers, bolts by length,
-nuts, bearings, dowel pins, M3 screws and magnets; "Download kit zip" renders every distinct part for your size and
-profile. The whole layout lives in the link, so it can be bookmarked or sent.
+one compound part, any other pair joins with the **Joints** setting above
+the bill (jaws by default; dowel pins; or pins and screws when both are 30T
+or more, 40T in M1); two plain 40T or bigger gears can be joined by magnets
+instead. With jaws the kit export sets each face to what its stack needs:
+a part gets jaws on top only where something is joined onto it or a crank
+or pointer keys onto it, and a flat top otherwise (`-FT`), so a free gear
+or the knob can sit right above it; a joined pair too small for the jaws
+gets dowel pin holes instead (`-PT`, `-PB`). The bill
+of materials counts tiles, gears, knobs, spacers, bolts by length, nuts,
+bearings, dowel pins, screws and magnets; "Download kit zip" renders every
+distinct part for your size, profile and joint. The whole layout lives in the link, so it can be bookmarked or sent.
 "1:16 example" is the plan's gate: two 20:80 stages on three pins.
 
 The add-ons are placeable too. An empty level takes a gear, a pulley, a
@@ -367,19 +410,18 @@ the lever turns both of them at different speeds. The lever sits on level
 uses the profile's slot clearance, so print the coupon first and adjust
 that value if parts are tight on the sleeve.
 
-## Jaw gears (M2 test)
+## Straight jaw gears (M2 test)
 
-Another pinless joint, for gears that each keep their own bearing. `JG20`,
-`JG30` and `JG40` have three crescent jaws standing 4.5 mm on the top face
-and three matching pockets 3 mm deep in the bottom face. The jaws sit on
-the hub between the bearing seat and the 20T's root circle, so any jaw gear
-stacks on any other: the upper gear's pockets drop over the lower gear's
-jaws across the 2 mm gap and take 2.5 mm of them, with the profile's slot
-clearance all round. The gears print bottom down with no supports. The jaw
-tops are chamfered, the pocket mouths are chamfered against elephant foot,
-and the pocket ceilings are short bridges. The `jaws` kit stacks all three
-on one 3-level pin. This is M2 only for now; M1.5 and M1 would need the jaws
-sized for their 30T.
+The first jaw test, kept for comparison with the tapered jaws every gear now
+has. `JG20`, `JG30` and `JG40` have three crescent jaws with straight flanks
+standing 4.5 mm on the top face and three matching pockets 3 mm deep in the
+bottom face, on the hub between the bearing seat and the 20T's root circle.
+The upper gear's pockets drop over the lower gear's jaws across the 2 mm gap
+and take 2.5 mm of them, with the profile's slot clearance all round, which
+lets a stacked pair rock about ±3 degrees. The tapered jaws seat on their
+20 degree flanks instead (about ±0.4 degrees in M2). The `jaws` kit stacks
+all three on one 3-level pin; a `G40` and a `G30` stacked on one pin are the
+tapered pair to try against `JG40` and `JG30`. M2 only.
 
 ## Assemblies
 
@@ -391,13 +433,14 @@ kit's printed parts and hardware. Every kit in the catalog has one. Its download
 ## First print: the fit test coupon
 
 Print the fit test kit for your size (`COUPON`, `K`, `S3`, `BS`) in your
-material with the matching profile, and have one bolt, one nut, one bearing,
-one dowel pin and one magnet to hand. Check, in order:
+material with the matching profile and joint, and have one bolt, one nut,
+one bearing and one magnet to hand, plus a gear of your size for the jaws
+(any `G20` or bigger) or a dowel pin for the pin joints. Check, in order:
 
 1. The bearing presses into the seat by hand and stays.
 2. A nut pushes into either pocket from below and does not turn.
 3. The bolt drops through a hole, the spacers slide over it, and the knob's hex pocket grips its head.
-4. The dowel pin slides into the holes around the bearing seat with a little play (slip fit), and presses firmly into the hole in the strip (press fit).
+4. Jaws (M2 and M1.5): the gear's pockets drop over the three jaws on the bearing block without force, and the gear sits on them with no rocking you can feel. Pin joints (and M1, whose block is too small for the jaws): the dowel pin slides into the holes around the bearing seat with a little play (slip fit), and with the pin joints presses firmly into the hole in the strip (press fit).
 5. The magnet presses into its pocket in the strip and stays.
 6. The male dovetail of a second coupon (or a tile) slides into the female slot without force and without slop.
 
