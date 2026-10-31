@@ -411,6 +411,17 @@ export const PART_KINDS: PartKind[] = [
     blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets (one press fit on crush ribs, one slip), a dovetail pair with the key's crush ribs (two coupons chain key to slot), the bearing seat, a magnet pocket and the face joint: with jaws, three jaws on the bearing block for a gear's pockets to drop over (M2 and M1.5; M1's block takes pin holes); with pins, the dowel pin holes (slip fit in the bearing block's face, press fit in the strip). Print this first and tune the profile.",
     params: [], defaults: {}, name: () => "COUPON",
   },
+  {
+    id: "module_plate", title: "Magnetic module plate (test)", group: "Legacy and test",
+    blurb: "A standalone base for one mechanism that snaps to other module plates on any edge with magnets, so a mechanism is built once and plugged into others without moving a bolt. Every grid step of every edge carries a north-out and a south-out disc magnet (the dot marks north out) and a ridge and groove, so any edge mates any edge, turned any way and shifted by whole sockets. Ports: a gear whose pitch circle touches the edge meshes with the port opposite it; the centre of a 3x3, 5x5 or 7x7 plate takes a 30T, 50T or 70T hub that touches all four edges. The outer ring has no sockets: no gear may cross an edge.",
+    params: [
+      { key: "mod_n", label: "Size", type: "select", options: [3, 5, 7, 9].map(n => ({ value: n, label: `${n} x ${n} sockets (hub port ${n * 10}T)` })) },
+      { key: "mod_magnets", label: "Magnets", type: "select", options: [{ value: "all", label: "Every step" }, { value: "centre", label: "Every other step from the middle (centred joints only)" }] },
+      { key: "flip", label: "Orientation", type: "select", options: [{ value: "true", label: "Print-ready (top face down)" }, { value: "false", label: "As used (top face up)" }] },
+    ],
+    defaults: { mod_n: 5, mod_magnets: "all", flip: "true" },
+    name: p => `MOD${p.mod_n}${p.mod_magnets === "centre" ? "-C" : ""}`,
+  },
 ];
 
 export const partKind = (id: string) => PART_KINDS.find(k => k.id === id);
