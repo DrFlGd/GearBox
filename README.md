@@ -54,7 +54,7 @@ and the same part names. Pick one size for a board; parts do not mix.
   swapped: any edge mates with any other edge of the same length, either way
   round. Each male key carries a crush rib down both tail flanks; the first
   assembly flattens them against the slot, so joined tiles have no play. Tiles
-  from before v0.14.0 still mate with new ones, but only with the old play; tiles
+  from before v0.15.0 still mate with new ones, but only with the old play; tiles
   from before v0.8.0 with an even number of keys per edge, such as `B4x4`, did
   not mate at all. Reprint them.
 - **Pin.** A hex bolt dropped down through the gear stack into the nut,
