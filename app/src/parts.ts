@@ -45,7 +45,7 @@ export const ASSEMBLY_KITS: [string, string][] = [
 export const PART_KINDS: PartKind[] = [
   {
     id: "gear", title: "Gear", group: "Gears",
-    blurb: "Spur gear with a bearing seat in the hub and a joint in both faces (see Joints below). With jaws: three tapered jaws stand on the top face and three pockets are cut underneath, so the gear above drops onto the jaws and the two turn as one, with no hardware; cranks and pointers drop over the jaws too. A free gear that must turn on its own above a jaw gear takes a groove underneath instead of pockets. With pins: six dowel pin holes in each face (three pins join two gears); pins + screws adds a screw clamp on gears with room. Two gears mesh when their tooth counts add up to a multiple of 20.",
+    blurb: "Spur gear with a bearing seat in the hub and a joint in both faces (Settings, Gear joints). With jaws: three tapered jaws stand on the top face and three pockets are cut underneath, so the gear above drops onto the jaws and the two turn as one, with no hardware; cranks and pointers drop over the jaws too. A free gear that must turn on its own above a jaw gear takes a groove underneath instead of pockets. With pins: six dowel pin holes in each face (three pins join two gears); pins + screws adds a screw clamp on gears with room. Two gears mesh when their tooth counts add up to a multiple of 20.",
     params: [
       { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
       { key: "face", label: "Face pattern", type: "select", options: faceOptions, help: "patterns only appear when the rim is wide enough (40 teeth and up)" },
