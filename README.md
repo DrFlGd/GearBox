@@ -324,6 +324,26 @@ library and engine, so opening a part, kit zip or print plate again loads
 at once; any change to those renders fresh. The fit overrides in Settings are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
+The 3D views share one look (`app/src/components/look.ts`): curved surfaces
+shade smooth while edges sharper than 35 degrees stay crisp, a soft room
+environment and a shadow-casting key light give depth, and a contact shadow
+sits under the model. It is display only, so it changes no render, download
+or cached model.
+
+The Layout tab shows the real printed parts. The bill of materials records
+which part (and which faces: jaws, flat top, pin holes) each thing on the
+board is, and `app/src/layout/realParts.ts` renders each distinct part once
+through the same worker and browser cache as the Kits view and the downloads.
+Until a part is ready the board draws a quick stand-in (involute gears,
+boxes, cylinders), so a new board fills in over a few seconds per distinct
+part and opens at once after that. Real so far: tiles, knobs and dial knobs,
+gears and compounds, pulleys, partial, spring, magnetic and worm gears, bevels,
+flywheels, ratchet and pawl, cams and follower, Geneva driver and wheel,
+escape wheel and anchor, quick-return lever, winch drum, planet carrier, and
+the crank, handle and pointer on a gear. Motor mounts, rails and carriages,
+the shaft bracket, the planetary ring, links, caps and the spring spiral are
+still stand-ins.
+
 ### The layout tester
 
 The **Layout** tab in the app is a virtual board. Click a socket to add a pin

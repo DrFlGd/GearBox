@@ -1,41 +1,55 @@
-// Fast procedural gear geometry for the layout view (the real involute comes
-// from OpenSCAD at download time). Teeth are trapezoids on the pitch circle.
+// Procedural gear geometry for the layout view, built in the browser so it stays
+// instant: true involute flanks (20 degree pressure angle) on the same pitch,
+// tip and root circles as the printed gears from OpenSCAD.
 import * as THREE from "three";
+import { creased } from "../components/look";
 
 const cache = new Map<string, THREE.BufferGeometry>();
+
+const PA = (20 * Math.PI) / 180;
+const inv = (a: number) => Math.tan(a) - a;
 
 export function gearGeometry(teeth: number, module: number, thickness: number, boreR: number, keep = 1): THREE.BufferGeometry {
   const k = `${teeth}:${module}:${thickness}:${boreR}:${keep}`;
   const hit = cache.get(k);
   if (hit) return hit;
-  const rp = (module * teeth) / 2, ra = rp + module, rr = rp - 1.25 * module;
-  const shape = new THREE.Shape();
+  const rp = (module * teeth) / 2, ra = rp + module, rr = rp - 1.25 * module, rb = rp * Math.cos(PA);
   const n = teeth, step = (2 * Math.PI) / n;
-  // half tooth thickness at pitch = quarter step; narrower at the tip, wider at the root
-  const tipHalf = step * 0.18, pitchHalf = step * 0.25, rootHalf = step * 0.34;
+  // half the tooth's angular width at radius r (no backlash: tooth = gap at the pitch circle)
+  const half = (r: number) => step / 4 + inv(PA) - inv(Math.acos(Math.min(1, rb / Math.max(r, rb))));
+  // one flank from the root circle up to the tip: radial below the base circle, involute above it
+  const FLANK = 8;
+  const r0 = Math.max(rr, rb);
+  const flank: [number, number][] = [];
+  if (rr < rb) flank.push([rr, half(rb)]);
+  for (let i = 0; i <= FLANK; i++) { const r = r0 + ((ra - r0) * i) / FLANK; flank.push([r, half(r)]); }
+  const tipHalf = Math.max(half(ra), 0.02 * step);
+  const rootHalf = Math.min(flank[0][1], step / 2 - 1e-4);
+  const shape = new THREE.Shape();
+  const at = (r: number, a: number, first: boolean) => { const x = r * Math.cos(a), y = r * Math.sin(a); if (first) shape.moveTo(x, y); else shape.lineTo(x, y); };
   for (let i = 0; i < n; i++) {
     const c = i * step;
     // a partial gear keeps the teeth within +-keep*pi of +x and has a bare root circle elsewhere
     const bare = keep < 1 && Math.abs(((c + Math.PI) % (2 * Math.PI)) - Math.PI) > keep * Math.PI;
-    const pts: [number, number][] = bare
-      ? [[rr - 0.3, c - rootHalf], [rr - 0.3, c + rootHalf]]
-      : [[rr, c - rootHalf], [rp, c - pitchHalf], [ra, c - tipHalf], [ra, c + tipHalf], [rp, c + pitchHalf], [rr, c + rootHalf]];
-    for (const [r, a] of pts) {
-      const x = r * Math.cos(a), y = r * Math.sin(a);
-      if (i === 0 && a === c - rootHalf) shape.moveTo(x, y); else shape.lineTo(x, y);
+    if (bare) { at(rr - 0.3, c - rootHalf, i === 0); at(rr - 0.3, c + rootHalf, false); }
+    else {
+      flank.forEach(([r, h], j) => at(r, c - h, i === 0 && j === 0));                       // leading flank, root to tip
+      for (let t = 1; t < 4; t++) at(ra, c - tipHalf + (2 * tipHalf * t) / 4, false);         // tip land
+      for (let j = flank.length - 1; j >= 0; j--) at(flank[j][0], c + flank[j][1], false);    // trailing flank, tip to root
     }
     // root arc to the next tooth
-    const a0 = c + rootHalf, a1 = c + step - rootHalf;
-    shape.absarc(0, 0, rr, a0, a1, false);
+    shape.absarc(0, 0, bare ? rr - 0.3 : rr, c + rootHalf, c + step - rootHalf, false);
   }
   shape.closePath();
+  // the bore as explicit points: curveSegments stays low for the many short root arcs
   const hole = new THREE.Path();
-  hole.absarc(0, 0, boreR, 0, 2 * Math.PI, true);
+  for (let i = 0; i < 48; i++) { const a = (-i * 2 * Math.PI) / 48; if (i) hole.lineTo(boreR * Math.cos(a), boreR * Math.sin(a)); else hole.moveTo(boreR, 0); }
+  hole.closePath();
   shape.holes.push(hole);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 6 });
-  geo.computeVertexNormals();
-  cache.set(k, geo);
-  return geo;
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 4 });
+  const out = creased(geo);
+  cache.set(k, out);
+  return out;
 }
 
 /** A pulley: a disc with a shallow groove suggested by a slightly smaller middle band. */
@@ -46,10 +60,10 @@ export function pulleyGeometry(r: number, thickness: number, boreR: number): THR
   const pts: THREE.Vector2[] = [];
   const g = 1.6;
   for (const [rr, z] of [[boreR, 0], [r, 0], [r, thickness / 2 - g], [r - g, thickness / 2 - g / 2], [r - g, thickness / 2 + g / 2], [r, thickness / 2 + g], [r, thickness], [boreR, thickness]]) pts.push(new THREE.Vector2(rr, z));
-  const geo = new THREE.LatheGeometry(pts, 48);
-  geo.computeVertexNormals();
-  cache.set(k, geo);
-  return geo;
+  const geo = new THREE.LatheGeometry(pts, 72);
+  const out = creased(geo);
+  cache.set(k, out);
+  return out;
 }
 
 /** A 12 tooth sawtooth ratchet wheel. */
@@ -68,10 +82,10 @@ export function ratchetGeometry(r: number, depth: number, thickness: number, bor
   const hole = new THREE.Path();
   hole.absarc(0, 0, boreR, 0, 2 * Math.PI, true);
   shape.holes.push(hole);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 6 });
-  geo.computeVertexNormals();
-  cache.set(k, geo);
-  return geo;
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 12 });
+  const out = creased(geo);
+  cache.set(k, out);
+  return out;
 }
 
 function extrudePolygon(k: string, pts: [number, number][], thickness: number, boreR: number): THREE.BufferGeometry {
@@ -81,10 +95,10 @@ function extrudePolygon(k: string, pts: [number, number][], thickness: number, b
   pts.forEach(([x, y], i) => (i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y)));
   shape.closePath();
   if (boreR > 0) { const hole = new THREE.Path(); hole.absarc(0, 0, boreR, 0, 2 * Math.PI, true); shape.holes.push(hole); }
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 6 });
-  geo.computeVertexNormals();
-  cache.set(k, geo);
-  return geo;
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 12 });
+  const out = creased(geo);
+  cache.set(k, out);
+  return out;
 }
 
 /** A cam disc from its polar profile. */
@@ -137,7 +151,7 @@ export function genevaWheelGeometry(n: number, C: number, b: number, lock: numbe
   hole.absarc(0, 0, boreR, 0, 2 * Math.PI, true);
   shape.holes.push(hole);
   const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: 8 });
-  geo.computeVertexNormals();
-  cache.set(k, geo);
-  return geo;
+  const out = creased(geo);
+  cache.set(k, out);
+  return out;
 }

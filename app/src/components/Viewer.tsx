@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { creased, studio, type Studio } from "./look";
 
 /** `hardware`: a second mesh drawn in steel grey (an assembly's bolts, bearings, pins and magnets).
  *  `beds`: outlines of print beds from the origin along +x (a print layout), in place of the board grid. */
@@ -14,7 +15,7 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
   bedsNow.current = beds;
   const state = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
-    mesh: THREE.Mesh | null; hw: THREE.Mesh | null; grid: THREE.GridHelper; beds: THREE.Group | null; fitted: boolean;
+    mesh: THREE.Mesh | null; hw: THREE.Mesh | null; grid: THREE.GridHelper; beds: THREE.Group | null; fitted: boolean; look: Studio;
   } | null>(null);
 
   useEffect(() => {
@@ -29,18 +30,12 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.12;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 1.6);
-    key.position.set(80, -120, 160);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xbfd4ff, 0.6);
-    fill.position.set(-120, 60, 40);
-    scene.add(fill);
+    const look = studio(renderer, scene);
     const gridHelper = new THREE.GridHelper(400, 20, 0x5a6475, 0x323a47);
     gridHelper.rotation.x = Math.PI / 2;
     scene.add(gridHelper);
     scene.add(new THREE.AxesHelper(20));
-    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, hw: null as THREE.Mesh | null, grid: gridHelper, beds: null as THREE.Group | null, fitted: false };
+    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, hw: null as THREE.Mesh | null, grid: gridHelper, beds: null as THREE.Group | null, fitted: false, look };
     state.current = s;
 
     const resize = () => {
@@ -60,6 +55,7 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
       cancelAnimationFrame(raf);
       ro.disconnect();
       controls.dispose();
+      look.dispose();
       renderer.dispose();
       el.removeChild(renderer.domElement);
       state.current = null;
@@ -88,10 +84,10 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
       s.mesh = null;
     }
     if (!stl) return;
-    const geometry = new STLLoader().parse(stl.buffer.slice(stl.byteOffset, stl.byteOffset + stl.byteLength) as ArrayBuffer);
-    geometry.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({ color: 0xe8b44c, metalness: 0.05, roughness: 0.55, flatShading: true });
+    const geometry = creased(new STLLoader().parse(stl.buffer.slice(stl.byteOffset, stl.byteOffset + stl.byteLength) as ArrayBuffer));
+    const material = new THREE.MeshStandardMaterial({ color: 0xe8b44c, metalness: 0, roughness: 0.48 });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = mesh.receiveShadow = true;
     s.scene.add(mesh);
     s.mesh = mesh;
     geometry.computeBoundingBox();
@@ -114,6 +110,7 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
     s.camera.updateProjectionMatrix();
     s.fitted = true;
     s.grid.position.z = Math.min(0, bb.min.z);
+    s.look.fit(geometry.boundingBox!);
   }, [stl]);
 
   useEffect(() => {
@@ -138,9 +135,9 @@ export default function Viewer({ stl, hardware = null, busy, grid, beds = null, 
     if (!s) return;
     if (s.hw) { s.scene.remove(s.hw); s.hw.geometry.dispose(); s.hw = null; }
     if (!hardware || hardware.byteLength <= 84) return;
-    const geometry = new STLLoader().parse(hardware.buffer.slice(hardware.byteOffset, hardware.byteOffset + hardware.byteLength) as ArrayBuffer);
-    geometry.computeVertexNormals();
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.65, roughness: 0.35, flatShading: true }));
+    const geometry = creased(new STLLoader().parse(hardware.buffer.slice(hardware.byteOffset, hardware.byteOffset + hardware.byteLength) as ArrayBuffer));
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0xc4cad3, metalness: 0.55, roughness: 0.32 }));
+    mesh.castShadow = mesh.receiveShadow = true;
     s.scene.add(mesh);
     s.hw = mesh;
   }, [hardware]);
