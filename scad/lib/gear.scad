@@ -168,15 +168,16 @@ module gear(teeth, face = "solid", magnets = "none") {
 
 // Two gears on one hub, one level apart. The lower gear is the larger one.
 // Bottom bearing seats from below, top bearing from above; a 2 mm wall sits
-// between them. Lower teeth 0..GEAR_T, upper teeth GEAR_T+1..LEVEL+GEAR_T-1.
+// between them. Lower teeth 0..GEAR_T, upper teeth GEAR_T..LEVEL+GEAR_T-1: the upper
+// teeth run all the way down onto the lower gear's top face, so nothing overhangs a
+// gap too thin for supports (they used to start 1 mm up, over a root-radius bridge).
 module compound_gear(teeth_lower, teeth_upper, face = "solid") {
     assert(teeth_lower > teeth_upper, "the lower gear of a compound must be the larger one");
     h_upper = LEVEL + GEAR_T - 1;
     difference() {
         union() {
             gear_blank(teeth_lower);
-            translate([0, 0, GEAR_T]) cylinder(r = gear_rr(teeth_upper), h = 1 + EPS); // bridge the 1 mm gap
-            translate([0, 0, GEAR_T + 1]) gear_blank(teeth_upper);
+            translate([0, 0, GEAR_T - EPS]) gear_blank(teeth_upper, h_upper - GEAR_T + EPS);
             face_jaws(h_upper, gear_rr(teeth_upper));
         }
         double_bearing_seat();
