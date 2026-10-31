@@ -1,9 +1,9 @@
 name: Render catalog
 
-# Every PR and push to main type-checks and builds the app. The full catalog
-# render (every part in both sizes, sizes checked) only runs when something a
-# part is made from changed: the OpenSCAD library, the catalog, BOSL2, the
-# render tools or the pinned engine version.
+# Every PR and push to main type-checks and builds the app. Then only the
+# catalog parts whose sources changed (tools/part-keys.mjs follows each part
+# through the library) are rendered and size-checked, in every size; nothing
+# renders when no part source changed.
 on:
   push:
     branches: [main]
@@ -20,9 +20,10 @@ jobs:
       - name: Did any part source change?
         id: parts
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then git fetch -q --no-tags origin "${{ github.base_ref }}"; range="FETCH_HEAD...HEAD"; else range="${{ github.event.before }}..HEAD"; fi
-          if git diff --quiet "$range" -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/render-worker.mjs tools/stl-stats.mjs package-lock.json; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"; echo "No part source changed ($range): skipping the catalog render."
+          if [ "${{ github.event_name }}" = "pull_request" ]; then git fetch -q --no-tags origin "${{ github.base_ref }}"; base=$(git merge-base FETCH_HEAD HEAD); else base="${{ github.event.before }}"; fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          if git diff --quiet "$base" HEAD -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/render-worker.mjs tools/part-keys.mjs tools/stl-stats.mjs package-lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"; echo "No part source changed since $base: skipping the catalog render."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -33,12 +34,13 @@ jobs:
       - run: npm ci
       - name: Type-check and build the web app
         run: npm run build
-      - name: Render every catalog part in both sizes (PETG profile) and check sizes
+      - name: Render the changed catalog parts (PETG profile) and check sizes
         if: steps.parts.outputs.changed == 'true'
-        run: npm run render -- --profile PETG --out out
+        run: npm run render -- --profile PETG --out out --changed-since ${{ steps.parts.outputs.base }}
       - uses: actions/upload-artifact@v4
         if: steps.parts.outputs.changed == 'true'
         with:
           name: parts-PETG
           path: out/**/PETG/*.stl
           retention-days: 14
+          if-no-files-found: ignore
