@@ -13,7 +13,7 @@
 // Magnets: 6 x 3 mm discs for M2, 4 x 2 mm for M1.5 (MAGNET in gear.scad). Every
 // pocket has a dot beside it where the north pole goes up (or outward).
 
-// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 MAG_GAP  = 1.0;                              // air gap between two magnetic gears
@@ -31,7 +31,10 @@ module mag_gear(poles = 16) {
     depth = MAGNET[0] + 0.3;                 // the magnet stands on edge
     assert(rs - sd / 2 > PIN_R + PIN_D / 2 + 1, "magnetic gear: the slots reach the pin holes");
     difference() {
-        cylinder(r = r, h = GEAR_T);
+        union() {
+            cylinder(r = r, h = GEAR_T);
+            face_jaws(GEAR_T, rs - sd / 2 - 1);
+        }
         bearing_seat();
         face_joints(GEAR_T, rs - sd / 2 - 1);
         for (i = [0 : poles - 1]) rotate(180 / poles + i * 360 / poles) {

@@ -11,7 +11,7 @@
 // N20 "micro metal gearmotor": 12 x 10 mm body, 3 mm D shaft 10 mm long, two
 // M1.6 holes 9 mm apart on the gearbox face. Pick a 100:1 or 300:1 ratio.
 
-// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 NEMA_SHAFT_D = 5;
@@ -60,11 +60,11 @@ module pinion(teeth = 20, shaft = "n20") {
     d = (nema ? NEMA_SHAFT_D : N20_SHAFT_D) + 0.15;
     flat = nema ? 2.0 + 0.1 : 1.25 + 0.1;   // NEMA 17: 0.5 mm flat on a 5 mm shaft; N20: 0.25 on 3 mm
     difference() {
-        gear_blank(teeth);
+        gear_blank(teeth);   // no jaws: the motor mount's plate is right above it
         translate([0, 0, -EPS]) linear_extrude(GEAR_T + 2 * EPS) intersection() {
             circle(d = d, $fn = 32);
             translate([-d, -d]) square([2 * d, d + flat]);
         }
-        translate([0, 0, GEAR_T]) pin_holes();
+        translate([0, 0, GEAR_T]) top_cut();
     }
 }

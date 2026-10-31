@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Render every part in catalog/parts.json for one or both standards and check
 // its size against the catalog.
-//   node tools/render-catalog.mjs [--out out] [--size M2|M1.5|all] [--profile PETG] [--only G40,K] [--format stl|obj] [--jobs N]
-// Output goes to <out>/<size>/<profile>/<name>.<format>. Parts render in
-// parallel on --jobs worker threads (default: one per core).
-// --write-expect updates the catalog's expected sizes from this run.
+//   node tools/render-catalog.mjs [--out out] [--size M2|M1.5|all] [--profile PETG] [--joint jaws|pins|bolts] [--only G40,K] [--format stl|obj] [--jobs N]
+// Output goes to <out>/<size>/<profile>/<name>.<format> (<profile>-<joint> for
+// the pins and bolts joints). Parts render in parallel on --jobs worker threads
+// (default: one per core).
+// --write-expect updates the catalog's expected sizes from this run (jaws only:
+// the catalog's sizes are the default joint's; other joints skip the size check).
 // A part with a `sizes` list is only rendered in those sizes.
 import fs from "node:fs";
 import os from "node:os";
@@ -22,6 +24,7 @@ const profile = opt("--profile", "PETG");
 const sizeOpt = opt("--size", "all");
 const only = opt("--only", "")?.split(",").filter(Boolean);
 const format = opt("--format", "stl");
+const joint = opt("--joint", "jaws");
 const writeExpect = argv.includes("--write-expect");
 const jobs = Math.max(1, Number(opt("--jobs", os.availableParallelism?.() ?? os.cpus().length)));
 
@@ -33,8 +36,8 @@ const queue = [];
 for (const size of sizes) {
   for (const p of parts) {
     if (p.sizes && !p.sizes.includes(size)) continue;   // a part not made in this size
-    const defines = [`size="${size}"`, `profile="${profile}"`, ...Object.entries(p.params).map(([k, v]) => `${k}=${typeof v === "string" ? JSON.stringify(v) : v}`)];
-    queue.push({ id: queue.length, size, p, input: path.join(repoRoot, "scad", "gearbox.scad"), output: path.join(outDir, size, profile, `${p.name}.${format}`), defines });
+    const defines = [`size="${size}"`, `profile="${profile}"`, `joint="${joint}"`, ...Object.entries(p.params).map(([k, v]) => `${k}=${typeof v === "string" ? JSON.stringify(v) : v}`)];
+    queue.push({ id: queue.length, size, p, input: path.join(repoRoot, "scad", "gearbox.scad"), output: path.join(outDir, size, joint === "jaws" ? profile : `${profile}-${joint}`, `${p.name}.${format}`), defines });
   }
 }
 
@@ -45,8 +48,8 @@ function report(job, r) {
   if (r.ok && format === "stl") {
     const s = stlStats(output);
     const size3 = s.size.map(x => Number(x.toFixed(2)));
-    const expect = p.expect?.[size];
-    if (writeExpect) { p.expect = p.expect ?? {}; p.expect[size] = size3; }
+    const expect = joint === "jaws" ? p.expect?.[size] : undefined;
+    if (writeExpect && joint === "jaws") { p.expect = p.expect ?? {}; p.expect[size] = size3; }
     const sizeOk = !expect || expect.every((e, i) => Math.abs(size3[i] - e) <= 0.6);
     note = `size ${size3.map(x => x.toFixed(1)).join("x")} vol ${(s.volume / 1000).toFixed(1)}cm3 ${s.triangles}tris`;
     if (!sizeOk) { r.ok = false; note += `  EXPECTED ${expect.join("x")}`; }

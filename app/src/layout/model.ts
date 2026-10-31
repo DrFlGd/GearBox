@@ -21,7 +21,7 @@ export type CamKind = "eccentric" | "heart" | "snail";
 export type Gear = {
   level: number;      // 1..MAX_LEVEL
   teeth: Teeth;
-  joined: boolean;    // turns with the item one level below (dowel pins and M3 screws, or one compound part)
+  joined: boolean;    // turns with the item one level below (jaws, dowel pins or screws, or one compound part)
   /** joined by magnets through a barrier instead of pins: the item below has magnets in its top face, this one in its bottom */
   coupling?: "magnetic";
   kind?: ItemKind;    // default gear
@@ -166,6 +166,41 @@ export const hasScrews = (size: Size, g: Gear) => jointR(size, g) >= std(size).h
 /** Room for the dowel pin holes (has_pins in standard.scad). Only M1's 20T gears and P20 pulleys lack it;
  *  kinds without a joint radius here are assumed to have it. */
 export const hasPins = (size: Size, g: Gear) => { const r = jointR(size, g); return r === 0 || r >= std(size).hardware.pin_r + 1.15 + 0.8; };
+
+/** How stacked items join (scad/lib/jaws.scad): tapered jaws on each top face and pockets
+ *  underneath, the legacy dowel pins, or dowel pins plus a screw clamp. */
+export type Joint = "jaws" | "pins" | "bolts";
+export const JOINTS: Joint[] = ["jaws", "pins", "bolts"];
+/** Radius out to which an item's body reaches at the jaw band, on its top or bottom face
+ *  (0: that face never has jaws or pockets). In step with the has_jaws calls in the library. */
+export function jawR(size: Size, g: Gear, face: "top" | "bottom"): number {
+  const s = std(size), m = s.module, rr = (t: number) => pitchR(size, t) - 1.25 * m;
+  const nutAF = sz(size, 13.3, 10.3, 8.3);
+  const top = face === "top";
+  switch (kindOf(g)) {
+    case "gear": return top && g.topper === "spring" ? 0 : rr(g.teeth);   // the spring winds on the spring gear's top face
+    case "partial": return rr(g.teeth);
+    case "pulley": return (m * g.teeth + 2) / 2 - 1.6 - 0.3;
+    case "ratchet": return s.grid - 2.5 - 1.6 * m;
+    case "cam": return camDims(size).r0;
+    case "geneva": return top ? 0 : rr(40);
+    case "genevaWheel": return genevaDims(size, g.slots ?? 6).rIn;
+    case "escwheel": { const e = escDims(size); return e.R - e.depth; }
+    case "winch": {
+      if (top) return 0;
+      const r = bearingOD(size) / 2 + 2.5, rj = s.hardware.jaw_min_r - 0.8 + 1.2;
+      return rj <= winchR(size) - 3 ? Math.max(r, rj) : r;
+    }
+    case "carrier": return top ? 0 : rr(PLN.carrier);
+    case "bevel": return top ? 0 : rr(g.teeth);
+    case "wormgear": return rr(g.teeth) - 1;
+    case "flywheel": return flyR(size) - 2 - nutAF / Math.cos(Math.PI / 6);
+    case "maggear": return pitchR(size, g.teeth) - 2.5 - (magnetSize(size).h + 0.2);
+    default: return 0;
+  }
+}
+/** Room for the tapered jaws (on top) or their pockets (underneath). */
+export const hasJaws = (size: Size, g: Gear, face: "top" | "bottom") => jawR(size, g, face) >= std(size).hardware.jaw_min_r;
 
 /** Local z of the bottom of level k above the plate top (same as lvl_z in OpenSCAD). */
 export const lvlZ = (size: Size, k: number) => 2 + (k - 1) * std(size).level;

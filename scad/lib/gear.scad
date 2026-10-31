@@ -1,11 +1,12 @@
 // gear.scad - spur gears on the GearBox standard.
 //
-// Every gear has a bearing seat in the hub and a ring of pin holes on both
-// faces for dowel pins (joining stacked gears, holding cranks and pointers). Tooth counts
-// in multiples of 10 land on the grid; two gears mesh when their tooth counts
-// add up to a multiple of 20. Gears print flat, either face down.
+// Every gear has a bearing seat in the hub and a face joint on both faces
+// (jaws.scad): by default tapered jaws on top and pockets underneath, or with
+// joint = "pins" / "bolts" the legacy dowel pin holes (plus a screw clamp).
+// Tooth counts in multiples of 10 land on the grid; two gears mesh when their
+// tooth counts add up to a multiple of 20. Gears print flat, bottom face down.
 
-// Needs standard.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 include <BOSL2/std.scad>
 include <BOSL2/gears.scad>
@@ -42,24 +43,24 @@ module pin_holes(r_outer = undef) if (is_undef(r_outer) || has_pins(r_outer)) {
 }
 module peg_holes() { pin_holes(); }   // old name
 
-// M3 screw joint, alongside the pins, on gears of 30 teeth and up: six through
-// holes on a second circle outside the pin holes. Holes 0, 2, 4 have a flush
-// counterbore for a socket head in the top face; holes 1, 3, 5 have a hex nut
-// pocket in the bottom face, the nut seated 1 mm up. To join two gears, turn the
-// upper one 60 degrees so its counterbored holes sit over the lower one's nut
-// holes, put the joint ring in the gap, and drive three screws down. Every hole
-// keeps at least 3.6 mm of plastic under a head or over a nut.
-SCREW_D    = 3;                       // M3 in every size
-SCREW_R    = PIN_R + 4;               // 18.3 / 14.8: the nut pocket stays clear of the bearing seat
-SCREW_HEAD = [5.5, 3];                // socket head cap screw: diameter, height
-SCREW_NUT  = [5.5, 2.4];              // nut: across flats, height
-SCREW_NUT_UP = 1.0;                   // the nut sits this far above the bottom face
-JRING_T    = 1.8;                     // joint ring: fills the 2 mm gap between two screwed gears
-SCREW_L    = (GEAR_T - SCREW_HEAD[1] - 0.2) + 2 + (GEAR_T - SCREW_NUT_UP + 0.2);   // 14 / 12 / 10
-SCREW_NAME = str("M3 x ", round(SCREW_L));
+// Screw clamp (joint = "bolts"), alongside the pins, on gears with room for it:
+// six through holes on a second circle outside the pin holes, M3 for M2, M2.5
+// for M1.5, M2 for M1. Holes 0, 2, 4 have a flush counterbore for a socket head
+// in the top face; holes 1, 3, 5 have a hex nut pocket in the bottom face, the
+// nut seated a little up. To join two gears, turn the upper one 60 degrees so
+// its counterbored holes sit over the lower one's nut holes, put the joint ring
+// in the gap, and drive three screws down.
+SCREW_D    = sz(3, 2.5, 2);
+SCREW_R    = sz(PIN_R + 4, 12.8, 10.8);          // 18.3 / 12.8 / 10.8: the nut pocket stays clear of the bearing seat
+SCREW_HEAD = sz([5.5, 3], [4.5, 2.5], [3.8, 2]); // socket head cap screw: diameter, height
+SCREW_NUT  = sz([5.5, 2.4], [5, 2], [4, 1.6]);   // nut: across flats, height
+SCREW_NUT_UP = sz(1.0, 1.0, 1.6);                // the nut sits this far above the bottom face
+JRING_T    = 1.8;                                // joint ring: fills the 2 mm gap between two screwed gears
+SCREW_L    = sz(14, 12, 10);                     // stock length: reaches through the nut, not out of the gear
+SCREW_NAME = str(sz("M3", "M2.5", "M2"), " x ", SCREW_L);
 // radius the pockets need, with a fixed clearance so the same gears get screws in every print profile
 function screw_r_out() = SCREW_R + (SCREW_NUT[0] + 0.3) / cos(30) / 2 + 1;
-function has_screws(r_outer) = r_outer >= screw_r_out() + 1.2;   // 23.85 (M2) / 20.35 (M1.5): 30T gears and up
+function has_screws(r_outer) = r_outer >= screw_r_out() + 1.2;   // 23.85 (M2) / 18.1 (M1.5) / 15.5 (M1): 30T, 30T, 40T and up
 module screw_holes(thickness = GEAR_T) {   // z = 0 is the bottom face
     nut = (SCREW_NUT[0] + fit("nut_clear")) / cos(30);
     for (i = [0 : 5]) rotate(30 + i * 60) translate([SCREW_R, 0, 0]) {
@@ -68,13 +69,17 @@ module screw_holes(thickness = GEAR_T) {   // z = 0 is the bottom face
         else translate([0, 0, -EPS]) rotate(30) cylinder(d = nut, h = SCREW_NUT_UP + SCREW_NUT[1] + 0.2, $fn = 6);
     }
 }
-// Both joints in both faces of a part `thickness` tall whose body reaches r_outer.
-module face_joints(thickness = GEAR_T, r_outer = 0) {
+// The joints cut into both faces of a part `thickness` tall whose body reaches
+// r_outer (r_jaws: how far it reaches at the jaw band, when that differs).
+module face_joints(thickness = GEAR_T, r_outer = 0, r_jaws = undef) {
     rp = r_outer > 0 ? r_outer : undef;
-    translate([0, 0, thickness]) pin_holes(rp);
-    mirror([0, 0, 1]) pin_holes(rp);
-    if (has_screws(r_outer)) screw_holes(thickness);
+    rj = is_undef(r_jaws) ? (r_outer > 0 ? r_outer : 1e3) : r_jaws;
+    translate([0, 0, thickness]) top_cut(rp, rj);
+    bottom_cut(rp, rj);
+    if (JOINT == "bolts" && has_screws(r_outer)) screw_holes(thickness);
 }
+// The jaws standing on the top face of a part `thickness` tall.
+module face_jaws(thickness = GEAR_T, r_jaws = 1e3) translate([0, 0, thickness]) top_jaws(r_jaws);
 
 // Joint ring: the spacer between two screwed gears. Clearance holes for the
 // screws and for pins, so pins and screws can share a joint.
@@ -103,7 +108,7 @@ module magnet_pockets(n = MAGF_N, r = MAGF_R) {
 // Web cutouts between the hub and the rim. Only gears with a wide enough rim get one.
 // The hub reaches past the screw pockets (and the magnet pockets if the gear has them).
 module face_pattern(teeth, face, thickness = GEAR_T, magnets = false) {
-    r_hub = max(PIN_R + PIN_D / 2 + 2, has_screws(gear_rr(teeth)) ? screw_r_out() + 1 : 0, magnets ? MAGF_R + MAGNET[0] / 2 + 1.5 : 0);
+    r_hub = max(PIN_R + PIN_D / 2 + 2, has_screws(gear_rr(teeth)) ? screw_r_out() + 1 : 0, magnets ? MAGF_R + MAGNET[0] / 2 + 1.5 : 0, jaw_hub_r(gear_rr(teeth)));
     r_rim = gear_rr(teeth) - 3;
     if (r_rim - r_hub >= 4 * MOD && face != "solid") {
         translate([0, 0, -EPS]) linear_extrude(thickness + 2 * EPS) {
@@ -135,12 +140,16 @@ module face_pattern(teeth, face, thickness = GEAR_T, magnets = false) {
 
 // A single gear. z = 0 is the bottom face; the bearing seats from the top.
 // magnets = "top" or "bottom" adds six magnet pockets to that face: two such gears
-// on one pin, pockets facing across the 2 mm gap, make a magnetic slip coupling.
+// on one pin, pockets facing across the 2 mm gap, make a magnetic slip coupling
+// (no jaws on a magnet top face: the coupling's barrier fills the gap).
 module gear(teeth, face = "solid", magnets = "none") {
     assert(teeth % 10 == 0 && teeth >= 20, "teeth must be 20, 30, 40 ... 80");
     assert(magnets == "none" || teeth >= 40, "magnet pockets need a 40T or bigger gear");
     difference() {
-        gear_blank(teeth);
+        union() {
+            gear_blank(teeth);
+            if (magnets != "top") face_jaws(GEAR_T, gear_rr(teeth));
+        }
         bearing_seat();
         face_joints(GEAR_T, gear_rr(teeth));
         if (magnets == "top") translate([0, 0, GEAR_T]) magnet_pockets();
@@ -160,11 +169,12 @@ module compound_gear(teeth_lower, teeth_upper, face = "solid") {
             gear_blank(teeth_lower);
             translate([0, 0, GEAR_T]) cylinder(r = gear_rr(teeth_upper), h = 1 + EPS); // bridge the 1 mm gap
             translate([0, 0, GEAR_T + 1]) gear_blank(teeth_upper);
+            face_jaws(h_upper, gear_rr(teeth_upper));
         }
         bearing_seat(ledge_at_bottom = false);              // lower: bearing from below, ledge on top
         translate([0, 0, LEVEL - 1]) bearing_seat();        // upper: ledge, then bearing from above
-        translate([0, 0, h_upper]) pin_holes(gear_rr(teeth_upper));
-        mirror([0, 0, 1]) pin_holes(gear_rr(teeth_lower));
+        translate([0, 0, h_upper]) top_cut(gear_rr(teeth_upper), gear_rr(teeth_upper));
+        bottom_cut(gear_rr(teeth_lower), gear_rr(teeth_lower));
         face_pattern(teeth_lower, face);
     }
 }

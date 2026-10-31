@@ -3,7 +3,7 @@
 // more bed-sized plates. Exported as a 3MF with one object per part (one build item per
 // copy, so a slicer sees separate objects) and as an STL of separate bodies.
 import { zipSync, strToU8 } from "fflate";
-import { defines, type Overrides, type Profile, type Size } from "./parts";
+import { defines, type Joint, type Overrides, type Profile, type Size } from "./parts";
 import { parseBinaryStl, type Mesh } from "./export/threemf";
 import type { RenderResult } from "./engine/protocol";
 import type { KitItem } from "./kitzip";
@@ -30,7 +30,7 @@ export function layOut(sizes: { w: number; d: number }[], bed: number): { x: num
 }
 
 export async function buildPrintPlate(opts: {
-  items: KitItem[]; size: Size; profile: Profile; overrides: Overrides; bed?: number;
+  items: KitItem[]; size: Size; profile: Profile; overrides: Overrides; joint?: Joint; bed?: number;
   render: (defs: string[]) => Promise<RenderResult>; onProgress?: (text: string) => void;
 }): Promise<PrintPlate> {
   const bed = opts.bed ?? 220;
@@ -40,7 +40,7 @@ export async function buildPrintPlate(opts: {
     const it = opts.items[i];
     opts.onProgress?.(`${i + 1}/${opts.items.length} ${it.name}`);
     const { part, ...params } = it.params;
-    const r = await opts.render(defines(String(part), params, opts.size, opts.profile, opts.overrides));
+    const r = await opts.render(defines(String(part), params, opts.size, opts.profile, opts.overrides, opts.joint));
     if (r.ok && r.bytes) parts.push({ name: it.name, title: it.title, mesh: parseBinaryStl(r.bytes) }); else failed.push(it.name);
   }
   const copies: { part: number; name: string }[] = [];

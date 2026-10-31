@@ -14,9 +14,16 @@
 //   pawl(flip)         clamps on a pin two sockets away, a leaf spring tooth
 //
 // Every part prints flat without support. Cranks and pointers print hub ring up
-// (upside down from how they sit on the gear) so the hex pocket and pin holes face up.
+// (upside down from how they sit on the gear) so the hex pocket and the jaw
+// sockets (or pin holes) face up.
+//
+// With jaws (joint = "jaws") a crank or pointer keys onto the jaws of the gear
+// below: its hub ring sits on the gear's top face and the jaws pass through
+// three tapered slots in it. A crank adds a collar round the jaws for torque;
+// the dial knob's disc rises above the jaw tops. With pins the hub ring carries
+// three short dowel pins pressed in.
 
-// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 HUB_ID  = SPACER_OD + 1.5;            // clears the knob boss
@@ -30,18 +37,26 @@ CAP_D   = PIN_D + fit("pin_press");   // a dowel pin pressed through the cap key
 CRANK_BOSS = 1;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin
 DIAL_R  = sz(17, 13, 9);             // dial knob disc: clears a neighbour's gear one level up
 DIAL_T  = 2.5;
+DIAL_Z0 = JAWS ? max(KNOB_BOSS_H, JAW_H + 0.4) : KNOB_BOSS_H;   // dial disc bottom above the gear: clears the jaw tops
+// a pin with a dial knob: the bolt reaches up through the taller dial knob
+function dial_bolt(levels) = ceil((bolt_len(levels) + DIAL_Z0 - KNOB_BOSS_H) / 5) * 5;
+HUB_OD  = JAWS ? 2 * (JAW_OUT + 1.2) : CPL_OD;   // hub ring: covers the jaw band
+HUB_COLLAR = JAW_H + 0.3 + 1.2;                  // crank: collar round the jaws
 
-// Hub ring with three press-fit holes for the short hub pins (every other face
-// hole). The pins stand PIN_DEPTH - 0.1 proud below the ring and drop into the gear.
+// Hub ring. Jaws: three tapered slots the jaws of the gear below pass through.
+// Pins: three press-fit holes for the short hub pins (every other face hole),
+// the pins stand PIN_DEPTH - 0.1 proud below the ring and drop into the gear.
 // z = 0 is the ring bottom.
 module hub_ring(t = HUB_T) {
     d = PIN_D + fit("pin_press");
     difference() {
-        cylinder(d = CPL_OD, h = t);
+        cylinder(d = HUB_OD, h = t);
         translate([0, 0, -1]) cylinder(d = HUB_ID, h = t + 2);
-        for (i = [0, 2, 4]) rotate(i * 360 / PIN_N) translate([PIN_R, 0, -1]) cylinder(d = d, h = t + 2, $fn = 32);
+        if (JAWS) hub_sockets(t + 1);
+        else for (i = [0, 2, 4]) rotate(i * 360 / PIN_N) translate([PIN_R, 0, -1]) cylinder(d = d, h = t + 2, $fn = 32);
     }
 }
+module hub_sockets(h) jaws_ring() jaw_socket(h);   // between the jaws' angles the arm runs along +x
 
 // Bolt post: a kit bolt dropped through a part from below, hex head in a flush
 // pocket, a boss on top that presses only the bearing inner race, a nut above
@@ -67,14 +82,16 @@ module crank(throw = 2 * GRID) {
     difference() {
         union() {
             hub_ring();
+            if (JAWS) linear_extrude(HUB_COLLAR) difference() { circle(d = HUB_OD); circle(r = KNOB_D / 2 + 0.6); }
             // thin arm from the hub to the thick part
-            linear_extrude(HUB_T) hull() { translate([CPL_OD / 2 - ARM_W / 2, 0]) circle(d = ARM_W); translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); }
+            linear_extrude(HUB_T) hull() { translate([HUB_OD / 2 - ARM_W / 2, 0]) circle(d = ARM_W); translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); }
             // thick arm to the bolt pocket
             linear_extrude(ARM_T) hull() { translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); translate([throw, 0]) circle(d = de); }
             translate([throw, 0, ARM_T - EPS]) cylinder(d = SPACER_OD, h = CRANK_BOSS + EPS);
         }
         translate([throw, 0, 0]) bolt_pocket(ARM_T, CRANK_BOSS);
         translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
+        if (JAWS) hub_sockets(JAW_H + 0.3);
     }
 }
 function crank_top() = ARM_T + CRANK_BOSS;
@@ -141,9 +158,10 @@ module pointer() {
     difference() {
         union() {
             hub_ring();
-            linear_extrude(HUB_T) hull() { translate([CPL_OD / 2 - w, 0]) circle(d = 2 * w); translate([reach, 0]) circle(d = w); }
+            linear_extrude(HUB_T) hull() { translate([HUB_OD / 2 - w, 0]) circle(d = 2 * w); translate([reach, 0]) circle(d = w); }
         }
         translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
+        if (JAWS) hub_sockets(HUB_T + 1);
     }
 }
 
@@ -169,21 +187,22 @@ module dial_knob() {
     bore = BOLT[0] + fit("bolt_clear");
     af = BOLT[1] + fit("nut_clear");
     pocket = BOLT[2] + 0.2;
-    z0 = KNOB_BOSS_H;
+    z0 = DIAL_Z0;
+    h = KNOB_H + z0 - KNOB_BOSS_H;
     difference() {
         union() {
             cylinder(d = SPACER_OD, h = z0 + EPS);
             translate([0, 0, z0]) cylinder(r = DIAL_R, h = DIAL_T);
-            translate([0, 0, z0 + DIAL_T - EPS]) cylinder(d = KNOB_D, h = KNOB_H - z0 - DIAL_T + EPS);
+            translate([0, 0, z0 + DIAL_T - EPS]) cylinder(d = KNOB_D, h = h - z0 - DIAL_T + EPS);
             translate([0, 0, z0 + DIAL_T - EPS]) linear_extrude(0.6 + EPS) {
                 for (k = [0 : 59]) rotate(90 - k * 6) translate([DIAL_R - (k % 5 == 0 ? 3 : 1.6), -0.3]) square([k % 5 == 0 ? 2.6 : 1.2, 0.6]);
                 for (k = [0 : 11]) rotate(90 - k * 30) translate([DIAL_R - 6, 0]) rotate(-90 + k * 30) number(k == 0 ? 12 : k, 3.4);
             }
         }
-        translate([0, 0, -EPS]) cylinder(d = bore, h = KNOB_H + 2 * EPS);
-        translate([0, 0, KNOB_H - pocket]) cylinder(d = af / cos(30), h = pocket + EPS, $fn = 6);
+        translate([0, 0, -EPS]) cylinder(d = bore, h = h + 2 * EPS);
+        translate([0, 0, h - pocket]) cylinder(d = af / cos(30), h = pocket + EPS, $fn = 6);
         for (i = [0 : 11]) rotate(i * 30) translate([KNOB_D / 2 + 0.6, 0, z0 + DIAL_T + 1])
-            cylinder(r = 1.6 * KNOB_D / 20, h = KNOB_H, $fn = 24);
+            cylinder(r = 1.6 * KNOB_D / 20, h = h, $fn = 24);
     }
 }
 
@@ -194,10 +213,13 @@ module pulley(n = 40) {
     d = MOD * n + 2;
     g = 3.2;    // groove width
     difference() {
-        cylinder(d = d, h = GEAR_T);
+        union() {
+            cylinder(d = d, h = GEAR_T);
+            face_jaws(GEAR_T, d / 2 - g / 2 - 0.3);
+        }
         rotate_extrude() translate([d / 2, GEAR_T / 2]) hull() { circle(d = g); translate([g, 0]) circle(d = g); }
         bearing_seat();
-        face_joints(GEAR_T, d / 2 - g - 1);
+        face_joints(GEAR_T, d / 2 - g - 1, d / 2 - g / 2 - 0.3);
         face_pattern(n, n >= 40 ? "spokes" : "solid");
     }
 }
@@ -232,8 +254,7 @@ module ratchet() {
     difference() {
         linear_extrude(GEAR_T) ratchet_2d();
         bearing_seat();
-        translate([0, 0, GEAR_T]) pin_holes();
-        mirror([0, 0, 1]) pin_holes();
+        face_joints(GEAR_T, 0, RATCHET_R - RATCHET_DEPTH);   // too small for the jaws: it joins with pins
     }
 }
 

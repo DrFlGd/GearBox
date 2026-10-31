@@ -1,9 +1,11 @@
 // coupon.scad - the fit test coupon. One small print that checks every fit:
-// two bolt sockets with nut pockets, a dovetail pair, a bearing seat, the pin
-// holes (slip fit) and a press-fit pin hole, plus a magnet pocket. Print it with
-// a knob and a spacer; try a bolt, a nut, a bearing, a dowel pin and a magnet.
+// two bolt sockets with nut pockets, a dovetail pair, a bearing seat, a magnet
+// pocket and the face joint: with jaws, three jaws on the bearing block that any
+// gear's pockets drop over (M2 and M1.5; M1's block is too small); with pins, the
+// pin holes (slip fit) and a press-fit pin hole. Print it with a knob and a
+// spacer; try a bolt, a nut, a bearing, a magnet and a gear (or a dowel pin).
 
-// Needs standard.scad, gear.scad, board.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, board.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 module coupon() {
@@ -26,15 +28,16 @@ module coupon() {
             }
             // bearing seat block behind the strip
             translate([0, H + 2, 0]) cube([block, block, GEAR_T]);
+            translate([block / 2, H + 2 + block / 2, 0]) face_jaws(GEAR_T, block / 2);
         }
         for (i = [0 : 1]) translate([hole_pos(i), hole_pos(0), SKIRT_H]) socket_cut();
         translate([0, GRID / 2, -EPS]) rotate(90) linear_extrude(TILE_H + 2 * EPS) dovetail_2d(c / 2);
         translate([block / 2, H + 2 + block / 2, 0]) {
             bearing_seat();
-            translate([0, 0, GEAR_T]) pin_holes();
+            translate([0, 0, GEAR_T]) top_cut(undef, block / 2);
         }
-        // press-fit pin hole and a magnet pocket in the strip's top, between the sockets
-        translate([W / 2, H / 2 + GRID / 4 + 1, TILE_H - PIN_DEPTH]) cylinder(d = PIN_D + fit("pin_press"), h = PIN_DEPTH + EPS, $fn = 32);
+        // press-fit pin hole (for the pins' hub rings) and a magnet pocket in the strip's top, between the sockets
+        if (!JAWS) translate([W / 2, H / 2 + GRID / 4 + 1, TILE_H - PIN_DEPTH]) cylinder(d = PIN_D + fit("pin_press"), h = PIN_DEPTH + EPS, $fn = 32);
         translate([W / 2, H / 2 - GRID / 4 - 1, TILE_H]) magnet_pockets(n = 1, r = 0);
     }
 }

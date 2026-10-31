@@ -54,7 +54,8 @@ module std_pin(levels, knob = "knob", bolt = true) {
     if (knob == "knob") asm_p() ex(2 * top + 2) translate([0, 0, zk]) knob();
     if (knob == "dial") asm_p() ex(2 * top + 2) translate([0, 0, zk]) dial_knob();
     if (bolt) {
-        ex(2 * top + 3.5) translate([0, 0, zk + KNOB_BOSS_H + KNOB_FLOOR]) hw_bolt(stock_bolt(top));
+        dz = knob == "dial" ? DIAL_Z0 - KNOB_BOSS_H : 0;   // the dial knob stands taller over jaws
+        ex(2 * top + 3.5) translate([0, 0, zk + KNOB_BOSS_H + KNOB_FLOOR + dz]) hw_bolt(knob == "dial" ? dial_bolt(top) : stock_bolt(top));
         ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
     }
 }
@@ -66,11 +67,12 @@ module leg_pin(h) {
 }
 module asm_tile(i0, j0, nx, ny) asm_p() ex(-0.8) translate([GRID * i0 - GRID / 2, GRID * j0 - GRID / 2, -TILE_H]) tile(nx, ny);
 
-// two stacked gears joined: three pins always, three M3 screws with nuts and the
-// joint ring when both gears are 30T or bigger. Call at the pin, k = the lower level.
-module joint_hw(k, t_lower, t_upper) {
+// two stacked gears joined: nothing with jaws (they are part of the gears); with
+// pins three dowel pins, and with bolts also three screws with nuts and the joint
+// ring when both gears have room. Call at the pin, k = the lower level.
+module joint_hw(k, t_lower, t_upper) if (!JAWS) {
     for (a = [0, 120, 240]) rotate(a) translate([PIN_R, 0, gtop(k) - PIN_DEPTH + 0.2]) ex(2 * k + 1.5) hw_pin(PIN_L);
-    if (has_screws(gear_rr(t_lower)) && has_screws(gear_rr(t_upper))) {
+    if (JOINT == "bolts" && has_screws(gear_rr(t_lower)) && has_screws(gear_rr(t_upper))) {
         asm_p() ex(2 * k + 1.2) translate([0, 0, gtop(k) + 0.1]) joint_ring();
         for (a = [90, 210, 330]) rotate(a) translate([SCREW_R, 0, 0]) {
             ex(2 * k + 4) translate([0, 0, gtop(k + 1) - SCREW_HEAD[1] - 0.2]) hw_screw(SCREW_L);
@@ -78,8 +80,8 @@ module joint_hw(k, t_lower, t_upper) {
         }
     }
 }
-// a crank, pointer or spring hub ring: three short pins pressed into the ring
-module hub_pins(k) for (a = [0, 120, 240]) rotate(a) translate([PIN_R, 0, gtop(k) - PIN_DEPTH + 0.1]) ex(2 * k + 1.4) hw_pin(PIN_HUB_L);
+// a crank or pointer hub ring with pins: three short pins pressed into the ring (jaws: none)
+module hub_pins(k) if (!JAWS) for (a = [0, 120, 240]) rotate(a) translate([PIN_R, 0, gtop(k) - PIN_DEPTH + 0.1]) ex(2 * k + 1.4) hw_pin(PIN_HUB_L);
 // a cap on a printed post top at z, keyed by a pin
 module post_cap(z, i = 9) { asm_p() ex(i) translate([0, 0, z]) cap(); ex(i + 1) translate([0, 0, z + 1.5 - PIN_L + 0.3]) hw_pin(PIN_L); }
 
@@ -113,7 +115,7 @@ module asm_joint() {
     asm_tile(-1, -1, 3, 3);
     std_pin([1, 2]);
     asm_p() ex(2) translate([0, 0, gz(1)]) gear(40, "spokes");
-    asm_p() ex(4.6) translate([0, 0, gz(2)]) rotate(60) gear(40, "spokes");
+    asm_p() ex(4.6) translate([0, 0, gz(2)]) rotate(JAWS ? 0 : 60) gear(40, "spokes");   // screws: counterbores over nut pockets
     joint_hw(1, 40, 40);
 }
 module asm_crank() {
@@ -163,7 +165,7 @@ module asm_linkage() {
     J = cc_int(Cp, 3 * GRID, R, 2 * GRID, 1);
     asm_tile(-1, -1, 5, 4);
     std_pin([1]);
-    asm_p() ex(2) translate([0, 0, gz(1)]) gear(40, "spokes");
+    asm_p() ex(2) translate([0, 0, gz(1)]) rotate(100) gear(40, "spokes");   // turned with the crank: its jaws in the crank's slots
     rotate(100) crank_on(1, th, "bearing");
     asm_p() ex(6.5) link_between(Cp, J, 3) link(4);
     at(3, 0) std_pin([4]);
@@ -192,7 +194,7 @@ module asm_yoke() {
     px = 5 * GRID; c = px - 3 * GRID;
     asm_p() ex(1.6) translate([c, 0, 0]) carriage();
     asm_p() ex(3) translate([c, 0, 0]) yoke(1, 20, 3);
-    at(5, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
+    at(5, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
 }
 module asm_slider() {
     asm_tile(-1, -2, 7, 4);
@@ -200,7 +202,7 @@ module asm_slider() {
     px = 4 * GRID; P = [px, 20]; c = px - sqrt(9 * GRID * GRID - 400);
     asm_p() ex(1.6) translate([c, 0, 0]) carriage();
     asm_p() ex(3) translate([c, 0, 0]) slider_post(1);
-    at(4, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
+    at(4, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
     asm_p() ex(6.5) link_between(P, [c, 0], 3) link(4);
     translate([c, 0, 0]) { ex(6.6) translate([0, 0, lvl_z(3)]) hw_bearing(); post_cap(lvl_z(3) + BEARING[2], 8); }
 }
@@ -343,14 +345,14 @@ module asm_hexsleeve() {
     asm_p() ex(7.2) translate([0, 0, zk]) knob();
     ex(8.4) translate([0, 0, zk + KNOB_BOSS_H + KNOB_FLOOR]) hw_bolt(stock_bolt(n));
     ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
-    at(3, 0) {
+    at(3, 0) {   // free gears: the upper one's groove clears the lower one's jaws
         std_pin([1, 2]);
         asm_p() ex(2) translate([0, 0, gz(1)]) rotate(180 / 20) gear(20);
-        asm_p() ex(4) translate([0, 0, gz(2)]) rotate(180 / 30) gear(30);
+        asm_p() ex(4) translate([0, 0, gz(2)]) rotate(180 / 30) gear(30, $joint_bottom = JAWS ? "groove" : "auto");
     }
 }
 
-// jaw gears: three on one pin, each on its own bearing, joined by the jaws
+// straight jaw gears (the v0.10.0 test): three on one pin, each on its own bearing, joined by the jaws
 module asm_jaws() {
     asm_tile(-1, -1, 3, 3);
     std_pin([1, 2, 3]);

@@ -1,12 +1,12 @@
 // Render every distinct part of a kit once and zip the STLs with a README.
 import { zipSync } from "fflate";
-import { catalog, defines, type Overrides, type Params, type Profile, type Size } from "./parts";
+import { catalog, defines, JOINT_TITLES, type Joint, type Overrides, type Params, type Profile, type Size } from "./parts";
 import type { RenderResult } from "./engine/protocol";
 
 export type KitItem = { name: string; title: string; qty: number; params: Params };
 
 export async function buildKitZip(opts: {
-  title: string; items: KitItem[]; hardware: string[]; size: Size; profile: Profile; overrides: Overrides;
+  title: string; items: KitItem[]; hardware: string[]; size: Size; profile: Profile; overrides: Overrides; joint?: Joint;
   render: (defs: string[]) => Promise<RenderResult>; onProgress?: (text: string) => void;
 }): Promise<{ zip: Uint8Array; failed: string[] }> {
   const { items, size, profile } = opts;
@@ -16,12 +16,12 @@ export async function buildKitZip(opts: {
     const it = items[i];
     opts.onProgress?.(`${i + 1}/${items.length} ${it.name}`);
     const { part, ...params } = it.params;
-    const r = await opts.render(defines(String(part), params, size, profile, opts.overrides));
+    const r = await opts.render(defines(String(part), params, size, profile, opts.overrides, opts.joint));
     if (r.ok && r.bytes) zip[`${it.name}.stl`] = r.bytes; else failed.push(it.name);
   }
   const std = catalog.standards[size];
   zip["README.txt"] = new TextEncoder().encode(
-    `GearBox ${opts.title}, size ${size} (${std.title}), ${profile} profile\n\nPrint:\n` +
+    `GearBox ${opts.title}, size ${size} (${std.title}), ${profile} profile, joints: ${JOINT_TITLES[opts.joint ?? "jaws"].toLowerCase()}\n\nPrint:\n` +
     items.map(it => `  ${it.qty} x ${it.name} (${it.title})`).join("\n") +
     `\n\nHardware (${std.bolt} bolts, ${std.nut} nuts, ${std.bearing} bearings):\n` +
     opts.hardware.map(h => "  " + h).join("\n") +

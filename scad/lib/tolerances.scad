@@ -17,7 +17,8 @@ _tol = [
     ["bore_clear",        0.30,   0.35,   0.35],  // added to a printed bore that slides over a bolt
     ["bolt_clear",        0.40,   0.40,   0.45],  // added to a bolt's nominal diameter for a through hole
     ["nut_clear",         0.20,   0.25,   0.30],  // added across flats of a captive nut or bolt head pocket
-    ["slot_clear",        0.30,   0.35,   0.35],  // dovetail keys, carriage ridge and the legacy coupler's peg holes
+    ["slot_clear",        0.30,   0.35,   0.35],  // dovetail keys, carriage ridge, the jaws' radial faces and the legacy coupler's peg holes
+    ["jaw_flank",         0.08,   0.10,   0.12],  // each tapered jaw flank to its pocket, at full engagement
     ["backlash",          0.20,   0.20,   0.25],  // gear backlash passed to BOSL2
     ["post_fit",          0.05,   0.10,   0.10],  // added to a press-fit socket for a printed stem (slider post plug, legacy posts)
     ["pin_slip",          0.25,   0.30,   0.30],  // added to a dowel pin's diameter for the holes it slides into (gear faces)

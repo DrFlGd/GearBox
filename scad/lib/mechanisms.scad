@@ -19,7 +19,7 @@
 //
 // Levels: a part at level k has its bottom at lvl_z(k) above the plate top.
 
-// Needs standard.scad, gear.scad, addons.scad: gearbox.scad includes each library file once (a nested
+// Needs standard.scad, gear.scad, addons.scad, jaws.scad: gearbox.scad includes each library file once (a nested
 // include would parse BOSL2 again for every file that pulls it in).
 
 function lvl_z(k) = BASE_SPACER_H + (k - 1) * LEVEL;
@@ -153,8 +153,7 @@ module cam(kind = "eccentric") {
     difference() {
         linear_extrude(GEAR_T) polygon([for (a = [0 : 2 : 358]) cam_r(kind, a) * [cos(a), sin(a)]]);
         bearing_seat();
-        translate([0, 0, GEAR_T]) pin_holes();
-        mirror([0, 0, 1]) pin_holes();
+        face_joints(GEAR_T, 0, CAM_R0);   // too small for the jaws: it joins with pins
     }
 }
 // Follower: pivots on a pin two sockets from the cam, its nose rides the cam, a
@@ -197,7 +196,7 @@ module geneva_driver(n = 6) {
         }
         bearing_seat(ledge_at_bottom = false);
         translate([0, 0, LEVEL - 1]) bearing_seat();
-        mirror([0, 0, 1]) pin_holes();
+        bottom_cut(undef, gear_rr(40));
         rotate(30) face_pattern(40, "holes");   // between the holes, the post has solid material under it
     }
 }
@@ -207,14 +206,16 @@ module geneva_wheel(n = 6) {
     sw = POST_D + 0.6;
     r_in = GEN_C - a - POST_D / 2 - 1.2;
     difference() {
-        linear_extrude(GEAR_T) difference() {
+        union() {
+            linear_extrude(GEAR_T) difference() {
             circle(r = b);
             for (i = [0 : n - 1]) rotate(i * 360 / n) hull() { translate([r_in + sw / 2, 0]) circle(d = sw); translate([b + 1, 0]) circle(d = sw); }
             for (i = [0 : n - 1]) rotate(i * 360 / n + 180 / n) translate([GEN_C, 0]) circle(r = rl + 0.4);
+            }
+            face_jaws(GEAR_T, r_in);
         }
         bearing_seat();
-        translate([0, 0, GEAR_T]) pin_holes();
-        mirror([0, 0, 1]) pin_holes();
+        face_joints(GEAR_T, 0, r_in);
     }
 }
 
@@ -267,13 +268,15 @@ module escape_wheel() {
     assert(SZ < 2, "the escape wheel is not made in M1: its teeth would cut into the pin holes");
     beta = 360 / ESC_N;
     difference() {
-        linear_extrude(GEAR_T) polygon([for (i = [0 : ESC_N - 1]) let(p = i * beta) each [
-            ESC_R * [cos(p), sin(p)],
-            (ESC_R - ESC_DEPTH) * [cos(p + 0.8 * beta), sin(p + 0.8 * beta)],
-            (ESC_R - ESC_DEPTH) * [cos(p + 0.96 * beta), sin(p + 0.96 * beta)]]]);
+        union() {
+            linear_extrude(GEAR_T) polygon([for (i = [0 : ESC_N - 1]) let(p = i * beta) each [
+                ESC_R * [cos(p), sin(p)],
+                (ESC_R - ESC_DEPTH) * [cos(p + 0.8 * beta), sin(p + 0.8 * beta)],
+                (ESC_R - ESC_DEPTH) * [cos(p + 0.96 * beta), sin(p + 0.96 * beta)]]]);
+            face_jaws(GEAR_T, ESC_R - ESC_DEPTH);
+        }
         bearing_seat();
-        translate([0, 0, GEAR_T]) pin_holes();
-        mirror([0, 0, 1]) pin_holes();
+        face_joints(GEAR_T, 0, ESC_R - ESC_DEPTH);
     }
 }
 function esc_t(qf, R, r) = let(s = sqrt(max(0, qf * qf - (R * R - r * r))), t1 = -qf + s, t2 = -qf - s) abs(t1) < abs(t2) ? t1 : t2;
@@ -326,7 +329,7 @@ module spring_gear(teeth = 60) {
     rm = (r0 + r1) / 2; n = 8; dh = min(r1 - r0, 2 * PI * rm / n * 0.65);
     union() {
         difference() {
-            gear(teeth, face = "solid");
+            gear(teeth, face = "solid", $joint_top = "flat");   // the spring winds on the top face
             if (dh >= 4) for (i = [0 : n - 1]) rotate(i * 360 / n) translate([rm, 0, -1]) cylinder(d = dh, h = GEAR_T + 2);
         }
         translate([0, 0, GEAR_T - EPS]) difference() {
@@ -357,8 +360,9 @@ module spring() {
 // Winch -------------------------------------------------------------------------------
 // Two levels tall like a compound gear: bearing from below and from above. The string
 // knots through the hole in the bottom flange; the top flange presses on after winding.
-WINCH_CORE_R   = BEARING[1] / 2 + 2.5;
 WINCH_FLANGE_R = GRID + 2;
+// with jaws the core takes the pockets where it can (M2, M1.5; M1's flange is too small)
+WINCH_CORE_R   = let(r = BEARING[1] / 2 + 2.5, rj = JAW_OUT + 1.2) JAWS && rj <= WINCH_FLANGE_R - 3 ? max(r, rj) : r;
 WINCH_H        = LEVEL + GEAR_T - 1;
 module winch() {
     difference() {
@@ -368,8 +372,8 @@ module winch() {
         }
         bearing_seat(ledge_at_bottom = false);
         translate([0, 0, LEVEL - 1]) bearing_seat();
-        mirror([0, 0, 1]) pin_holes();
-        translate([WINCH_CORE_R + 4, 0, -1]) cylinder(d = 2.4, h = 4, $fn = 16);
+        bottom_cut(undef, WINCH_CORE_R);
+        translate([min(WINCH_CORE_R + 4, (WINCH_CORE_R + WINCH_FLANGE_R) / 2), 0, -1]) cylinder(d = 2.4, h = 4, $fn = 16);
     }
 }
 module winch_flange() {

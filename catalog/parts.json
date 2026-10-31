@@ -30,7 +30,14 @@
         "lever_bolt": 25,
         "shaft_bolt": 100,
         "pin_r": 14.3,
-        "screw_min_r": 23.85
+        "screw_min_r": 23.85,
+        "jaw_min_r": 17.15
+      },
+      "dial_bolt_lengths": {
+        "1": 30,
+        "2": 40,
+        "3": 50,
+        "4": 60
       }
     },
     "M1.5": {
@@ -56,14 +63,21 @@
       "hardware": {
         "pin": "2 x 6 mm",
         "pin_hub": "2 x 4 mm",
-        "screw": "M3 x 12",
+        "screw": "M2.5 x 12",
         "magnet": "4 x 2 mm",
         "crank_bolt": 20,
         "handle_bolt": 40,
         "lever_bolt": 20,
         "shaft_bolt": 80,
         "pin_r": 10.8,
-        "screw_min_r": 20.35
+        "screw_min_r": 18.06,
+        "jaw_min_r": 12.75
+      },
+      "dial_bolt_lengths": {
+        "1": 25,
+        "2": 35,
+        "3": 45,
+        "4": 55
       }
     },
     "M1": {
@@ -89,14 +103,21 @@
       "hardware": {
         "pin": "2 x 6 mm",
         "pin_hub": "2 x 4 mm",
-        "screw": "M3 x 10",
+        "screw": "M2 x 10",
         "magnet": "3 x 2 mm",
         "crank_bolt": 20,
         "handle_bolt": 35,
         "lever_bolt": 20,
         "shaft_bolt": 60,
         "pin_r": 9.3,
-        "screw_min_r": 18.85
+        "screw_min_r": 15.48,
+        "jaw_min_r": 13.4
+      },
+      "dial_bolt_lengths": {
+        "1": 25,
+        "2": 30,
+        "3": 40,
+        "4": 45
       }
     }
   },
@@ -115,8 +136,8 @@
         "part": "coupon"
       },
       "expect": {
-        "M2": [43.83, 60, 12],
-        "M1.5": [32.83, 46.02, 10],
+        "M2": [43.83, 60, 12.5],
+        "M1.5": [32.83, 46.02, 11],
         "M1": [22.71, 35.36, 8.5]
       }
     },
@@ -255,8 +276,8 @@
       },
       "expect": {
         "M2": [48.3, 48.3, 1.8],
-        "M1.5": [41.3, 41.3, 1.8],
-        "M1": [38.3, 38.3, 1.8]
+        "M1.5": [36.72, 36.72, 1.8],
+        "M1": [31.57, 31.57, 1.8]
       }
     },
     {
@@ -281,8 +302,8 @@
         "teeth": 20
       },
       "expect": {
-        "M2": [43.98, 43.98, 8],
-        "M1.5": [32.99, 32.99, 7],
+        "M2": [43.98, 43.98, 12.5],
+        "M1.5": [32.99, 32.99, 11],
         "M1": [21.99, 21.99, 6]
       }
     },
@@ -295,9 +316,9 @@
         "teeth": 30
       },
       "expect": {
-        "M2": [63.77, 63.99, 8],
-        "M1.5": [47.82, 47.99, 7],
-        "M1": [31.88, 32, 6]
+        "M2": [63.77, 63.99, 12.5],
+        "M1.5": [47.82, 47.99, 11],
+        "M1": [31.88, 32, 10]
       }
     },
     {
@@ -310,9 +331,9 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [83.99, 83.99, 8],
-        "M1.5": [62.99, 62.99, 7],
-        "M1": [42, 42, 6]
+        "M2": [83.99, 83.99, 12.5],
+        "M1.5": [62.99, 62.99, 11],
+        "M1": [42, 42, 10]
       }
     },
     {
@@ -325,9 +346,9 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [103.87, 103.99, 8],
-        "M1.5": [77.9, 77.99, 7],
-        "M1": [51.93, 52, 6]
+        "M2": [103.87, 103.99, 12.5],
+        "M1.5": [77.9, 77.99, 11],
+        "M1": [51.93, 52, 10]
       }
     },
     {
@@ -340,9 +361,9 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [123.99, 123.99, 8],
-        "M1.5": [92.99, 92.99, 7],
-        "M1": [62, 62, 6]
+        "M2": [123.99, 123.99, 12.5],
+        "M1.5": [92.99, 92.99, 11],
+        "M1": [62, 62, 10]
       }
     },
     {
@@ -355,9 +376,9 @@
         "face": "holes"
       },
       "expect": {
-        "M2": [143.91, 143.99, 8],
-        "M1.5": [107.93, 108, 7],
-        "M1": [71.95, 72, 6]
+        "M2": [143.91, 143.99, 12.5],
+        "M1.5": [107.93, 108, 11],
+        "M1": [71.95, 72, 10]
       }
     },
     {
@@ -370,9 +391,119 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [163.99, 163.99, 8],
-        "M1.5": [123, 123, 7],
-        "M1": [82, 82, 6]
+        "M2": [163.99, 163.99, 12.5],
+        "M1.5": [123, 123, 11],
+        "M1": [82, 82, 10]
+      }
+    },
+    {
+      "name": "G20F",
+      "title": "Gear 20T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 20,
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [43.98, 43.98, 12.5],
+        "M1.5": [32.99, 32.99, 11],
+        "M1": [21.99, 21.99, 6]
+      }
+    },
+    {
+      "name": "G30F",
+      "title": "Gear 30T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 30,
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [63.77, 63.99, 12.5],
+        "M1.5": [47.82, 47.99, 11],
+        "M1": [31.88, 32, 10]
+      }
+    },
+    {
+      "name": "G40F",
+      "title": "Gear 40T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 40,
+        "face": "spokes",
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [83.99, 83.99, 12.5],
+        "M1.5": [62.99, 62.99, 11],
+        "M1": [42, 42, 10]
+      }
+    },
+    {
+      "name": "G50F",
+      "title": "Gear 50T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 50,
+        "face": "spokes",
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [103.87, 103.99, 12.5],
+        "M1.5": [77.9, 77.99, 11],
+        "M1": [51.93, 52, 10]
+      }
+    },
+    {
+      "name": "G60F",
+      "title": "Gear 60T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 60,
+        "face": "spokes",
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [123.99, 123.99, 12.5],
+        "M1.5": [92.99, 92.99, 11],
+        "M1": [62, 62, 10]
+      }
+    },
+    {
+      "name": "G70F",
+      "title": "Gear 70T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 70,
+        "face": "holes",
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [143.91, 143.99, 12.5],
+        "M1.5": [107.93, 108, 11],
+        "M1": [71.95, 72, 10]
+      }
+    },
+    {
+      "name": "G80F",
+      "title": "Gear 80T, free: a groove underneath turns over a jaw gear",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 80,
+        "face": "spokes",
+        "joint_bottom": "groove"
+      },
+      "expect": {
+        "M2": [163.99, 163.99, 12.5],
+        "M1.5": [123, 123, 11],
+        "M1": [82, 82, 10]
       }
     },
     {
@@ -386,8 +517,8 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [83.99, 83.99, 17],
-        "M1.5": [62.99, 62.99, 15],
+        "M2": [83.99, 83.99, 21.5],
+        "M1.5": [62.99, 62.99, 19],
         "M1": [42, 42, 13]
       }
     },
@@ -402,8 +533,8 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [123.99, 123.99, 17],
-        "M1.5": [92.99, 92.99, 15],
+        "M2": [123.99, 123.99, 21.5],
+        "M1.5": [92.99, 92.99, 19],
         "M1": [62, 62, 13]
       }
     },
@@ -418,8 +549,8 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [163.99, 163.99, 17],
-        "M1.5": [123, 123, 15],
+        "M2": [163.99, 163.99, 21.5],
+        "M1.5": [123, 123, 19],
         "M1": [82, 82, 13]
       }
     },
@@ -434,9 +565,9 @@
         "face": "spokes"
       },
       "expect": {
-        "M2": [123.99, 123.99, 17],
-        "M1.5": [92.99, 92.99, 15],
-        "M1": [62, 62, 13]
+        "M2": [123.99, 123.99, 21.5],
+        "M1.5": [92.99, 92.99, 19],
+        "M1": [62, 62, 17]
       }
     },
     {
@@ -449,9 +580,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [45.65, 32, 13],
-        "M1.5": [40.42, 25, 12],
-        "M1": [37.76, 22, 11]
+        "M2": [47.2, 35.1, 13],
+        "M1.5": [41.07, 26.3, 12],
+        "M1": [40.56, 27.6, 11]
       }
     },
     {
@@ -464,9 +595,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [65.65, 32, 13],
-        "M1.5": [60.42, 25, 12],
-        "M1": [57.76, 22, 11]
+        "M2": [67.2, 35.1, 13],
+        "M1.5": [61.07, 26.3, 12],
+        "M1": [60.56, 27.6, 11]
       }
     },
     {
@@ -479,9 +610,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [85.65, 32, 13],
-        "M1.5": [80.42, 25, 12],
-        "M1": [77.76, 22, 11]
+        "M2": [87.2, 35.1, 13],
+        "M1.5": [81.07, 26.3, 12],
+        "M1": [80.56, 27.6, 11]
       }
     },
     {
@@ -573,9 +704,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [40, 32, 2.7],
-        "M1.5": [31.75, 25, 1.7],
-        "M1": [25.5, 22, 1.7]
+        "M2": [41.55, 35.1, 2.7],
+        "M1.5": [32.4, 26.3, 1.7],
+        "M1": [28.3, 27.6, 1.7]
       }
     },
     {
@@ -586,9 +717,9 @@
         "part": "dial_knob"
       },
       "expect": {
-        "M2": [34, 34, 11],
-        "M1.5": [26, 26, 9.2],
-        "M1": [18, 18, 8.7]
+        "M2": [34, 34, 12.9],
+        "M1.5": [26, 26, 10.6],
+        "M1": [18, 18, 10.1]
       }
     },
     {
@@ -600,8 +731,8 @@
         "pulley_n": 20
       },
       "expect": {
-        "M2": [42, 42, 8],
-        "M1.5": [32, 32, 7],
+        "M2": [42, 42, 12.5],
+        "M1.5": [32, 32, 11],
         "M1": [22, 22, 6]
       }
     },
@@ -614,9 +745,9 @@
         "pulley_n": 40
       },
       "expect": {
-        "M2": [82, 82, 8],
-        "M1.5": [62, 62, 7],
-        "M1": [42, 42, 6]
+        "M2": [82, 82, 12.5],
+        "M1.5": [62, 62, 11],
+        "M1": [42, 42, 10]
       }
     },
     {
@@ -628,9 +759,9 @@
         "pulley_n": 60
       },
       "expect": {
-        "M2": [122, 122, 8],
-        "M1.5": [92, 92, 7],
-        "M1": [62, 62, 6]
+        "M2": [122, 122, 12.5],
+        "M1.5": [92, 92, 11],
+        "M1": [62, 62, 10]
       }
     },
     {
@@ -642,9 +773,9 @@
         "pulley_n": 80
       },
       "expect": {
-        "M2": [162, 162, 8],
-        "M1.5": [122, 122, 7],
-        "M1": [82, 82, 6]
+        "M2": [162, 162, 12.5],
+        "M1.5": [122, 122, 11],
+        "M1": [82, 82, 10]
       }
     },
     {
@@ -1037,8 +1168,8 @@
         "slots": 6
       },
       "expect": {
-        "M2": [103.53, 96.21, 8],
-        "M1.5": [77.64, 72.71, 7],
+        "M2": [103.53, 96.21, 12.5],
+        "M1.5": [77.64, 72.71, 11],
         "M1": [51.64, 49.5, 6]
       }
     },
@@ -1065,9 +1196,9 @@
         "slots": 8
       },
       "expect": {
-        "M2": [110.51, 110.51, 8],
-        "M1.5": [82.87, 82.87, 7],
-        "M1": [55.13, 55.13, 6]
+        "M2": [110.51, 110.51, 12.5],
+        "M1.5": [82.87, 82.87, 11],
+        "M1": [55.13, 55.13, 10]
       }
     },
     {
@@ -1080,9 +1211,9 @@
         "keep": "half"
       },
       "expect": {
-        "M2": [79.19, 83.99, 8],
-        "M1.5": [59.32, 62.99, 7],
-        "M1": [39.45, 42, 6]
+        "M2": [79.19, 83.99, 12.5],
+        "M1.5": [59.32, 62.99, 11],
+        "M1": [39.45, 42, 10]
       }
     },
     {
@@ -1095,9 +1226,9 @@
         "keep": "quarter"
       },
       "expect": {
-        "M2": [79.19, 74.4, 8],
-        "M1.5": [59.32, 55.65, 7],
-        "M1": [39.45, 36.9, 6]
+        "M2": [79.19, 74.4, 12.5],
+        "M1.5": [59.32, 55.65, 11],
+        "M1": [39.45, 36.9, 10]
       }
     },
     {
@@ -1110,9 +1241,9 @@
         "keep": "half"
       },
       "expect": {
-        "M2": [119.2, 123.99, 8],
-        "M1.5": [89.32, 92.99, 7],
-        "M1": [59.45, 62, 6]
+        "M2": [119.2, 123.99, 12.5],
+        "M1.5": [89.32, 92.99, 11],
+        "M1": [59.45, 62, 10]
       }
     },
     {
@@ -1163,8 +1294,8 @@
         "M1.5"
       ],
       "expect": {
-        "M2": [46.51, 46.77, 8],
-        "M1.5": [34.88, 35.07, 7]
+        "M2": [46.51, 46.77, 12.5],
+        "M1.5": [34.88, 35.07, 11]
       }
     },
     {
@@ -1419,9 +1550,9 @@
         "teeth": 40
       },
       "expect": {
-        "M2": [85, 85, 8],
-        "M1.5": [64, 64, 7],
-        "M1": [42.67, 42.67, 6]
+        "M2": [85, 85, 12.5],
+        "M1.5": [64, 64, 11],
+        "M1": [42.67, 42.67, 10]
       }
     },
     {
@@ -1480,8 +1611,8 @@
         "part": "flywheel"
       },
       "expect": {
-        "M2": [75, 75, 8],
-        "M1.5": [55, 55, 7],
+        "M2": [75, 75, 12.5],
+        "M1.5": [55, 55, 11],
         "M1": [35, 35, 6]
       }
     },
@@ -1498,8 +1629,8 @@
         "M1.5"
       ],
       "expect": {
-        "M2": [59, 59, 8],
-        "M1.5": [44, 44, 7]
+        "M2": [59, 59, 12.5],
+        "M1.5": [44, 44, 11]
       }
     },
     {
@@ -1511,9 +1642,9 @@
         "poles": 16
       },
       "expect": {
-        "M2": [79, 79, 8],
-        "M1.5": [59, 59, 7],
-        "M1": [39, 39, 6]
+        "M2": [79, 79, 12.5],
+        "M1.5": [59, 59, 11],
+        "M1": [39, 39, 10]
       }
     },
     {
@@ -1525,9 +1656,9 @@
         "poles": 20
       },
       "expect": {
-        "M2": [99, 99, 8],
-        "M1.5": [74, 74, 7],
-        "M1": [49, 49, 6]
+        "M2": [99, 99, 12.5],
+        "M1.5": [74, 74, 11],
+        "M1": [49, 49, 10]
       }
     },
     {
@@ -1539,9 +1670,9 @@
         "poles": 24
       },
       "expect": {
-        "M2": [119, 119, 8],
-        "M1.5": [89, 89, 7],
-        "M1": [59, 59, 6]
+        "M2": [119, 119, 12.5],
+        "M1.5": [89, 89, 11],
+        "M1": [59, 59, 10]
       }
     },
     {
@@ -1569,9 +1700,9 @@
         "magnets": "bottom"
       },
       "expect": {
-        "M2": [83.99, 83.99, 8],
-        "M1.5": [62.99, 62.99, 7],
-        "M1": [42, 42, 6]
+        "M2": [83.99, 83.99, 12.5],
+        "M1.5": [62.99, 62.99, 11],
+        "M1": [42, 42, 10]
       }
     },
     {
@@ -1809,6 +1940,13 @@
         "1 bolt (1-level length)",
         "1 nut",
         "1 bearing",
+        "1 disc magnet (6 x 3 mm for M2, 4 x 2 mm for M1.5, 3 x 2 mm for M1) for the magnet pocket",
+        "a printed gear to try on the jaws (M2 and M1.5)"
+      ],
+      "hardware_pins": [
+        "1 bolt (1-level length)",
+        "1 nut",
+        "1 bearing",
         "1 of the dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1) to try both pin fits",
         "1 disc magnet (6 x 3 mm for M2, 4 x 2 mm for M1.5, 3 x 2 mm for M1) for the magnet pocket"
       ]
@@ -1837,6 +1975,12 @@
         "4 bolts (2-level length)",
         "4 nuts",
         "7 bearings",
+        "(two stacked gears join on their jaws, no hardware)"
+      ],
+      "hardware_pins": [
+        "4 bolts (2-level length)",
+        "4 nuts",
+        "7 bearings",
         "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1) to join two stacked gears"
       ]
     },
@@ -1848,6 +1992,10 @@
         "HANDLE"
       ],
       "hardware": [
+        "1 bolt as the crank post (M8 x 45 for M2, M6 x 40 for M1.5, M5 x 35 for M1) and 1 nut",
+        "(the hub ring drops over any gear's jaws)"
+      ],
+      "hardware_pins": [
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) pressed into the hub ring",
         "1 bolt as the crank post (M8 x 45 for M2, M6 x 40 for M1.5, M5 x 35 for M1) and 1 nut",
         "(pins onto any gear's top face)"
@@ -1875,6 +2023,10 @@
         "DIALK"
       ],
       "hardware": [
+        "(replaces the knob on that pin: its bolt is the dial bolt length, 5 mm longer in M1.5 for 3 and 4 levels and in M1 for 1 level)",
+        "(the hub ring drops over the gear's jaws)"
+      ],
+      "hardware_pins": [
         "(replaces the knob on that pin)",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) pressed into the hub ring"
       ]
@@ -1890,6 +2042,12 @@
         "BS"
       ],
       "hardware": [
+        "2 bolts (1-level length)",
+        "2 nuts",
+        "1 bearing",
+        "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5) to join the ratchet to a gear above or below it: it is too small for the jaws"
+      ],
+      "hardware_pins": [
         "2 bolts (1-level length)",
         "2 nuts",
         "1 bearing",
@@ -1912,6 +2070,13 @@
         "S10"
       ],
       "hardware": [
+        "1 bolt (4-level length) and 1 nut for the rocker pin",
+        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "4 bearings",
+        "1 dowel pin for the joint cap",
+        "(the crank drops over the jaws of a gear on level 1)"
+      ],
+      "hardware_pins": [
         "1 bolt (4-level length) and 1 nut for the rocker pin",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "4 bearings",
@@ -1951,6 +2116,11 @@
       "hardware": [
         "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "2 bearings (one rides in the slot)"
+      ],
+      "hardware_pins": [
+        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "2 bearings (one rides in the slot)",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank"
       ]
@@ -1971,6 +2141,12 @@
         "BS"
       ],
       "hardware": [
+        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "3 bearings",
+        "1 dowel pin for the cap"
+      ],
+      "hardware_pins": [
         "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
@@ -2030,6 +2206,11 @@
       "hardware": [
         "1 bolt (1-level length) for the crank gear, 1 bolt (3-level length) for the lever, 2 nuts",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "3 bearings"
+      ],
+      "hardware_pins": [
+        "1 bolt (1-level length) for the crank gear, 1 bolt (3-level length) for the lever, 2 nuts",
+        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank"
       ]
@@ -2064,6 +2245,11 @@
         "S3"
       ],
       "hardware": [
+        "1 bolt (3-level length), 1 bolt (2-level length), 2 nuts",
+        "2 bearings",
+        "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5) to join the ratchet and the spring gear: the ratchet is too small for the jaws"
+      ],
+      "hardware_pins": [
         "1 bolt (3-level length), 1 bolt (2-level length), 2 nuts",
         "2 bearings",
         "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1) to join the ratchet and the spring gear"
@@ -2104,6 +2290,12 @@
         "S3"
       ],
       "hardware": [
+        "1 bolt (3-level length), 2 bolts (2-level length), 3 nuts",
+        "4 bearings (sun, carrier, two planets) + 1 for the gear on top of the sun",
+        "2 dowel pins for the planet caps",
+        "(the sun and the gear above it join on their jaws)"
+      ],
+      "hardware_pins": [
         "1 bolt (3-level length), 2 bolts (2-level length), 3 nuts",
         "4 bearings (sun, carrier, two planets) + 1 for the gear on top of the sun",
         "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1) to join the sun to the 20T above it, 2 more for the planet caps"
@@ -2160,17 +2352,21 @@
       ]
     },
     "joint": {
-      "title": "Joining two gears: pins and screws",
+      "title": "Joining two gears",
       "parts": [
+        "G40",
+        "G40"
+      ],
+      "hardware": [
+        "none: the upper gear's pockets drop over the lower gear's three tapered jaws"
+      ],
+      "hardware_pins": [
+        "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1); with pins + screws also 3 socket head screws (M3 x 14 for M2, M2.5 x 12 for M1.5, M2 x 10 for M1), 3 nuts and the joint ring; (turn the upper gear 60 degrees so its counterbores sit over the lower gear's nut pockets)"
+      ],
+      "parts_bolts": [
         "G40",
         "G40",
         "JRING"
-      ],
-      "hardware": [
-        "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1)",
-        "3 M3 socket head screws (M3 x 14 for M2, M3 x 12 for M1.5, M3 x 10 for M1)",
-        "3 M3 nuts",
-        "(turn the upper gear 60 degrees so its counterbores sit over the lower gear's nut pockets)"
       ]
     },
     "maggear": {
@@ -2217,7 +2413,7 @@
         "K",
         "BS",
         "G20",
-        "G30",
+        "G30F",
         "S3",
         "K",
         "BS"
@@ -2230,7 +2426,7 @@
       ]
     },
     "jaws": {
-      "title": "Jaw gear stack (M2 test)",
+      "title": "Straight jaw gear stack (M2 test)",
       "parts": [
         "JG40",
         "JG30",

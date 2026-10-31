@@ -4,16 +4,17 @@ import {
   MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
   type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type MotorType, type Pin, type Teeth,
 } from "./model";
-import { analyze, billOfMaterials, key, label, ratioText } from "./rules";
+import { analyze, billOfMaterials, jawPair, key, label, ratioText } from "./rules";
 import { decodeLayout, encodeLayout } from "./share";
 import { buildKitZip } from "../kitzip";
 import { download } from "../download";
-import type { Overrides, Profile, Size } from "../parts";
+import { JOINT_TITLES, type Joint, type Overrides, type Profile, type Size } from "../parts";
+import JointPicker from "../components/JointPicker";
 import type { RenderResult } from "../engine/protocol";
 
 const LS = "gearbox.layout";
 
-type Props = { size: Size; profile: Profile; overrides: Overrides; render: (defs: string[]) => Promise<RenderResult>; engineReady: boolean };
+type Props = { size: Size; profile: Profile; overrides: Overrides; joint: Joint; onJoint: (j: Joint) => void; render: (defs: string[]) => Promise<RenderResult>; engineReady: boolean };
 
 function initialLayout(size: Size): Layout {
   const h = new URLSearchParams(location.hash.replace(/^#/, ""));
@@ -45,7 +46,7 @@ const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "ca
 const DIRS = ["+x (right)", "+y (up the board)", "−x (left)", "−y (down)"];
 
 /** Phase 3 + 4: build a train on a virtual board, check it, animate it, print it. */
-export default function LayoutMode({ size, profile, overrides, render, engineReady }: Props) {
+export default function LayoutMode({ size, profile, overrides, joint, onJoint, render, engineReady }: Props) {
   const [layout, setLayoutRaw] = useState<Layout>(() => initialLayout(size));
   const [selected, setSelected] = useState<{ i: number; j: number } | null>(null);
   const [selectedFixture, setSelectedFixture] = useState<string | null>(null);
@@ -66,8 +67,8 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
     history.replaceState(null, "", "#" + h.toString());
   }, [layout]);
 
-  const analysis = useMemo(() => analyze(layout), [layout]);
-  const bom = useMemo(() => billOfMaterials(layout), [layout]);
+  const analysis = useMemo(() => analyze(layout, joint), [layout, joint]);
+  const bom = useMemo(() => billOfMaterials(layout, joint), [layout, joint]);
   const d = std(layout.size);
   const selPin = selected ? layout.pins.find(p => p.x === selected.i && p.y === selected.j) : undefined;
   const selFix = selectedFixture ? (layout.fixtures ?? []).find(f => f.id === selectedFixture) : undefined;
@@ -165,9 +166,9 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
     try {
       const { zip, failed } = await buildKitZip({
         title: "layout", items: bom.printed.map(b => ({ name: b.name, title: b.title, qty: b.qty, params: b.params! })),
-        hardware: bom.hardware.map(h => `${h.qty} x ${h.title}`), size, profile, overrides, render, onProgress: setZipState,
+        hardware: bom.hardware.map(h => `${h.qty} x ${h.title}`), size, profile, overrides, joint, render, onProgress: setZipState,
       });
-      download(zip, `gearbox-layout-${size}-${profile}.zip`, "application/zip");
+      download(zip, `gearbox-layout-${size}-${profile}${joint === "jaws" ? "" : `-${joint}`}.zip`, "application/zip");
       setZipState(failed.length ? `${failed.length} failed: ${failed.join(", ")}` : null);
     } finally { busy.current = false; }
   };
@@ -217,6 +218,8 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
           </div>
         </div>
 
+        <h2>Joints</h2>
+        <JointPicker joint={joint} size={size} onJoint={onJoint} disabled={busy.current} />
         <h2>Bill of materials</h2>
         <ul className="kit-list">
           {bom.printed.map(b => <li key={b.name}><b>{b.qty}×</b> {b.name} <span className="muted">{b.title}</span></li>)}
@@ -224,7 +227,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
         </ul>
         <div className="form">
           <button type="button" className="primary" onClick={downloadKit} disabled={!engineReady || busy.current || !gearCount}>
-            {zipState && busy.current ? `Rendering ${zipState}` : `Download kit zip (${size}, ${profile})`}
+            {zipState && busy.current ? `Rendering ${zipState}` : `Download kit zip (${size}, ${profile}, ${JOINT_TITLES[joint].toLowerCase()})`}
           </button>
           {zipState && !busy.current && <p className="muted small">{zipState}</p>}
           <button type="button" onClick={share}>{copied ? "Link copied" : "Copy share link"}</button>
@@ -325,7 +328,7 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
             <h2>Layout</h2>
             <p className="blurb">Click a socket on the board to add a pin and an item. Click an item to change it, stack another level on it, or make it the input.</p>
             <p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p>
-            <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part, any other pair is held by three steel dowel pins, plus three M3 screws through a joint ring when both are big enough (30T and up). Two plain 40T or bigger gears can be joined by magnets instead, through a fixed barrier.</p>
+            <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part; any other pair drops onto the lower one's tapered jaws (with the jaws joint; a pair too small for them, like a cam or the ratchet, gets dowel pin holes instead), or is held by three steel dowel pins, plus three screws through a joint ring with pins + screws when both are big enough. Two plain 40T or bigger gears can be joined by magnets instead, through a fixed barrier.</p>
             <p className="hint">Add-ons: a pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p>
             <p className="hint">Drives: a planet carrier (a 60T gear with four posts) takes a plain 20T sun on the level above it, inside a ring gear whose legs bolt in four sockets away on either side; sun in, carrier out, 4:1. A bevel gear on level 1 turns a shaft bracket's shaft; the worm on the shaft turns a worm gear on level 4. A NEMA 17 sits on a socket with its mount's legs at (−2, 0) and (2, 0). A flywheel is a heavy disc on any pin.</p>
             <p className="hint">Magnets: a magnetic gear has its magnets standing in the rim, poles alternating, and turns another magnetic gear across a 1 mm gap like a spur gear 2.5 times its magnet count (16 magnets = 40T), so the same spacing rule applies. It slips instead of stalling. It collides with toothed gears.</p>
@@ -490,7 +493,8 @@ export default function LayoutMode({ size, profile, overrides, render, engineRea
                       )}
                       {g.joined && gearAt(selPin!, level - 1) && <p className="hint">{g.coupling === "magnetic"
                         ? "Six magnets in each face, a fixed barrier between them: drive one gear and the other follows, slipping instead of stalling."
-                        : hasScrews(layout.size, g) && hasScrews(layout.size, gearAt(selPin!, level - 1)!) ? "Joined with three dowel pins and three M3 screws through a joint ring." : "Joined with three dowel pins (too small for the M3 screws)."}</p>}
+                        : joint === "jaws" ? (jawPair(layout.size, gearAt(selPin!, level - 1)!, g) ? "Joined on the lower item's three tapered jaws." : "Joined with three dowel pins: one of the two is too small for the jaws.")
+                        : joint === "bolts" && hasScrews(layout.size, g) && hasScrews(layout.size, gearAt(selPin!, level - 1)!) ? `Joined with three dowel pins and three ${std(layout.size).hardware.screw} screws through a joint ring.` : `Joined with three dowel pins${joint === "bolts" ? " (too small for the screws)" : ""}.`}</p>}
                       {g.topper === "crank" && <p className="hint">A handle rides the post, or a rocker, a quick-return lever or a rail carriage at level {crankLinkLevel(level)} follows it.</p>}
                       {g.topper === "spring" && <p className="hint">The gear gets a wall for the spiral spring; the spring's boss grips the bearing's inner race, so the pin must not turn: wind it with the knob and let the train run down.</p>}
                     </div>
