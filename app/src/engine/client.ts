@@ -27,7 +27,7 @@ export class RenderClient {
       if (!p) return;
       if (m.type === "log") { p.log.push(m.text); p.onLog?.(m.text); return; }
       this.pending.delete(m.id);
-      p.resolve({ ok: m.ok, bytes: m.bytes, seconds: m.seconds, messages: m.messages, log: p.log });
+      p.resolve({ ok: m.ok, bytes: m.bytes, seconds: m.seconds, messages: m.messages, log: p.log, cached: m.cached });
     };
     this.worker.onerror = e => this.onFatal?.(e.message || "Worker error");
   }

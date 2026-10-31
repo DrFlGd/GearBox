@@ -16,8 +16,8 @@
 // Every part prints flat without support. Cranks and pointers print hub ring up
 // (upside down from how they sit on the gear) so the hex pocket and pin holes face up.
 
-include <standard.scad>
-include <gear.scad>
+// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 HUB_ID  = SPACER_OD + 1.5;            // clears the knob boss
 ARM_W   = 7 * MOD;                    // 14 / 10.5

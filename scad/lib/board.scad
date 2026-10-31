@@ -8,7 +8,8 @@
 // Edges carry vertical dovetail keys that alternate male and female so any
 // two tiles drop together on any edge.
 
-include <standard.scad>
+// Needs standard.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 // Everything removed from the tile for one socket, centred on the origin,
 // z = 0 at the plate underside, z = PLATE_T at the plate top.

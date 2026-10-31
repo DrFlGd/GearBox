@@ -21,7 +21,7 @@ jobs:
         id: parts
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then git fetch -q --no-tags origin "${{ github.base_ref }}"; range="FETCH_HEAD...HEAD"; else range="${{ github.event.before }}..HEAD"; fi
-          if git diff --quiet "$range" -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/stl-stats.mjs package-lock.json; then
+          if git diff --quiet "$range" -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/render-worker.mjs tools/stl-stats.mjs package-lock.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"; echo "No part source changed ($range): skipping the catalog render."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"

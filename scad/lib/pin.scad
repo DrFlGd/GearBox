@@ -4,7 +4,8 @@
 // the gear stack into the captive nut under the tile, tightened by hand with a
 // printed knob. Spacers between bearing inner races keep every gear free.
 
-include <standard.scad>
+// Needs standard.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 // Knob for a hex head bolt (DIN 933). The bolt drops in from the top; the hex
 // pocket turns it, the boss underneath presses only the bearing inner race.

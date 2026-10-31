@@ -9,17 +9,8 @@
 // The plate top is z = 0 and sockets sit on the grid at (GRID i, GRID j). A gear
 // on level k has its bottom at lvl_z(k) - 1 and its bearing at lvl_z(k).
 
-include <standard.scad>
-include <gear.scad>
-include <pin.scad>
-include <board.scad>
-include <addons.scad>
-include <motor.scad>
-include <mechanisms.scad>
-include <drives.scad>
-include <magnets.scad>
-include <hexsleeve.scad>
-include <jaws.scad>
+// Needs standard.scad, gear.scad, pin.scad, board.scad, addons.scad, motor.scad, mechanisms.scad, drives.scad, magnets.scad, hexsleeve.scad, jaws.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 _EX = 7;
 function gz(k) = lvl_z(k) - 1;                  // bottom of a gear on level k

@@ -20,8 +20,8 @@
 // standard gear's bottom to its top, so it meshes with a standard gear on the
 // next pin over 7 of its 8 mm (M2).
 
-include <standard.scad>
-include <gear.scad>
+// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 HEX_BEARING = sz([8, 16, 5], [6, 13, 5], [5, 11, 5]);   // 688, 686, 685: [bore, outside, width]
 HEX_BEARING_NAME = sz("688", "686", "685");

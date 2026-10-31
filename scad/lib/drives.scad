@@ -20,10 +20,8 @@
 // Flywheel: a disc on the gear hub with eight nut pockets around the rim for
 // the mass.
 
-include <standard.scad>
-include <gear.scad>
-include <addons.scad>
-include <motor.scad>
+// Needs standard.scad, gear.scad, addons.scad, motor.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 function drv_z(k) = BASE_SPACER_H + (k - 1) * LEVEL;   // bottom of level k above the plate
 

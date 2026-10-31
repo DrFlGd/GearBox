@@ -13,8 +13,8 @@
 // Magnets: 6 x 3 mm discs for M2, 4 x 2 mm for M1.5 (MAGNET in gear.scad). Every
 // pocket has a dot beside it where the north pole goes up (or outward).
 
-include <standard.scad>
-include <gear.scad>
+// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 MAG_GAP  = 1.0;                              // air gap between two magnetic gears
 MAG_WALL = 1.0;                              // rim outside the magnets

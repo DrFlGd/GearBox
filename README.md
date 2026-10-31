@@ -219,7 +219,7 @@ scad/lib/magnets.scad  magnetic gears and the face coupling's barrier
 scad/lib/assembly.scad every kit put together, with its hardware, for the Assembly part
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
-tools/render-catalog.mjs  render and check the whole catalog for one size or all
+tools/render-catalog.mjs  render and check the whole catalog for one size or all, one part per core
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
 app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
@@ -243,6 +243,12 @@ In desktop OpenSCAD, open `scad/gearbox.scad` and use the customizer. BOSL2
 must be on your library path: either install it in your OpenSCAD libraries
 folder or set `OPENSCADPATH` to this repo's `lib` folder.
 
+`scad/gearbox.scad` includes every file in `scad/lib/` exactly once, and the
+library files do not include each other: OpenSCAD's `include` is textual, so
+nested includes parsed BOSL2 again for every file that pulled in `gear.scad`
+and made each part take about five times longer. A new library file goes in
+the include list in `gearbox.scad`.
+
 ### The web app
 
 ```sh
@@ -256,7 +262,10 @@ change to the library shows up in the app on the next build. The engine
 loaded by the render worker. Every part, catalog or custom, downloads from the panel as STL, 3MF or OBJ
 once it has rendered. A part's options live in the URL hash, so a link
 like `https://drflgd.github.io/GearBox/#size=M1.5&part=gear&teeth=60` opens
-that part. The fit overrides in the profile panel are the keys of
+that part. Rendered models are kept in the browser (IndexedDB, newest 400),
+keyed by the part's settings, profile, fit overrides and a hash of the
+library and engine, so opening a part, kit zip or print plate again loads
+at once; any change to those renders fresh. The fit overrides in the profile panel are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
 ### The layout tester
