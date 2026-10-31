@@ -2,7 +2,7 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, MAGF_N, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
@@ -35,6 +35,7 @@ export type Analysis = {
   speed: Map<string, number>;       // key pin:level -> mean angular speed relative to the input (sign = direction)
   phase: Map<string, number>;       // key -> initial angle, radians, so meshing teeth interleave
   motion: Map<string, Motion>;      // key -> angle for an input angle theta (stepped and gated motions included)
+  smooth: Map<string, Motion>;      // escape wheel key -> its angle before stepping (what swings the anchor)
   locked: boolean;
   reachable: Set<string>;
   pawls: Map<string, number>;       // pawl key -> angle (radians) toward its ratchet
@@ -552,6 +553,15 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
           const R0 = gv.dir + Math.PI - (2 * Math.PI) / gv.n;   // slot 1 points at the driver when the post does
           toPhase = R0 + genevaAngle(fromPhase - gv.dir, gv.n, gv.a, gv.C);
           motion.set(kt, th => R0 + genevaAngle(fromMotion(th) - gv.dir, gv.n, gv.a, gv.C));
+        } else if (e.mesh && kindOf(e.to.gear) === "partial" && kindOf(cur.gear) !== "partial") {
+          // a partial gear turned by a full one follows it only while its toothed sector faces it, then stops for good
+          const w = (e.to.gear.keep ?? 0.5) * Math.PI, back = e.mesh.dir + Math.PI, ratio = e.ratio;
+          const c0 = Math.atan2(Math.sin(back - toPhase), Math.cos(back - toPhase));   // where the driver touches it, from its +x (the sector's middle)
+          const free = (th: number) => toPhase + ratio * (fromMotion(th) - fromPhase);
+          const sgn = Math.sign(ratio * (speed.get(kc) ?? 1));
+          const lo = Math.abs(c0) > w ? toPhase : toPhase - (w - c0), hi = Math.abs(c0) > w ? toPhase : toPhase + (c0 + w);
+          motion.set(kt, th => (sgn >= 0 ? Math.min(free(th), hi) : Math.max(free(th), lo)));
+          problems.push({ text: "a partial gear is turned by a full gear here, so it stops once its bare side reaches it: let the partial gear do the driving", pin: e.to.pin.id, level: e.to.gear.level });
         } else if (e.mesh && kindOf(cur.gear) === "partial") {
           const keep = cur.gear.keep ?? 0.5, a = e.mesh.dir, ratio = -teethOf(cur.gear) / teethOf(e.to.gear);
           const base = gateE(fromPhase - a, keep);
@@ -566,12 +576,14 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     }
   }
   // escape wheels step half a tooth at a time (items joined to one share its pin, so they step too)
+  const smooth = new Map<string, Motion>();
   for (const pin of l.pins) {
     const esc = pin.gears.find(x => kindOf(x) === "escwheel");
     if (!esc) continue;
     for (const x of pin.gears) {
       const kk = key(pin, x.level);
       const mo = motion.get(kk), ph = phase.get(kk);
+      if (mo && ph !== undefined && x === esc) smooth.set(kk, mo);
       if (mo && ph !== undefined && (x === esc || x.joined || esc.joined)) motion.set(kk, th => ph + escapeAngle(mo(th) - ph, escDims(l.size).n));
     }
   }
@@ -591,7 +603,7 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     if (sp && ((sp < 0) !== (g0.gear.anchorCw ?? true))) problems.push({ text: `the escape wheel runs ${sp < 0 ? "clockwise" : "counter-clockwise"}: use the ${sp < 0 ? "standard anchor" : "mirrored anchor (ANCHOR-L)"}`, pin: g0.pin.id, level: g0.gear.level });
   }
   if (locked) problems.push({ text: "the train is locked: a loop disagrees with itself" });
-  return { pairs, hits, problems, speed, phase, motion, locked, reachable, pawls, linkages, partners, fixtures };
+  return { pairs, hits, problems, speed, phase, motion, smooth, locked, reachable, pawls, linkages, partners, fixtures };
 }
 
 export type BomLine = { name: string; title: string; qty: number; params?: Record<string, string | number> };
@@ -632,27 +644,36 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
   // fixtures first: they decide which cranks get a handle
   for (const f of l.fixtures ?? []) {
     if (f.kind === "bracket") {
+      tag = `bracket:${f.id}`;
       addP("BRACKET", `Shaft bracket, housings ${f.span} sockets apart`, { part: "bracket", span: f.span });
       bolt(1, f.span - 1); addH("nut", `${s.nut} nut`, f.span - 1);
       addH(`shaft-bolt`, `${s.bolt} x ${hw.shaft_bolt} mm hex bolt as the shaft`); addH("nut", `${s.nut} nut`, 2); bearing(2);
       const fr = railFrame(l, f);
       const hasBevel = l.pins.some(p => p.gears.some(x => kindOf(x) === "bevel") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u < 0);
       const hasWorm = l.pins.some(p => p.gears.some(x => kindOf(x) === "wormgear") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).u - fr.len / 2) < 0.05);
+      tag = `bevelshaft:${f.id}`;
       if (hasBevel) addP("BEVEL-S", "Bevel gear on the shaft", { part: "bevel_shaft" });
+      tag = `worm:${f.id}`;
       if (hasWorm) addP("WORM", "Worm for the shaft bracket", { part: "worm", span: f.span });
+      tag = null;
       continue;
     }
+    tag = `rail:${f.id}`;
     addP(`RAIL${f.n}`, `Slider rail over ${f.n} sockets`, { part: "rail", rail_n: f.n });
+    tag = `railknob:${f.id}`;
     addP("K", "Bolt knob", { part: "knob" }, 2); bolt(1, 2); addH("nut", `${s.nut} nut`, 2);
     const c = f.carriage;
     if (!c) continue;
+    tag = `car:${f.id}`;
     if (c.kind === "rack") { addP(`RACK${c.len}${c.level > 1 ? `-L${c.level}` : ""}`, `Rack carriage, ${c.len} steps, teeth at level ${c.level}`, { part: "rack", rack_len: c.len, level: c.level, flip: "true" }); continue; }
     const fr = railFrame(l, f);
     const crank = l.pins.find(p => p.gears.some(x => x.topper === "crank" && x.level === c.level) && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u > fr.len);
     if (crank) fixtureCranks.set(crank.id, c.kind);
+    tag = `car:${f.id}`;
     addP("CARRIAGE", "Carriage with a plug pocket", { part: "carriage", flip: "true" });
+    tag = `top:${f.id}`;
     if (c.kind === "yoke") addP(`YOKE${c.throw}R${c.reach}${c.level > 1 ? `-L${c.level}` : ""}`, `Scotch yoke for a ${c.throw} mm crank on level ${c.level}, reach ${c.reach}`, { part: "yoke", level: c.level, throw: c.throw, reach: c.reach, flip: "true" });
-    else { addP(`SLPOST${c.level > 1 ? `-L${c.level}` : ""}`, `Slider post for a crank on level ${c.level}`, { part: "slider_post", level: c.level }); addP(`L${c.link}`, `Link, ${c.link} holes`, { part: "link", holes: c.link }); bearing(); cap(); }
+    else { addP(`SLPOST${c.level > 1 ? `-L${c.level}` : ""}`, `Slider post for a crank on level ${c.level}`, { part: "slider_post", level: c.level }); tag = `link:${f.id}`; addP(`L${c.link}`, `Link, ${c.link} holes`, { part: "link", holes: c.link }); bearing(); cap(); }
   }
   for (const pin of l.pins) {
     if (!pin.gears.length) continue;
@@ -661,15 +682,21 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
     const used = top + levelsUsed(l.size, topG) - 1;
     if (pin.motor) {
       const lv = pin.gears[0].level;
+      tag = `mount:${pin.id}`;
       if (motorType(pin) === "nema17") {
+        tag = `mount:${pin.id}`;
         addP(lv === 1 ? "NEMA17" : `NEMA17-L${lv}`, `NEMA 17 motor mount, pinion at level ${lv}`, { part: "nema_mount", level: lv });
+        tag = key(pin, lv);
         addP("PINION5", "Motor pinion 20T, 5 mm D bore", { part: "pinion", shaft: "nema17" });
         addH("nema17", "NEMA 17 stepper motor with a driver, 4 x M3 x 8 screws");
       } else {
+        tag = `mount:${pin.id}`;
         addP(lv === 1 ? "MOTOR" : `MOTOR${lv}`, `N20 motor mount, pinion at level ${lv}`, { part: "motor_mount", level: lv });
+        tag = key(pin, lv);
         addP("PINION", "Motor pinion 20T", { part: "pinion", shaft: "n20" });
         addH("n20", "N20 gearmotor, 100:1 to 300:1, with 2 x M1.6 screws");
       }
+      tag = `mountknob:${pin.id}`;
       addP("K", "Bolt knob", { part: "knob" }, 2);
       bolt(lv, 2);
       addH("nut", `${s.nut} nut`, 2);
@@ -736,8 +763,11 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
         case "pawl": addP(x.pawlCw ? "PAWL-L" : "PAWL", x.pawlCw ? "Pawl, locks clockwise" : "Pawl", { part: "pawl", flip_pawl: x.pawlCw ? "true" : "false" }); break;
         case "rocker": {
           const rk = x.rocker!;
+          tag = `rockerlink:${key(pin, x.level)}`;
           addP(`L${rk.holes}`, `Link, ${rk.holes} holes`, { part: "link", holes: rk.holes }); bearing();
+          tag = `couplerlink:${key(pin, x.level)}`;
           addP(`L${rk.coupler}`, `Link, ${rk.coupler} holes`, { part: "link", holes: rk.coupler }); bearing(2);
+          tag = `joint:${key(pin, x.level)}`;
           addP("JOINT", "Joint post", { part: "joint" }); spacer(3); cap();
           break;
         }
@@ -759,8 +789,10 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
           if (jaws) addP("G20-FT", "Gear 20T, flat top", { part: "gear", teeth: 20, face: "solid", joint_top: "flat" }, 2);   // two planets
           else addP("G20", "Gear 20T", { part: "gear", teeth: 20, face: "solid" }, 2);
           bearing(2); cap(2);
+          tag = `ring:${key(pin, x.level)}`;
           addP(`RING-L${x.level + 1}`, `Planetary ring gear over level ${x.level + 1}`, { part: "ring", level: x.level + 1, flip: "true" });
-          addP("K", "Bolt knob", { part: "knob" }, 2); bolt(Math.min(4, x.level + 1), 2); addH("nut", `${s.nut} nut`, 2);
+          // the leg screws sink into the leg tops (no knobs), so a gear may pass over the ring
+          addH(`ring-screw-${x.level + 1}`, `${s.bolt} x ${ringBolt(l.size, x.level + 1)} mm socket or button head screw (ring leg)`, 2); addH("nut", `${s.nut} nut`, 2);
           break;
         }
         case "bevel": addP(`${x.teeth === 40 ? "BEVEL40" : "BEVEL"}${sf}`, `Bevel gear on a ${x.teeth}T spur${nt}`, { part: "bevel", teeth: x.teeth, ...fp }); bearing(); break;

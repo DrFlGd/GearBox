@@ -38,6 +38,11 @@ module hw_screw(l) asm_h() difference() {   // socket head up, z = 0 the undersi
     union() { cylinder(d = SCREW_HEAD[0], h = SCREW_HEAD[1], $fn = 24); translate([0, 0, -l]) cylinder(d = SCREW_D, h = l + EPS, $fn = 16); }
     translate([0, 0, SCREW_HEAD[1] - 1.5]) cylinder(d = 2.5 / cos(30), h = 2, $fn = 6);
 }
+// a socket head screw as big as the ring leg's recess takes, head up, z = 0 the underside of the head
+module hw_cap_screw(len) asm_h() difference() {
+    union() { cylinder(d = RING_HEAD[0], h = RING_HEAD[1], $fn = 32); translate([0, 0, -len]) cylinder(d = BOLT[0], h = len + EPS, $fn = 24); }
+    translate([0, 0, RING_HEAD[1] - 0.6 * BOLT[0]]) cylinder(d = 0.75 * BOLT[0] / cos(30), h = BOLT[0], $fn = 6);
+}
 module hw_m3nut() asm_h() hw_hex(SCREW_NUT[0], SCREW_NUT[1], SCREW_D);
 module hw_magnet() asm_h() cylinder(d = MAGNET[0], h = MAGNET[1], $fn = 24);
 
@@ -264,7 +269,10 @@ module asm_planetary() {
         post_cap(gtop(1) + 3 + BEARING[2], 6.5);
     }
     asm_p() ex(8) planet_ring(2);
-    for (s = [-1, 1]) at(0, s * 4) leg_pin(ring_top(2));
+    for (s = [-1, 1]) at(0, s * 4) {   // socket head screws sunk in the leg tops
+        ex(9) translate([0, 0, ring_cb_z(2)]) hw_cap_screw(ring_bolt(2));
+        ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
+    }
 }
 module asm_shaft() {
     asm_tile(-1, -1, 8, 5);
