@@ -30,6 +30,14 @@ module bearing_seat(ledge_at_bottom = true) {
         translate([0, 0, d[2] - EPS]) cylinder(d = ledge_id, h = 1 + 2 * EPS);
     }
 }
+// Two seats one level apart on a part LEVEL + GEAR_T - 1 tall (compound gear, Geneva
+// driver, winch): bottom bearing from below, top bearing from above. The two ledges
+// meet in one 2 mm wall, open through the middle so the bolt passes.
+module double_bearing_seat() {
+    bearing_seat(ledge_at_bottom = false);
+    translate([0, 0, LEVEL - 1]) bearing_seat();
+    translate([0, 0, BEARING[2]]) cylinder(d = BEARING[1] - 2, h = LEVEL - BEARING[2]);
+}
 
 // Pin holes in a face: a slip fit for the dowel pins. z = 0 is the face, holes go
 // down to -PIN_DEPTH.
@@ -160,8 +168,7 @@ module compound_gear(teeth_lower, teeth_upper, face = "solid") {
             translate([0, 0, GEAR_T]) cylinder(r = gear_rr(teeth_upper), h = 1 + EPS); // bridge the 1 mm gap
             translate([0, 0, GEAR_T + 1]) gear_blank(teeth_upper);
         }
-        bearing_seat(ledge_at_bottom = false);              // lower: bearing from below, ledge on top
-        translate([0, 0, LEVEL - 1]) bearing_seat();        // upper: ledge, then bearing from above
+        double_bearing_seat();
         translate([0, 0, h_upper]) pin_holes(gear_rr(teeth_upper));
         mirror([0, 0, 1]) pin_holes(gear_rr(teeth_lower));
         face_pattern(teeth_lower, face);
