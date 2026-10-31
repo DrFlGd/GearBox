@@ -5,6 +5,9 @@
 // Output goes to <out>/<size>/<profile>/<name>.<format>. Parts render in
 // parallel on --jobs worker threads (default: one per core).
 // --write-expect updates the catalog's expected sizes from this run.
+// --changed-since <git-ref> renders only the parts whose sources changed since
+// that ref (tools/part-keys.mjs); with --reuse <dir> (a previous run's <out>)
+// the unchanged ones are copied from there instead of being left out.
 // A part with a `sizes` list is only rendered in those sizes.
 import fs from "node:fs";
 import os from "node:os";
@@ -12,6 +15,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import { stlStats } from "./stl-stats.mjs";
+import { partKeys } from "./part-keys.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -23,16 +27,29 @@ const sizeOpt = opt("--size", "all");
 const only = opt("--only", "")?.split(",").filter(Boolean);
 const format = opt("--format", "stl");
 const writeExpect = argv.includes("--write-expect");
+const since = opt("--changed-since");
+const reuseDir = opt("--reuse") && path.resolve(opt("--reuse"));
 const jobs = Math.max(1, Number(opt("--jobs", os.availableParallelism?.() ?? os.cpus().length)));
 
 const catalogPath = path.join(repoRoot, "catalog", "parts.json");
 const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
 const sizes = sizeOpt === "all" ? Object.keys(catalog.standards) : [sizeOpt];
 const parts = catalog.parts.filter(p => !only.length || only.includes(p.name));
+const [oldKeys, newKeys] = since ? [partKeys({ ref: since, profile }), partKeys({ profile })] : [];
 const queue = [];
+let kept = 0, carried = 0;
 for (const size of sizes) {
   for (const p of parts) {
     if (p.sizes && !p.sizes.includes(size)) continue;   // a part not made in this size
+    if (since && oldKeys[`${size}/${p.name}`] === newKeys[`${size}/${p.name}`]) {
+      const prev = reuseDir && path.join(reuseDir, size, profile, `${p.name}.${format}`);
+      if (!reuseDir) { kept++; continue; }
+      if (fs.existsSync(prev)) {
+        fs.mkdirSync(path.join(outDir, size, profile), { recursive: true });
+        fs.copyFileSync(prev, path.join(outDir, size, profile, `${p.name}.${format}`));
+        carried++; continue;
+      }
+    }
     const defines = [`size="${size}"`, `profile="${profile}"`, ...Object.entries(p.params).map(([k, v]) => `${k}=${typeof v === "string" ? JSON.stringify(v) : v}`)];
     queue.push({ id: queue.length, size, p, input: path.join(repoRoot, "scad", "gearbox.scad"), output: path.join(outDir, size, profile, `${p.name}.${format}`), defines });
   }
@@ -57,6 +74,7 @@ function report(job, r) {
 }
 
 // Each worker takes the next part as soon as it finishes one.
+if (since) console.log(`Changed since ${since}: ${queue.length} to render, ${reuseDir ? `${carried} carried over from ${reuseDir}` : `${kept} unchanged, skipped`}\n`);
 const t0 = Date.now();
 let next = 0;
 await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, () => new Promise((resolve, reject) => {

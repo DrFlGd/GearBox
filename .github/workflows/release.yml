@@ -2,11 +2,10 @@ name: Release
 
 # Push a tag like v0.1.0, or run this workflow by hand with a version, and it
 # publishes a GitHub release (creating the tag if needed) with one STL zip per
-# size and print profile attached. The zips are rendered fresh only when a part
-# source changed since the previous release (the OpenSCAD library, the catalog,
-# BOSL2, the render tools or the engine version); otherwise the previous
-# release's zips are carried over under the new version. `parts` forces either.
-# A fresh render runs one job per profile in parallel, each on every core.
+# size and print profile attached. Only the parts whose sources changed since
+# the previous release are rendered (tools/part-keys.mjs follows each part
+# through the library); every other STL is carried over from the previous
+# release's zips. `parts` forces a full render, or reuses every zip as is.
 on:
   push:
     tags: ["v*"]
@@ -17,7 +16,7 @@ on:
         required: true
         type: string
       parts:
-        description: "STL zips: auto (render only if a part source changed), render, or reuse the previous release's"
+        description: "STL zips: auto (render only the parts that changed), render (every part), or reuse the previous release's"
         required: false
         default: auto
         type: choice
@@ -33,11 +32,15 @@ jobs:
       tag: ${{ steps.ver.outputs.tag }}
       prev: ${{ steps.parts.outputs.prev }}
       render: ${{ steps.parts.outputs.render }}
+      full: ${{ steps.parts.outputs.full }}
       note: ${{ steps.parts.outputs.note }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Pick the version
         id: ver
         run: echo "tag=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
@@ -51,15 +54,20 @@ jobs:
           prev=$(gh api "repos/${{ github.repository }}/releases?per_page=20" --jq '.[] | select(.draft | not) | .tag_name' | grep -vx "$TAG" | head -1 || true)
           echo "prev=$prev" >> "$GITHUB_OUTPUT"
           mode=$MODE
+          [ -z "$prev" ] && mode=render
           if [ "$mode" = auto ]; then
-            if [ -n "$prev" ] && git diff --quiet "$prev" HEAD -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/render-worker.mjs tools/stl-stats.mjs package-lock.json; then mode=reuse; else mode=render; fi
+            changed=$(node tools/part-keys.mjs --since "$prev" | sed 's#.*/##' | sort -u)
+            n=$(printf '%s' "$changed" | grep -c . || true)
+            if [ "$n" = 0 ]; then mode=reuse; fi
           fi
-          if [ "$mode" = reuse ] && [ -n "$prev" ] && gh release view "$prev" --json assets --jq '.assets[].name' | grep -q '^gearbox-.*-stl-.*\.zip$'; then
+          if [ "$mode" = reuse ] && gh release view "$prev" --json assets --jq '.assets[].name' | grep -q '^gearbox-.*-stl-.*\.zip$'; then
             echo "render=false" >> "$GITHUB_OUTPUT"
             echo "note=STL zips: no part changed since $prev, so these are the same parts as $prev." >> "$GITHUB_OUTPUT"
-          else
-            [ "$mode" = reuse ] && echo "No zips to reuse from '$prev', rendering instead."
+          elif [ "$mode" = auto ]; then
             echo "render=true" >> "$GITHUB_OUTPUT"
+            echo "note=STL zips: $n parts changed since $prev and were rendered fresh ($(echo $changed | sed 's/ /, /g')); every other part is carried over from $prev." >> "$GITHUB_OUTPUT"
+          else
+            echo "render=true" >> "$GITHUB_OUTPUT"; echo "full=true" >> "$GITHUB_OUTPUT"
             echo "note=STL zips: every catalog part rendered fresh for this release." >> "$GITHUB_OUTPUT"
           fi
 
@@ -74,14 +82,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: true
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Render every size in ${{ matrix.profile }}
+      - name: Unpack the previous release's ${{ matrix.profile }} STLs
+        if: needs.plan.outputs.full != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREV: ${{ needs.plan.outputs.prev }}
         run: |
-          node tools/render-catalog.mjs --profile ${{ matrix.profile }} --out out
+          gh release download "$PREV" -p "gearbox-$PREV-stl-*-${{ matrix.profile }}.zip"
+          for s in M2 M1.5 M1; do mkdir -p prev/$s; unzip -q "gearbox-$PREV-stl-$s-${{ matrix.profile }}.zip" -d prev/$s; done
+          rm gearbox-*.zip
+      - name: Render the changed parts in ${{ matrix.profile }}
+        env:
+          PREV: ${{ needs.plan.outputs.prev }}
+        run: |
+          if [ -d prev ]; then inc="--changed-since $PREV --reuse prev"; fi
+          node tools/render-catalog.mjs --profile ${{ matrix.profile }} --out out $inc
           for s in M2 M1.5 M1; do
             (cd out/$s && zip -qr ../../gearbox-${{ needs.plan.outputs.tag }}-stl-$s-${{ matrix.profile }}.zip ${{ matrix.profile }})
           done

@@ -220,10 +220,11 @@ scad/lib/assembly.scad every kit put together, with its hardware, for the Assemb
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
 tools/render-catalog.mjs  render and check the whole catalog for one size or all, one part per core
+tools/part-keys.mjs    a key per part from the source it reaches, so CI and releases re-render only changed parts
 tools/preview.mjs      screenshot STLs with three.js in headless Chromium
 lib/BOSL2              git submodule, the gear library
 app/                   the web part generator (Vite + React + three.js, OpenSCAD in a Web Worker)
-.github/workflows      build on every PR (plus the full catalog render when a part source changed), Pages deploy on main, release on demand (zips re-rendered only when parts changed)
+.github/workflows      build on every PR (plus a render of just the parts that changed), Pages deploy on main, release on demand (only changed parts re-rendered, the rest carried over)
 ```
 
 ## Rendering
@@ -236,6 +237,7 @@ git clone --recurse-submodules https://github.com/DrFlGd/GearBox
 npm install
 npm run render -- --profile PETG              # every part, every size, to out/<size>/PETG/*.stl
 npm run render -- --size M1.5 --only COUPON,K,S3,BS   # just the M1.5 fit test kit
+npm run render -- --changed-since main         # only the parts whose sources changed since main
 npm run part -- -o out/G40.stl -D 'size="M1.5"' -D 'part="gear"' -D teeth=40 -D 'face="spokes"'
 ```
 
