@@ -128,9 +128,17 @@ export function railDims(size: Size) {
 }
 // Phase 4c dimensions, in step with scad/lib/drives.scad ---------------------------------
 export const PLN = { sun: 20, planet: 20, ring: 60, carrier: 60 };
+/** The ring leg's socket head screw (drives.scad ring_bolt): sunk below the leg top, through the plate into the captive nut. */
+export function ringBolt(size: Size, ringLevel: number) {
+  const s = std(size), head = sz(size, 8, 6, 5), nutH = sz(size, 6.5, 5, 4);
+  const cbZ = 2 + (ringLevel - 1) * s.level + s.gear_thickness - head - 0.5;
+  return Math.ceil((cbZ + s.plate_t + nutH) / 5) * 5;
+}
 export function planetaryDims(size: Size) {
   const s = std(size), m = s.module;
-  return { R: 2 * s.grid, ringOR: (m * PLN.ring) / 2 + 1.25 * m + 4, ringIR: (m * PLN.ring) / 2 - m, legSteps: 4, legR: (boltD(size) * 1.6 + 5) / 2, ratio: 1 / (1 + PLN.ring / PLN.sun) };
+  return { R: 2 * s.grid, ringOR: (m * PLN.ring) / 2 + 1.25 * m + 4, ringIR: (m * PLN.ring) / 2 - m, legSteps: 4,
+    // drives.scad RING_LEG_D: the leg grows to keep a 2.5 mm wall round its screw head's recess
+    legR: Math.max((boltD(size) * 1.6 + 5) / 2, (sz(size, 14, 10.5, 10) + 0.6 + 5) / 2), ratio: 1 / (1 + PLN.ring / PLN.sun) };
 }
 export const SHAFT_LEVEL = 4;
 export function bracketDims(size: Size) {
@@ -277,8 +285,9 @@ export const newId = () => `p${Date.now().toString(36)}${(counter++).toString(36
 
 /** The plan's gate: a 1:16 reduction on three pins, two 20:80 stages. */
 export function exampleLayout(size: Size): Layout {
-  // (an M1 20T is too small for the crank's pins, so in M1 the input has no crank)
-  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, ...(size === "M1" ? {} : { topper: "crank" as const, throw: 60 }) }] };
+  // (an M1 20T is too small for the crank's pins, so in M1 the input has no crank; in M1.5 a
+  // 60 mm throw would sweep into the 20T on the next pin)
+  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, ...(size === "M1" ? {} : { topper: "crank" as const, throw: size === "M2" ? 60 : 40 }) }] };
   const b: Pin = { id: "b", x: 6, y: 2, gears: [{ level: 1, teeth: 80, joined: false }, { level: 2, teeth: 20, joined: true }] };
   const c: Pin = { id: "c", x: 9, y: 6, gears: [{ level: 2, teeth: 80, joined: false, topper: "pointer" }] };
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 3, rows: 2 }, pins: [a, b, c], bands: [], fixtures: [], input: { pin: "a", level: 1 }, rpm: 10 };
@@ -299,28 +308,38 @@ export function addonsLayout(size: Size): Layout {
 }
 
 /** Phase 4b sampler: a crank on a 20T drives a scotch yoke on a rail and a train with a
- *  Geneva drive, an escape wheel with its anchor, a rack and, through a half gear that
- *  drives in bursts, a cam with its follower. */
+ *  Geneva drive, an escape wheel with its anchor and, through a half gear that drives in
+ *  bursts, a cam with its follower. The rack has a board of its own (rackLayout). */
 export function mechanismsLayout(size: Size): Layout {
   const big = size === "M2";
   const cx = big ? 7 : 9;   // the crank gear: two sockets past the yoke's rail
   const pins: Pin[] = [
     { id: "c", x: cx, y: 3, gears: [{ level: 2, teeth: 20, joined: false, topper: "crank", throw: 20 }] },
-    { id: "t", x: cx, y: 6, gears: [{ level: 1, teeth: 40, joined: false }, { level: 2, teeth: 40, joined: true }] },
-    { id: "gd", x: cx + 4, y: 6, gears: [{ level: 1, teeth: 40, joined: false, kind: "geneva", slots: 6 }] },
-    { id: "gw", x: cx + 4, y: 9, gears: [{ level: 2, teeth: 20, joined: false, kind: "genevaWheel", slots: 6 }] },
-    { id: "cg", x: cx + 4, y: 3, gears: [{ level: 1, teeth: 20, joined: false }] },
-    { id: "e", x: cx + 7, y: 6, gears: [{ level: 1, teeth: 20, joined: false }, { level: 2, teeth: 20, joined: true, kind: "escwheel" }] },
-    { id: "an", x: cx + 7, y: 4, gears: [{ level: 2, teeth: 20, joined: false, kind: "anchor", anchorCw: true }] },
-    { id: "h", x: cx, y: 10, gears: [{ level: 1, teeth: 40, joined: false, kind: "partial", keep: 0.5 }] },
+    // the partial gear drives (a driven one would stall once its bare side came round): half its rim turns the 40T above it in bursts
+    { id: "t", x: cx, y: 6, gears: [{ level: 1, teeth: 40, joined: false, kind: "partial", keep: 0.5 }, { level: 2, teeth: 40, joined: true }] },
+    { id: "gd", x: cx + 4, y: 6, gears: [{ level: 2, teeth: 40, joined: false, kind: "geneva", slots: 6 }] },
+    { id: "gw", x: cx + 4, y: 9, gears: [{ level: 3, teeth: 20, joined: false, kind: "genevaWheel", slots: 6 }] },
+    { id: "e", x: cx + 7, y: 6, gears: [{ level: 2, teeth: 20, joined: false }, { level: 3, teeth: 20, joined: true, kind: "escwheel" }] },
+    { id: "an", x: cx + 7, y: 4, gears: [{ level: 3, teeth: 20, joined: false, kind: "anchor", anchorCw: true }] },
+    { id: "h", x: cx, y: 10, gears: [{ level: 1, teeth: 40, joined: false }] },
     { id: "hd", x: cx - 3, y: 10, gears: [{ level: 1, teeth: 20, joined: false }, { level: 2, teeth: 20, joined: true, kind: "cam", cam: "heart" }] },
     { id: "fo", x: cx - 5, y: 10, gears: [{ level: 2, teeth: 20, joined: false, kind: "follower" }] },
   ];
   const fixtures: Fixture[] = [
     { id: "rail", kind: "rail", x: 1, y: 3, dir: 0, n: big ? 5 : 7, carriage: { kind: "yoke", level: 2, throw: 20, reach: big ? 4 : 5 } },
-    { id: "rail2", kind: "rail", x: cx + 6, y: 1, dir: 2, n: 4, carriage: { kind: "rack", len: 2, level: 1 } },
   ];
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 5, rows: 3 }, pins, bands: [], fixtures, input: { pin: "c", level: 2 }, rpm: 10 };
+}
+
+/** A rack and pinion: a crank on a 40T turns a 20T pinion under a 3-step rack. A rack only
+ *  travels so far, so the view rocks the crank back and forth on a board with a rack. */
+export function rackLayout(size: Size): Layout {
+  const pins: Pin[] = [
+    { id: "c", x: 4, y: 3, gears: [{ level: 1, teeth: 40, joined: false, topper: "crank", throw: 20 }] },
+    { id: "p", x: 4, y: 6, gears: [{ level: 1, teeth: 20, joined: false }] },
+  ];
+  const fixtures: Fixture[] = [{ id: "rail", kind: "rail", x: 1, y: 8, dir: 0, n: 7, carriage: { kind: "rack", len: 3, level: 1 } }];
+  return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 3, rows: 3 }, pins, bands: [], fixtures, input: { pin: "c", level: 1 }, rpm: 10 };
 }
 
 /** Phase 5a sampler: a crank turns a 16-magnet gear, which turns another four sockets

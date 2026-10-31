@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
-  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
+  MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, rackLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
   type CamKind, type Carriage, type Fixture, type Gear, type ItemKind, type Layout, type MotorType, type Pin, type Teeth,
 } from "./model";
 import { analyze, billOfMaterials, jawPair, key, label, ratioText } from "./rules";
@@ -38,7 +38,8 @@ const KIND_GROUPS: [string, KindOption[]][] = [
 /** Boards to start from; the samplers are laid out for M2 and M1.5. */
 const STARTS: { id: string; label: string; make: (size: Size) => Layout; notM1?: boolean }[] = [
   { id: "example", label: "1:16 example", make: exampleLayout }, { id: "addons", label: "Add-ons sampler", make: addonsLayout, notM1: true },
-  { id: "mechanisms", label: "Mechanisms sampler", make: mechanismsLayout, notM1: true }, { id: "drives", label: "Drives sampler", make: drivesLayout, notM1: true },
+  { id: "mechanisms", label: "Mechanisms sampler", make: mechanismsLayout, notM1: true }, { id: "rack", label: "Rack and pinion", make: rackLayout },
+  { id: "drives", label: "Drives sampler", make: drivesLayout, notM1: true },
   { id: "magnets", label: "Magnets sampler", make: magnetsLayout }, { id: "empty", label: "Empty board", make: emptyLayout },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];

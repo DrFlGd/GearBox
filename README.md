@@ -214,7 +214,9 @@ bolts to the board and carries a sliding carriage.
   two standard `G20` planets ride the posts on bearings, each kept on by a
   `CAP` keyed by a dowel pin. A plain `G20` sun sits on the same pin one level up, inside the
   `RING-L2` (or `RING-L3`) 60T ring gear whose legs bolt into the sockets
-  four steps away on either side with knobs. Sun in, carrier out: 4:1, same
+  four steps away on either side with socket or button head screws sunk in
+  the leg tops (no knobs, so a gear on top of the sun can be bigger than the
+  ring and pass over the legs; the recess takes heads at least 10 mm across). Sun in, carrier out: 4:1, same
   direction. Drive the sun through a gear joined on top of it (on its jaws);
   the carrier meshes like any 60T (a 20T four sockets away, a 40T on a
   3-4-5 diagonal).
@@ -339,10 +341,12 @@ boxes, cylinders), so a new board fills in over a few seconds per distinct
 part and opens at once after that. Real so far: tiles, knobs and dial knobs,
 gears and compounds, pulleys, partial, spring, magnetic and worm gears, bevels,
 flywheels, ratchet and pawl, cams and follower, Geneva driver and wheel,
-escape wheel and anchor, quick-return lever, winch drum, planet carrier, and
-the crank, handle and pointer on a gear. Motor mounts, rails and carriages,
-the shaft bracket, the planetary ring, links, caps and the spring spiral are
-still stand-ins.
+escape wheel and anchor, quick-return lever, winch drum, planet carrier, the
+crank, handle and pointer on a gear, motor mounts with their pinions and leg
+knobs, rails with their tab knobs, the rack, carriage, scotch yoke, slider post
+and link, the shaft bracket with its bevel and worm, the planetary ring, and
+the four-bar links with their joint post. Caps and the spring spiral are still
+stand-ins.
 
 ### The layout tester
 
@@ -387,8 +391,11 @@ yoke or a crank slider for it. The tester finds the rack's pinion and the
 yoke's or slider's crank, works out the carriage travel, warns when it runs
 off the rail or the arm hits a knob, and animates the real motions: the
 Geneva wheel indexes and dwells, the escape wheel steps, the follower rides
-its cam, the partial gear drives in bursts. "Mechanisms sampler" loads a
-board with most of them.
+its cam, the partial gear drives in bursts (a partial gear turned by a full
+one stops once its bare side comes round, and the tester says so). "Mechanisms
+sampler" loads a board with most of them. A rack only travels so far, so on a
+board with a rack the view swings the input back and forth instead of turning
+it; "Rack and pinion" loads one.
 
 The drives too: a planet carrier takes its sun on the level above and its
 ring gear's legs are checked against the pins around it; a shaft bracket is a

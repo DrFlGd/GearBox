@@ -22,7 +22,7 @@ type Props = {
 
 /** Items drawn with their real printed part once it has loaded (the rest keep their stand-in for now). */
 const REAL_ITEMS = new Set(["gear", "compound", "pulley", "flywheel", "spring_gear", "partial", "ratchet", "pawl", "cam", "follower", "geneva_driver", "geneva_wheel",
-  "escape_wheel", "anchor", "qr_lever", "winch", "carrier", "bevel", "worm_gear", "mag_gear"]);
+  "escape_wheel", "anchor", "qr_lever", "winch", "carrier", "bevel", "worm_gear", "mag_gear", "pinion"]);
 /** Draws nothing but can still be picked: the upper gear of a compound, which the compound's own mesh shows. */
 const HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
 /** The anchor is modelled with its wheel at -y; the view's frame has the wheel at +x. */
@@ -31,7 +31,11 @@ const quarterTurn = (g: THREE.BufferGeometry) => { let t = turned.get(g); if (!t
 
 const COLORS = { driven: 0xe8b44c, idle: 0x7a8296, collide: 0xff6b62, input: 0x7ee787, board: 0x2b3240, boardTop: 0x343c4c, socket: 0x171a21, socketHover: 0xe8b44c, bolt: 0xb8bec9, knob: 0xd9dde5, select: 0x58a6ff, addon: 0xc9a2ff, band: 0x3c3c3c, motor: 0x4a5568, rail: 0x5c6b8a, carriage: 0x8fa3c7, north: 0xd9534f, south: 0x4f7fd9 };
 
-type LinkAnim = { l: Linkage; crankMesh: THREE.Mesh; coupler: THREE.Mesh; rocker: THREE.Mesh; rockerPos: THREE.Vector3; crankPos: THREE.Vector3; z: number; barH: number; barW: number };
+type LinkAnim = {
+  l: Linkage; crankMesh: THREE.Mesh; coupler: THREE.Mesh; rocker: THREE.Mesh; rockerPos: THREE.Vector3; crankPos: THREE.Vector3; z: number; barH: number; barW: number;
+  /** the real links (first hole at their pivot, pointing along +x) and the joint post, once loaded */
+  real?: { rocker: THREE.Mesh; coupler: THREE.Mesh; joint: THREE.Mesh; zRocker: number; zCoupler: number; zJoint: number };
+};
 /** What the frame loop needs for a picked item: its own motion, or a fixed angle. */
 type ItemData = { pin: string; level: number; motion?: Motion; fixed: number };
 
@@ -45,6 +49,8 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     group: THREE.Group; gears: THREE.Object3D[]; fixtures: THREE.Object3D[]; sockets: THREE.InstancedMesh | null; socketIndex: { i: number; j: number }[];
     links: LinkAnim[]; anims: ((theta: number) => void)[]; theta: number; last: number; playing: boolean; rpm: number; hoverIdx: number; fittedFor: string; look: Studio; gen: number;
+    /** > 0: the input rocks back and forth this far (radians) instead of turning, so a rack stays on its pinion */
+    rock: number;
   } | null>(null);
   const cb = useRef({ onPick, onHover });
   cb.current = { onPick, onHover };
@@ -61,7 +67,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     controls.enableDamping = true; controls.dampingFactor = 0.12;
     const look = studio(renderer, scene);
     const group = new THREE.Group(); scene.add(group);
-    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "", look, gen: 0 };
+    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "", look, gen: 0, rock: 0 };
     st.current = s;
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
@@ -122,8 +128,10 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     const loop = (now: number) => {
       const dt = (now - s.last) / 1000; s.last = now;
       if (s.playing) s.theta += (s.rpm * 2 * Math.PI / 60) * dt;
-      for (const g of s.gears) { const u = g.userData as ItemData; g.rotation.z = u.motion ? u.motion(s.theta) : u.fixed; }
-      for (const a of s.anims) a(s.theta);
+      // with a rack on the board the input swings: full speed through the middle, easing to a stop at each end
+      const th = s.rock > 0 ? s.rock * Math.sin(s.theta / s.rock) : s.theta;
+      for (const g of s.gears) { const u = g.userData as ItemData; g.rotation.z = u.motion ? u.motion(th) : u.fixed; }
+      for (const a of s.anims) a(th);
       for (const la of s.links) poseLinkage(la);
       controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(loop);
     };
@@ -144,13 +152,17 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     const s = st.current; if (!s) return;
     const size = layout.size;
     const d = std(size);
-    s.group.clear(); s.gears = []; s.fixtures = []; s.sockets = null; s.socketIndex = []; s.hoverIdx = -1; s.links = []; s.anims = [];
+    s.group.clear(); s.gears = []; s.fixtures = []; s.sockets = null; s.socketIndex = []; s.hoverIdx = -1; s.links = []; s.anims = []; s.rock = 0;
     const W = boardW(layout), H = boardH(layout), g = d.grid, T = d.gear_thickness;
     const tileBoxes: { box: THREE.Mesh; x: number; y: number }[] = [];
     const standKids = new Map<string, THREE.Object3D[]>();
     const knobs: { pin: string; knob: THREE.Mesh; x: number; y: number; z: number; dial?: THREE.Mesh }[] = [];
     // toppers riding a gear: the stand-in pieces the real crank or pointer replaces
     const toppers: { k: string; mesh: THREE.Mesh; kind: "crank" | "pointer"; hide: THREE.Object3D[]; grip?: THREE.Mesh; t: number }[] = [];
+    // motor mounts, fixtures and planetary rings: the stand-in pieces each real part replaces
+    const mounts: { pin: string; hide: THREE.Object3D[]; x: number; y: number; dir: number; H: number; legs: { x: number; y: number }[] }[] = [];
+    const fixtureSwaps: { tag: string; hide: THREE.Object3D[]; add: (g: THREE.BufferGeometry) => void }[] = [];
+    const ringSwaps: { k: string; hide: THREE.Object3D[]; x: number; y: number; turn: number }[] = [];
     // tiles
     const tileMat = new THREE.MeshStandardMaterial({ color: COLORS.board, roughness: 0.9 });
     const topMat = new THREE.MeshStandardMaterial({ color: COLORS.boardTop, roughness: 0.9 });
@@ -181,6 +193,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     // pins and items
     const boltR = Number(d.bolt.slice(1)) / 2;
     const bearingOd = bearingOD(size), boreR = bearingOd / 2;
+    const boss = d.level - (Number(d.bearing.split("x")[2]) || 7);   // a knob's boss: it presses the top of a leg or post
     const boltMat = new THREE.MeshStandardMaterial({ color: COLORS.bolt, metalness: 0.6, roughness: 0.35 });
     const northMat = new THREE.MeshStandardMaterial({ color: COLORS.north, roughness: 0.5 });
     const southMat = new THREE.MeshStandardMaterial({ color: COLORS.south, roughness: 0.5 });
@@ -212,17 +225,19 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const lv = pin.gears[0]?.level ?? 1;
         const fp = motorFootprint(layout, pin);
         const Hm = gearZ(size, lv) + T + 1.5 + 4 - d.tile_h;
+        const hide: THREE.Object3D[] = [];
         for (const leg of fp.legs) {
           const legM = new THREE.Mesh(cyl(leg.r, Hm, 20), motorMat);
-          legM.position.set(pos.x + leg.x, pos.y + leg.y, d.tile_h + Hm / 2); s.group.add(legM);
+          legM.position.set(pos.x + leg.x, pos.y + leg.y, d.tile_h + Hm / 2); s.group.add(legM); hide.push(legM);
         }
         for (const blk of fp.blocks) {
           const shape = new THREE.Shape(blk.map(c => new THREE.Vector2(c.x, c.y)));
           const arm = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: Hm, bevelEnabled: false }), motorMat);
-          arm.position.set(pos.x, pos.y, d.tile_h); s.group.add(arm);
+          arm.position.set(pos.x, pos.y, d.tile_h); s.group.add(arm); hide.push(arm);
         }
         const plate = new THREE.Mesh(new THREE.BoxGeometry(NEMA.plate, NEMA.plate, 4), motorMat);
-        plate.position.set(pos.x, pos.y, d.tile_h + Hm - 2); plate.rotation.z = (pin.motor.dir * Math.PI) / 2; s.group.add(plate);
+        plate.position.set(pos.x, pos.y, d.tile_h + Hm - 2); plate.rotation.z = (pin.motor.dir * Math.PI) / 2; s.group.add(plate); hide.push(plate);
+        mounts.push({ pin: pin.id, hide, x: pos.x, y: pos.y, dir: pin.motor.dir, H: Hm, legs: fp.legs });
         const body = new THREE.Mesh(new THREE.BoxGeometry(NEMA.w, NEMA.w, 40), new THREE.MeshStandardMaterial({ color: 0x3a3f4a, metalness: 0.5, roughness: 0.5 }));
         body.position.set(pos.x, pos.y, d.tile_h + Hm + 20); body.rotation.z = (pin.motor.dir * Math.PI) / 2; s.group.add(body);
       } else if (pin.motor) {
@@ -230,17 +245,19 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const lv = pin.gears[0]?.level ?? 1;
         const fp = motorFootprint(layout, pin);
         const Hm = gearZ(size, lv) + T + 1.5 + 2.5 - d.tile_h;
+        const hide: THREE.Object3D[] = [];
         for (const leg of fp.legs) {
           const legM = new THREE.Mesh(cyl(leg.r, Hm, 20), motorMat);
-          legM.position.set(pos.x + leg.x, pos.y + leg.y, d.tile_h + Hm / 2); s.group.add(legM);
+          legM.position.set(pos.x + leg.x, pos.y + leg.y, d.tile_h + Hm / 2); s.group.add(legM); hide.push(legM);
         }
         const shape = new THREE.Shape(fp.corners.map(c => new THREE.Vector2(c.x, c.y)));
         const block = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: Hm, bevelEnabled: false }), motorMat);
-        block.position.set(pos.x, pos.y, d.tile_h); s.group.add(block);
+        block.position.set(pos.x, pos.y, d.tile_h); s.group.add(block); hide.push(block);
         const dir = pin.motor.dir;
         const mid = fp.corners.reduce((a, c) => ({ x: a.x + c.x / 4, y: a.y + c.y / 4 }), { x: 0, y: 0 });
         const tongue = new THREE.Mesh(new THREE.BoxGeometry(fp.cradleR * 2 - 2, Math.hypot(mid.x, mid.y), 2.5), motorMat);
-        tongue.position.set(pos.x + mid.x / 2, pos.y + mid.y / 2, d.tile_h + Hm - 1.25); tongue.rotation.z = (dir * Math.PI) / 2; s.group.add(tongue);
+        tongue.position.set(pos.x + mid.x / 2, pos.y + mid.y / 2, d.tile_h + Hm - 1.25); tongue.rotation.z = (dir * Math.PI) / 2; s.group.add(tongue); hide.push(tongue);
+        mounts.push({ pin: pin.id, hide, x: pos.x, y: pos.y, dir, H: Hm, legs: fp.legs });
         const body = new THREE.Mesh(new THREE.BoxGeometry(12, 10, 24), new THREE.MeshStandardMaterial({ color: 0x9aa3b2, metalness: 0.4, roughness: 0.4 }));
         body.position.set(pos.x, pos.y, d.tile_h + Hm + 12); body.rotation.z = (dir * Math.PI) / 2; s.group.add(body);
       } else {
@@ -343,14 +360,16 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const rh = new THREE.Path(); rh.absarc(0, 0, pd.ringIR, 0, 2 * Math.PI, true); ringShape.holes.push(rh);
           const ring = new THREE.Mesh(new THREE.ExtrudeGeometry(ringShape, { depth: T, bevelEnabled: false, curveSegments: 48 }), addonMat);
           ring.position.set(pos.x, pos.y, z + d.level); s.group.add(ring);
+          // (the legs' socket head screws sit sunk in the leg tops: nothing stands over the ring)
+          const rs = { k, hide: [ring] as THREE.Object3D[], x: pos.x, y: pos.y, turn: gear.legs === "x" ? Math.PI / 2 : 0 };
+          ringSwaps.push(rs);
           for (const sg of [-1, 1]) {
             const [lx, ly] = gear.legs === "x" ? [sg * pd.legSteps * g, 0] : [0, sg * pd.legSteps * g];
             const legH = z + d.level + T - d.tile_h;
-            const leg = new THREE.Mesh(cyl(pd.legR, legH, 20), addonMat); leg.position.set(pos.x + lx, pos.y + ly, d.tile_h + legH / 2); s.group.add(leg);
+            const leg = new THREE.Mesh(cyl(pd.legR, legH, 20), addonMat); leg.position.set(pos.x + lx, pos.y + ly, d.tile_h + legH / 2); s.group.add(leg); rs.hide.push(leg);
             const armLen = pd.legSteps * g - pd.ringOR + 3;
             const arm = new THREE.Mesh(new THREE.BoxGeometry(gear.legs === "x" ? armLen : pd.legR * 2, gear.legs === "x" ? pd.legR * 2 : armLen, T), addonMat);
-            arm.position.set(pos.x + (gear.legs === "x" ? sg * (pd.ringOR - 3 + armLen / 2) : 0), pos.y + (gear.legs === "x" ? 0 : sg * (pd.ringOR - 3 + armLen / 2)), z + d.level + T / 2); s.group.add(arm);
-            const knob = new THREE.Mesh(cyl(d.knob_d / 2, 8), knobMat); knob.position.set(pos.x + lx, pos.y + ly, z + d.level + T + 4); s.group.add(knob);
+            arm.position.set(pos.x + (gear.legs === "x" ? sg * (pd.ringOR - 3 + armLen / 2) : 0), pos.y + (gear.legs === "x" ? 0 : sg * (pd.ringOR - 3 + armLen / 2)), z + d.level + T / 2); s.group.add(arm); rs.hide.push(arm);
           }
         } else if (kind === "bevel") {
           const b = bracketDims(size), pr = pitchR(size, b.bevelT), m = d.module;
@@ -470,7 +489,9 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         s.anims.push(() => { mesh.rotation.z = dir + followerAngle(size, ck, pm.rotation.z - dir - Math.PI, D, A, rn); });
       } else if (kind === "anchor") {
         const ph = analysis.phase.get(key(partner.pin, partner.gear.level)) ?? 0;
-        s.anims.push(() => { mesh.rotation.z = dir + anchorAngle(pm.rotation.z - ph, escDims(size).n, (4 * Math.PI) / 180); });
+        // the anchor swings with the wheel's smooth drive, one swing per tooth, at an end each time the wheel steps
+        const sm = analysis.smooth.get(key(partner.pin, partner.gear.level));
+        if (sm) s.anims.push(th => { mesh.rotation.z = dir + anchorAngle(sm(th) - ph, escDims(size).n, (5 * Math.PI) / 180); });
       } else if (kind === "carrier") {
         const planets = planetsOf.get(k) ?? [], ratio = PLN.sun / PLN.planet;
         s.anims.push(() => { const rel = -(pm.rotation.z - mesh.rotation.z) * ratio; planets.forEach((pl, i) => { pl.rotation.z = rel + (i * Math.PI) / PLN.planet; }); });
@@ -522,9 +543,12 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const railMat = new THREE.MeshStandardMaterial({ color: bad ? COLORS.collide : COLORS.rail, roughness: 0.7 });
         const grp = new THREE.Group(); grp.position.set(fr.o.x, fr.o.y, d.tile_h); grp.rotation.z = fr.angle; grp.userData = { fixture: f.id };
         const bar = new THREE.Mesh(new THREE.BoxGeometry(L + b.housingT, b.housingW, b.barT), railMat); bar.position.set(L / 2, 0, b.barT / 2); grp.add(bar);
+        const bracketHide: THREE.Object3D[] = [bar];
+        fixtureSwaps.push({ tag: `bracket:${f.id}`, hide: bracketHide, add: g2 => addReal(g2, railMat, 0, 0, 0, grp) });
         for (const u of [0, L]) {
           const h = new THREE.Mesh(new THREE.BoxGeometry(b.housingT, b.housingW, b.shaftH), railMat); h.position.set(u, 0, b.shaftH / 2); grp.add(h);
           const cap = new THREE.Mesh(new THREE.CylinderGeometry(b.housingW / 2, b.housingW / 2, b.housingT, 24).rotateZ(Math.PI / 2), railMat); cap.position.set(u, 0, b.shaftH); grp.add(cap);
+          bracketHide.push(h, cap);
           const brg = new THREE.Mesh(new THREE.CylinderGeometry(boreR, boreR, b.housingT + 0.4, 24).rotateZ(Math.PI / 2), boltMat); brg.position.set(u, 0, b.shaftH); grp.add(brg);
         }
         for (let k2 = 1; k2 < f.span; k2++) { const head = new THREE.Mesh(cylUp(boltD(size) * 0.8, 1, 6), boltMat); head.position.set(k2 * g, 0, b.barT - 1); grp.add(head); }
@@ -537,6 +561,8 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const cone = new THREE.Mesh(new THREE.CylinderGeometry(pr + 1.5 * m, pr - 3.5 * m, 3.8 * m, 20).rotateZ(-Math.PI / 2), addonMat); cone.position.x = -b.bevelD + pr - 1.9 * m; shaft.add(cone);
           const hubL = b.bevelD - pr - b.housingT / 2 - 0.5;
           const hub = new THREE.Mesh(new THREE.CylinderGeometry(boreR + 2.5, boreR + 2.5, hubL, 20).rotateZ(Math.PI / 2), addonMat); hub.position.x = -b.bevelD + pr + hubL / 2; shaft.add(hub);
+          // the real bevel is modelled with its axis up and its teeth at the bottom
+          fixtureSwaps.push({ tag: `bevelshaft:${f.id}`, hide: [cone, hub], add: g2 => addReal(g2, addonMat, -b.bevelD + pr, 0, 0, shaft, 0, -Math.PI / 2) });
           const bm = meshes.get(key(info.drive.pin, info.drive.gear.level));
           if (bm) s.anims.push(() => { shaft.rotation.x = bm.rotation.z; });
         }
@@ -546,6 +572,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const pitch = Math.PI * m, turns = b.wormL / pitch, rr = b.wormD / 2 - 1.1 * m;
           class Helix extends THREE.Curve<THREE.Vector3> { constructor() { super(); } getPoint(t: number) { const a = t * turns * 2 * Math.PI; return new THREE.Vector3(L / 2 - b.wormL / 2 + t * b.wormL, rr * Math.cos(a), rr * Math.sin(a)); } }
           const thread = new THREE.Mesh(new THREE.TubeGeometry(new Helix(), Math.round(turns * 24), 1.1 * m, 8, false), addonMat); shaft.add(thread);
+          fixtureSwaps.push({ tag: `worm:${f.id}`, hide: [core, hubW, thread], add: g2 => addReal(g2, addonMat, b.housingT / 2 + 0.5, 0, 0, shaft, 0, Math.PI / 2) });
         }
         if (selectedFixture === f.id) {
           const w = b.housingW;
@@ -566,12 +593,17 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       const L = fr.len;
       const base = new THREE.Mesh(new THREE.BoxGeometry(L + rd.w, rd.w, rd.t), railMat); base.position.set(L / 2, 0, rd.t / 2); grp.add(base);
       const ridge = new THREE.Mesh(new THREE.BoxGeometry(L + rd.w - 2, 3 * d.module + 2, rd.ridge), railMat); ridge.position.set(L / 2, 0, rd.t + rd.ridge / 2); grp.add(ridge);
+      const railHide: THREE.Object3D[] = [base, ridge], knobHide: THREE.Object3D[] = [];
       for (const u of [0, L]) {
         const tab = new THREE.Mesh(new THREE.BoxGeometry(rd.tabR * 2, g, rd.t), railMat); tab.position.set(u, g / 2, rd.t / 2); grp.add(tab);
         const tabEnd = new THREE.Mesh(cyl(rd.tabR, rd.t, 24), railMat); tabEnd.position.set(u, g, rd.t / 2); grp.add(tabEnd);
         const bolt = new THREE.Mesh(cyl(boltR, rd.t + 10, 16), boltMat); bolt.position.set(u, g, rd.t + 4); grp.add(bolt);
         const knob = new THREE.Mesh(cyl(d.knob_d / 2, 8), knobMat); knob.position.set(u, g, rd.t + 4); grp.add(knob);
+        railHide.push(tab, tabEnd); knobHide.push(knob);
       }
+      fixtureSwaps.push({ tag: `rail:${f.id}`, hide: railHide, add: g2 => addReal(g2, railMat, 0, 0, 0, grp) });
+      // the tab knobs press the rail's top, as on a mount's leg
+      fixtureSwaps.push({ tag: `railknob:${f.id}`, hide: knobHide, add: g2 => { for (const u of [0, L]) addReal(g2, knobMat, u, g, rd.t - boss, grp); } });
       if (selectedFixture === f.id) {
         const outline = new THREE.Shape(); outline.moveTo(-rd.w / 2 - 3, -rd.w / 2 - 3); outline.lineTo(L + rd.w / 2 + 3, -rd.w / 2 - 3); outline.lineTo(L + rd.w / 2 + 3, rd.w / 2 + 3); outline.lineTo(-rd.w / 2 - 3, rd.w / 2 + 3); outline.closePath();
         const inner = new THREE.Path(); inner.moveTo(-rd.w / 2 - 1, -rd.w / 2 - 1); inner.lineTo(L + rd.w / 2 + 1, -rd.w / 2 - 1); inner.lineTo(L + rd.w / 2 + 1, rd.w / 2 + 1); inner.lineTo(-rd.w / 2 - 1, rd.w / 2 + 1); inner.closePath();
@@ -593,13 +625,18 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           for (let u = -len / 2 + pitch / 2; u < len / 2; u += pitch) {
             const tooth = new THREE.Mesh(new THREE.BoxGeometry(pitch / 2, 2.25 * d.module, T), carMat); tooth.position.set(u, -(root + 2.25 * d.module / 2 - 0.1), zt + T / 2); car.add(tooth);
           }
+          fixtureSwaps.push({ tag: `car:${f.id}`, hide: [...car.children], add: g2 => addReal(g2, carMat, 0, 0, 0, car) });
           const pinion = info.drive ? meshes.get(key(info.drive.pin, info.drive.gear.level)) : undefined;
           if (pinion && info.drive) {
             const rp = pitchR(size, info.drive.gear.teeth), ph = analysis.phase.get(key(info.drive.pin, info.drive.gear.level)) ?? 0, [lo, hi] = info.range;
+            // swing the input just short of the rack's ends (the pinion turns `rate` times the input)
+            const mo = analysis.motion.get(key(info.drive.pin, info.drive.gear.level)), rate = mo ? Math.abs(mo(1) - mo(0)) : 0;
+            if (rate > 1e-6) { const amp = (0.92 * (hi - lo)) / 2 / (rp * rate); s.rock = s.rock > 0 ? Math.min(s.rock, amp) : amp; }
             s.anims.push(() => { car.position.x = Math.min(hi, Math.max(lo, mid - rp * (pinion.rotation.z - ph))); });
           }
         } else {
           const baseM = new THREE.Mesh(new THREE.BoxGeometry(rd.carL, rd.w, rd.baseTop - rd.top), carMat); baseM.position.set(0, 0, (rd.baseTop + rd.top) / 2); car.add(baseM);
+          fixtureSwaps.push({ tag: `car:${f.id}`, hide: [baseM], add: g2 => addReal(g2, carMat, 0, 0, 0, car) });
           const zArm = lvlZ(size, c.level + 2);
           const tower = new THREE.Mesh(new THREE.BoxGeometry(rd.plugW, rd.plugW, zArm - rd.baseTop), carMat); tower.position.set(0, 0, (zArm + rd.baseTop) / 2); car.add(tower);
           const crank = info.drive ? meshes.get(key(info.drive.pin, info.drive.gear.level)) : undefined;
@@ -612,16 +649,22 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
               const side = new THREE.Mesh(new THREE.BoxGeometry(4, sl + 8, T), carMat); side.position.set(reach + sg * (aw / 2 - 2), 0, zArm + T / 2); car.add(side);
               const end = new THREE.Mesh(new THREE.BoxGeometry(aw, 4, T), carMat); end.position.set(reach, sg * (sl / 2 + 2), zArm + T / 2); car.add(end);
             }
+            fixtureSwaps.push({ tag: `top:${f.id}`, hide: car.children.filter(o => o !== baseM), add: g2 => addReal(g2, carMat, 0, 0, 0, car) });
             if (crank) s.anims.push(() => { car.position.x = yokeX(pu, reach, t, crank.rotation.z - fr.angle); });
           } else {
             const len = (c.link - 1) * g;
             const post = new THREE.Mesh(cyl(postD(size) / 2, d.level + 4, 16), boltMat); post.position.set(0, 0, zArm + d.level / 2); car.add(post);
             const link = new THREE.Mesh(new THREE.BoxGeometry(len + bearingOd + 6, bearingOd + 6, T), addonMat); link.position.set(len / 2, 0, zArm + T / 2); grp.add(link);
+            // the real link has its first hole on the crank's post and points at the carriage
+            const realLink = new THREE.Group(); grp.add(realLink);
+            fixtureSwaps.push({ tag: `top:${f.id}`, hide: [tower, post], add: g2 => addReal(g2, carMat, 0, 0, 0, car) });
+            fixtureSwaps.push({ tag: `link:${f.id}`, hide: [link], add: g2 => addReal(g2, addonMat, 0, 0, 0, realLink) });
             const pose = (phi: number) => {
               const x = sliderX(pu, t, len, phi);
               car.position.x = x;
               const px = pu + t * Math.cos(phi), py = t * Math.sin(phi);
               link.position.set((x + px) / 2, py / 2, zArm + T / 2); link.rotation.z = Math.atan2(py, px - x);
+              realLink.position.set(px, py, zArm - 1); realLink.rotation.z = Math.atan2(-py, x - px);
             };
             pose(0);
             if (crank) s.anims.push(() => pose(crank.rotation.z - fr.angle));
@@ -657,9 +700,11 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       void Promise.all(list.map(p => real.parts.load(p))).then(gs => { if (gs.every(Boolean) && st.current === s && s.gen === gen) fn(gs as THREE.BufferGeometry[]); });
     };
     const swap = (params: P | undefined, fn: (g: THREE.BufferGeometry) => void) => { if (params) swapAll([params], ([g]) => fn(g)); };
-    const addReal = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = s.group) => {
-      const mesh = new THREE.Mesh(g, m); mesh.position.set(x, y, z); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
-    };
+    function addReal(g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = s!.group, rotZ = 0, rotY = 0) {
+      const mesh = new THREE.Mesh(g, m); mesh.position.set(x, y, z); mesh.rotation.set(0, rotY, rotZ, "ZYX");
+      mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
+      return mesh;
+    }
     if (real) {
       swap(real.items.get("tile"), g => { for (const t of tileBoxes) { t.box.visible = false; addReal(g, topMat, t.x, t.y, 0); } });
       for (const kn of knobs) {
@@ -686,13 +731,44 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const z0 = mesh.position.z;
         const keep = new Set<THREE.Object3D>(planetsOf.get(key(pin, gear.level)) ?? []);   // the planets are parts of their own
         swap(p, g => {
-          if (p.part === "pawl") {
+          if (p.part === "pinion") {
+            mesh.geometry = g;   // the pinion sits on the motor shaft at its level, not 1 mm over a bearing
+          } else if (p.part === "pawl") {
             // the pawl is modelled with its ratchet at +x and stands on its bearing, not 1 mm over it
             mesh.geometry = g; (mesh.userData as ItemData).fixed = analysis.pawls.get(key(pin, gear.level)) ?? 0;
           } else { mesh.geometry = p.part === "anchor" ? quarterTurn(g) : g; mesh.position.z = z0 - 1; }
           for (const o of standKids.get(key(pin, gear.level)) ?? []) if (!keep.has(o)) o.visible = false;
           const up = p.part === "compound" ? meshes.get(key(pin, gear.level + 1)) : undefined;
           if (up) up.material = HIDDEN;
+        });
+      }
+      // motor mounts stand on the board, turned to the motor's side, with a knob on each leg
+      for (const mt of mounts) {
+        const mp = real.items.get(`mount:${mt.pin}`), kp = real.items.get(`mountknob:${mt.pin}`);
+        if (mp && kp) swapAll([mp, kp], ([mg, kg]) => {
+          mt.hide.forEach(o => (o.visible = false));
+          addReal(mg, motorMat, mt.x, mt.y, d.tile_h, s.group, (mt.dir * Math.PI) / 2);
+          for (const leg of mt.legs) addReal(kg, knobMat, mt.x + leg.x, mt.y + leg.y, d.tile_h + mt.H - boss);
+        });
+      }
+      for (const fs of fixtureSwaps) swap(real.items.get(fs.tag), g2 => { fs.hide.forEach(o => (o.visible = false)); fs.add(g2); });
+      for (const rs of ringSwaps) {
+        const rp = real.items.get(`ring:${rs.k}`);
+        swap(rp, rg => { rs.hide.forEach(o => (o.visible = false)); addReal(rg, addonMat, rs.x, rs.y, d.tile_h, s.group, rs.turn); });
+      }
+      // four-bar links: each link's first hole on its pivot, the joint post where they meet
+      for (const la of s.links) {
+        const rk = key(la.l.rocker.pin, la.l.rocker.gear.level);
+        const rp = real.items.get(`rockerlink:${rk}`), cp = real.items.get(`couplerlink:${rk}`), jp = real.items.get(`joint:${rk}`);
+        if (!rp || !cp || !jp) continue;
+        swapAll([rp, cp, jp], ([rg, cg, jg]) => {
+          la.rocker.visible = la.coupler.visible = false;
+          const cl = crankLinkLevel(la.l.crank.gear.level);
+          la.real = {
+            rocker: addReal(rg, addonMat, 0, 0, 0), coupler: addReal(cg, addonMat, 0, 0, 0), joint: addReal(jg, addonMat, 0, 0, 0),
+            zRocker: d.tile_h + lvlZ(size, la.l.rocker.gear.level) - 1, zCoupler: d.tile_h + lvlZ(size, cl) - 1, zJoint: d.tile_h + lvlZ(size, cl) - 2.5,
+          };
+          poseLinkage(la);
         });
       }
     }
@@ -729,4 +805,10 @@ function poseLinkage(a: LinkAnim) {
   };
   place(a.rocker, bx, by, jx, jy, a.z + a.barH / 2);
   place(a.coupler, px, py, jx, jy, a.z + a.barH / 2 + a.barH + 2);
+  const r = a.real;
+  if (r) {
+    r.rocker.position.set(bx, by, r.zRocker); r.rocker.rotation.z = Math.atan2(jy - by, jx - bx);
+    r.coupler.position.set(px, py, r.zCoupler); r.coupler.rotation.z = Math.atan2(jy - py, jx - px);
+    r.joint.position.set(jx, jy, r.zJoint);
+  }
 }

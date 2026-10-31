@@ -4,7 +4,8 @@
 // Planetary: the carrier is a 60T gear with four posts on its top face; two
 // (or four) standard 20T planets ride the posts on bearings, held by caps. A
 // standard 20T sun sits on the same pin one level up, inside a 60T ring gear
-// whose legs bolt into the sockets four steps away on either side. Sun in,
+// whose legs bolt into the sockets four steps away on either side, the socket
+// head screws sunk in the leg tops so a gear over the ring can pass. Sun in,
 // carrier out: 4:1, same direction. Drive the sun through a gear joined on
 // top of it.
 //
@@ -32,22 +33,39 @@ PLN_CARRIER = 60;                                                     // the pos
 RING_OR = gear_pr(PLN_RING) + 1.25 * MOD + 4;                         // outer radius of the ring
 RING_LEG = 4 * GRID;                                                  // leg sockets at (0, +-4)
 function ring_top(level) = drv_z(level) + GEAR_T;
+// the leg screw's head, sunk in the leg top: room for a DIN 912 socket head or an ISO 7380
+// button head of the bolt size, and never under 10 mm across: [d, h]
+RING_HEAD = sz([14, 8], [10.5, 6], [10, 5]);
+RING_CB_D = RING_HEAD[0] + 0.6;
+RING_LEG_D = max(LEG_D, RING_CB_D + 5);                               // 2.5 mm wall round the counterbore
+function ring_cb_z(level) = ring_top(level) - RING_HEAD[1] - 0.5;     // floor of the leg's counterbore
+// the leg screw: through the leg under the head, the plate and the captive nut
+function ring_bolt(level) = ceil((ring_cb_z(level) + PLATE_T + NUT_H) / 5) * 5;
 
 // The ring over the planets at `level` (2 or 3; the carrier is one level below).
-// Prints upside down, legs up.
+// Prints upside down, legs up. Each leg takes a socket or button head screw sunk below its top,
+// so nothing stands over the ring's level.
 module planet_ring(level = 2) {
     assert(level >= 2 && level <= 3, "the ring sits over the planets at level 2 or 3");
     z0 = drv_z(level);
     bolt = BOLT[0] + fit("bolt_clear");
+    cb = RING_CB_D; zc = ring_cb_z(level);
     difference() {
         union() {
             translate([0, 0, z0]) ring_gear(mod = MOD, teeth = PLN_RING, thickness = GEAR_T, or = RING_OR, pressure_angle = PA, backlash = fit("backlash"), anchor = BOTTOM);
             for (s = [-1, 1]) {
-                translate([0, s * RING_LEG, 0]) cylinder(d = LEG_D, h = z0 + GEAR_T);
-                translate([-LEG_D / 2, s > 0 ? RING_OR - 3 : -RING_LEG, z0]) cube([LEG_D, RING_LEG - RING_OR + 3, GEAR_T]);
+                translate([0, s * RING_LEG, 0]) cylinder(d = RING_LEG_D, h = z0 + GEAR_T);
+                translate([-RING_LEG_D / 2, s > 0 ? RING_OR - 3 : -RING_LEG, z0]) cube([RING_LEG_D, RING_LEG - RING_OR + 3, GEAR_T]);
             }
         }
-        for (s = [-1, 1]) translate([0, s * RING_LEG, -EPS]) cylinder(d = bolt, h = z0 + GEAR_T + 2 * EPS);
+        for (s = [-1, 1]) translate([0, s * RING_LEG, 0]) {
+            translate([0, 0, -EPS]) cylinder(d = bolt, h = z0 + GEAR_T + 2 * EPS);
+            translate([0, 0, zc]) cylinder(d = cb, h = z0 + GEAR_T);
+            // printed upside down the counterbore's floor is a roof: two 0.3 mm bridge steps
+            // (a slot, then a square) carry it over the bolt hole without supports
+            translate([-bolt / 2, -cb / 2, zc - 0.3]) cube([bolt, cb, 0.3 + EPS]);
+            translate([-bolt / 2, -bolt / 2, zc - 0.6]) cube([bolt, bolt, 0.3 + EPS]);
+        }
     }
 }
 
