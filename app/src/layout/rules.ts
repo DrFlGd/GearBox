@@ -600,11 +600,16 @@ export type BomLine = { name: string; title: string; qty: number; params?: Recor
  *  With jaws, each item's top face gets jaws only where something is joined onto it (or a crank or
  *  pointer keys onto it) and is flat otherwise, so a free item can sit right above it; a joined pair
  *  too small for the jaws gets dowel pin holes in both faces instead. */
-export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: BomLine[]; hardware: BomLine[] } {
+export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: BomLine[]; hardware: BomLine[]; items: Map<string, Record<string, string | number>> } {
   const s = std(l.size);
   const printed = new Map<string, BomLine>();
   const hardware = new Map<string, BomLine>();
+  // `items`: the printed part behind each thing on the board, for the 3D view: "tile", "knob:<pin>",
+  // and key(pin, level) for each item. Set `tag` and the next printed part is recorded under it.
+  const items = new Map<string, Record<string, string | number>>();
+  let tag: string | null = null;
   const addP = (name: string, title: string, params: Record<string, string | number>, qty = 1) => {
+    if (tag) { items.set(tag, params); tag = null; }
     const e = printed.get(name); if (e) e.qty += qty; else printed.set(name, { name, title, qty, params });
   };
   const addH = (name: string, title: string, qty = 1) => { const e = hardware.get(name); if (e) e.qty += qty; else hardware.set(name, { name, title, qty }); };
@@ -622,6 +627,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
   const leverCranks = new Set(l.pins.flatMap(p => p.gears.filter(x => kindOf(x) === "qrlever" && x.crank).map(x => x.crank!)));
   const fixtureCranks = new Map<string, "yoke" | "slider">();
 
+  tag = "tile";
   addP(`B${l.tile.nx}x${l.tile.ny}`, `Tile ${l.tile.nx}x${l.tile.ny}`, { part: "tile", tile_nx: l.tile.nx, tile_ny: l.tile.ny, flip: "true" }, l.tiles.cols * l.tiles.rows);
   // fixtures first: they decide which cranks get a handle
   for (const f of l.fixtures ?? []) {
@@ -670,7 +676,9 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
       continue;
     }
     const dialOnJaws = topG.topper === "pointer" && jaws && hasJaws(l.size, topG, "top");
+    tag = `knob:${pin.id}`;
     if (topG.topper === "pointer") addP(dialOnJaws ? "DIALK" : jaws ? "DIALK-P" : "DIALK", "Dial knob", { part: "dial_knob", ...(jaws && !dialOnJaws ? { joint: "pins" } : {}) }); else addP("K", "Bolt knob", { part: "knob" });
+    tag = null;
     addP("BS", "Base spacer", { part: "base_spacer" });
     if (dialOnJaws) { const lv = String(Math.min(4, used)); addH(`dial-bolt-${lv}`, `${s.bolt} x ${s.dial_bolt_lengths[lv] ?? "?"} mm hex bolt (under the dial knob)`); }
     else bolt(Math.min(4, used));
@@ -702,6 +710,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
       const kind = kindOf(x);
       if (kind === "gear" && !x.topper && above?.joined && above.coupling !== "magnetic" && kindOf(above) === "gear" && x.teeth > above.teeth && above.level === x.level + 1) {
         const f = faces(x, above);
+        tag = key(pin, x.level);
         addP(`G${x.teeth}-${above.teeth}${f.suffix}`, `Compound ${x.teeth}T over ${above.teeth}T${f.note}`, { part: "compound", teeth: x.teeth, teeth_upper: above.teeth, face: "spokes", ...f.params });
         bearing(2);
         spacer(3); // between the compound's two bearings
@@ -711,6 +720,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
         continue;
       }
       const f = faces(x, x), sf = f.suffix, nt = f.note, fp = f.params;
+      tag = key(pin, x.level);
       switch (kind) {
         case "gear":
           if (x.topper === "spring") addP(`SG${x.teeth}${sf}`, `Spring gear ${x.teeth}T${nt}`, { part: "spring_gear", teeth: x.teeth, ...fp });
@@ -758,6 +768,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
         case "flywheel": addP(`FLYWHEEL${sf}`, `Flywheel, eight nut pockets${nt}`, { part: "flywheel", ...fp }); bearing(); addH("nut", `${s.nut} nut`, 8); break;
         case "maggear": { const n = magPoles(x); addP(`MG${n}${sf}`, `Magnetic gear, ${n} magnets (like a ${x.teeth}T)${nt}`, { part: "mag_gear", poles: n, ...fp }); bearing(); magnets(n); break; }
       }
+      tag = null;
       topper(x);
       if (above) joinTo(x, above);
     }
@@ -780,18 +791,22 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
     function topper(x: Gear) {
       // with jaws a crank or pointer keys onto the item's jaws; on an item too small for them it takes the pins
       const keyed = !jaws || hasJaws(l.size, x, "top"), p: Record<string, string> = keyed ? {} : { joint: "pins" }, ps = keyed ? "" : "-P";
+      const tk = key(pin, x.level);
+      tag = `pointer:${tk}`;
       if (x.topper === "pointer") { addP(`PTR${ps}`, `Pointer${keyed ? "" : ", pinned"}`, { part: "pointer", flip: "true", ...p }); if (!jaws || !keyed) hubPins(); }
       if (x.topper === "spring") addP("SPRING", "Spiral wind-up spring", { part: "spring" });
       if (x.topper === "crank") {
         const t = x.throw ?? 2 * s.grid;
+        tag = `crank:${tk}`;
         addP(`CRANK${t}${ps}`, `Crank, ${t} mm throw${keyed ? "" : ", pinned"}`, { part: "crank", throw: t, flip: "true", ...p });
         if (!jaws || !keyed) hubPins();
         // the post is a kit bolt, head in the arm's pocket, with a nut on top of what rides it
         const fx = fixtureCranks.get(pin.id);
         if (linkageCranks.has(pin.id)) postBolt(hw.crank_bolt);                                // the link's bearing is counted with the rocker
         else if (leverCranks.has(pin.id) || fx) { postBolt(hw.crank_bolt); bearing(); }
-        else { postBolt(hw.handle_bolt); addP("SH", "Handle spacer", { part: "handle_spacer" }); addP("HANDLE", "Handle grip", { part: "handle" }); }
+        else { postBolt(hw.handle_bolt); tag = `sh:${tk}`; addP("SH", "Handle spacer", { part: "handle_spacer" }); tag = `handle:${tk}`; addP("HANDLE", "Handle grip", { part: "handle" }); }
       }
+      tag = null;
     }
     function spacersBetween(lo: number, hi: number) {
       for (let kk = lo; kk < hi; kk++) {
@@ -801,7 +816,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
     }
   }
   if (l.bands?.length) addH("band", "rubber band or O-ring", l.bands.length);
-  return { printed: [...printed.values()], hardware: [...hardware.values()] };
+  return { printed: [...printed.values()], hardware: [...hardware.values()], items };
 }
 
 export const ratioText = (w: number) => {

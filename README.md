@@ -328,8 +328,21 @@ The 3D views share one look (`app/src/components/look.ts`): curved surfaces
 shade smooth while edges sharper than 35 degrees stay crisp, a soft room
 environment and a shadow-casting key light give depth, and a contact shadow
 sits under the model. It is display only, so it changes no render, download
-or cached model. The Layout tab draws its gears in the browser with true
-involute teeth on the same pitch, tip and root circles as the printed gears.
+or cached model.
+
+The Layout tab shows the real printed parts. The bill of materials records
+which part (and which faces: jaws, flat top, pin holes) each thing on the
+board is, and `app/src/layout/realParts.ts` renders each distinct part once
+through the same worker and browser cache as the Kits view and the downloads.
+Until a part is ready the board draws a quick stand-in (involute gears,
+boxes, cylinders), so a new board fills in over a few seconds per distinct
+part and opens at once after that. Real so far: tiles, knobs and dial knobs,
+gears and compounds, pulleys, partial, spring, magnetic and worm gears, bevels,
+flywheels, ratchet and pawl, cams and follower, Geneva driver and wheel,
+escape wheel and anchor, quick-return lever, winch drum, planet carrier, and
+the crank, handle and pointer on a gear. Motor mounts, rails and carriages,
+the shaft bracket, the planetary ring, links, caps and the spring spiral are
+still stand-ins.
 
 ### The layout tester
 

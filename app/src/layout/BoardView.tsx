@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { studio, type Studio } from "../components/look";
+import type { RealParts } from "./realParts";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
   ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
@@ -15,7 +16,18 @@ export type Pick = { kind: "socket"; i: number; j: number } | { kind: "gear"; pi
 type Props = {
   layout: Layout; analysis: Analysis; selected: { pin?: string; i: number; j: number } | null; selectedFixture?: string | null;
   playing: boolean; onPick: (p: Pick) => void; onHover: (p: Pick) => void;
+  /** The printed part behind each thing on the board (from the bill of materials) and where to load it. */
+  real?: { items: Map<string, Record<string, string | number>>; parts: RealParts } | null;
 };
+
+/** Items drawn with their real printed part once it has loaded (the rest keep their stand-in for now). */
+const REAL_ITEMS = new Set(["gear", "compound", "pulley", "flywheel", "spring_gear", "partial", "ratchet", "pawl", "cam", "follower", "geneva_driver", "geneva_wheel",
+  "escape_wheel", "anchor", "qr_lever", "winch", "carrier", "bevel", "worm_gear", "mag_gear"]);
+/** Draws nothing but can still be picked: the upper gear of a compound, which the compound's own mesh shows. */
+const HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
+/** The anchor is modelled with its wheel at -y; the view's frame has the wheel at +x. */
+const turned = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
+const quarterTurn = (g: THREE.BufferGeometry) => { let t = turned.get(g); if (!t) { t = g.clone().rotateZ(Math.PI / 2); turned.set(g, t); } return t; };
 
 const COLORS = { driven: 0xe8b44c, idle: 0x7a8296, collide: 0xff6b62, input: 0x7ee787, board: 0x2b3240, boardTop: 0x343c4c, socket: 0x171a21, socketHover: 0xe8b44c, bolt: 0xb8bec9, knob: 0xd9dde5, select: 0x58a6ff, addon: 0xc9a2ff, band: 0x3c3c3c, motor: 0x4a5568, rail: 0x5c6b8a, carriage: 0x8fa3c7, north: 0xd9534f, south: 0x4f7fd9 };
 
@@ -27,12 +39,12 @@ const cyl = (r: number, h: number, seg = 40) => new THREE.CylinderGeometry(r, r,
 const cylUp = (r: number, h: number, seg = 40) => cyl(r, h, seg).translate(0, 0, h / 2);
 
 /** The virtual board: tiles, sockets, bolts, gears, add-ons and fixtures; click to pick, animated when playing. */
-export default function BoardView({ layout, analysis, selected, selectedFixture, playing, onPick, onHover }: Props) {
+export default function BoardView({ layout, analysis, selected, selectedFixture, playing, onPick, onHover, real = null }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const st = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     group: THREE.Group; gears: THREE.Object3D[]; fixtures: THREE.Object3D[]; sockets: THREE.InstancedMesh | null; socketIndex: { i: number; j: number }[];
-    links: LinkAnim[]; anims: ((theta: number) => void)[]; theta: number; last: number; playing: boolean; rpm: number; hoverIdx: number; fittedFor: string; look: Studio;
+    links: LinkAnim[]; anims: ((theta: number) => void)[]; theta: number; last: number; playing: boolean; rpm: number; hoverIdx: number; fittedFor: string; look: Studio; gen: number;
   } | null>(null);
   const cb = useRef({ onPick, onHover });
   cb.current = { onPick, onHover };
@@ -49,7 +61,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     controls.enableDamping = true; controls.dampingFactor = 0.12;
     const look = studio(renderer, scene);
     const group = new THREE.Group(); scene.add(group);
-    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "", look };
+    const s = { renderer, scene, camera, controls, group, gears: [] as THREE.Object3D[], fixtures: [] as THREE.Object3D[], sockets: null as THREE.InstancedMesh | null, socketIndex: [] as { i: number; j: number }[], links: [] as LinkAnim[], anims: [] as ((theta: number) => void)[], theta: 0, last: performance.now(), playing: false, rpm: 10, hoverIdx: -1, fittedFor: "", look, gen: 0 };
     st.current = s;
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
     const ro = new ResizeObserver(resize); ro.observe(el); resize();
@@ -134,6 +146,11 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     const d = std(size);
     s.group.clear(); s.gears = []; s.fixtures = []; s.sockets = null; s.socketIndex = []; s.hoverIdx = -1; s.links = []; s.anims = [];
     const W = boardW(layout), H = boardH(layout), g = d.grid, T = d.gear_thickness;
+    const tileBoxes: { box: THREE.Mesh; x: number; y: number }[] = [];
+    const standKids = new Map<string, THREE.Object3D[]>();
+    const knobs: { pin: string; knob: THREE.Mesh; x: number; y: number; z: number; dial?: THREE.Mesh }[] = [];
+    // toppers riding a gear: the stand-in pieces the real crank or pointer replaces
+    const toppers: { k: string; mesh: THREE.Mesh; kind: "crank" | "pointer"; hide: THREE.Object3D[]; grip?: THREE.Mesh; t: number }[] = [];
     // tiles
     const tileMat = new THREE.MeshStandardMaterial({ color: COLORS.board, roughness: 0.9 });
     const topMat = new THREE.MeshStandardMaterial({ color: COLORS.boardTop, roughness: 0.9 });
@@ -142,6 +159,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       const box = new THREE.Mesh(new THREE.BoxGeometry(tw - 0.6, th - 0.6, d.tile_h), [tileMat, tileMat, tileMat, tileMat, topMat, tileMat]);
       box.position.set(c * tw + tw / 2, r * th + th / 2, d.tile_h / 2);
       s.group.add(box);
+      tileBoxes.push({ box, x: c * tw, y: r * th });
     }
     // sockets
     const n = W * H;
@@ -233,9 +251,12 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         const knob = new THREE.Mesh(cyl(d.knob_d / 2, knobH), knobMat);
         knob.position.set(pos.x, pos.y, topZ + knobH / 2);
         s.group.add(knob);
+        // the real knob sits on the top bearing, as in the kit assemblies
+        if (hasGears) knobs.push({ pin: pin.id, knob, x: pos.x, y: pos.y, z: d.tile_h + lvlZ(size, used) + T - 1 });
         if (topG?.topper === "pointer") {
           const disc = new THREE.Mesh(cyl(d.dial_r, 2.5, 48), knobMat);
           disc.position.set(pos.x, pos.y, topZ + 1.25); s.group.add(disc);
+          knobs[knobs.length - 1].dial = disc;
         }
       }
       if (selected?.pin === pin.id) {
@@ -386,6 +407,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           mesh = hub(itemR(size, gear));
         }
         mesh.position.set(pos.x, pos.y, z);
+        standKids.set(k, [...mesh.children]);   // the stand-in's own pieces, not the toppers added below
         const posed = kind === "rocker" || kind === "pawl" || kind === "follower" || kind === "anchor" || kind === "qrlever";
         const data: ItemData = { pin: pin.id, level: gear.level, motion: posed ? undefined : analysis.motion.get(k), fixed: posed ? 0 : analysis.phase.get(k) ?? 0 };
         mesh.userData = data;
@@ -401,15 +423,18 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           if (drivesSomething(pin.id, gear.level)) {
             const brg = new THREE.Mesh(cyl(boreR, Number(d.bearing.split("x")[2]) || 7, 24), boltMat);
             brg.position.set(t, 0, 2 * d.level + T / 2); mesh.add(brg);
+            toppers.push({ k, mesh, kind: "crank", hide: [ring, arm], t });
           } else {
             const grip = new THREE.Mesh(cyl(boltR + 3, 26, 20), addonMat);
             grip.position.set(t, 0, T + d.level + 2 + 14); mesh.add(grip);
+            toppers.push({ k, mesh, kind: "crank", hide: [ring, arm], grip, t });
           }
         }
         if (gear.topper === "pointer") {
           const reach = pointerReach(size);
           const arm = new THREE.Mesh(new THREE.BoxGeometry(reach - 6, 3 * d.module, 2), addonMat);
           arm.position.set((reach + 6) / 2, 0, T + 1); mesh.add(arm);
+          toppers.push({ k, mesh, kind: "pointer", hide: [arm], t: 0 });
         }
         if (gear.topper === "spring") {
           // the wall on the gear and the spiral inside it
@@ -622,6 +647,55 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       s.camera.position.set(cx, cy - dist * 0.55, dist * 0.85);
       s.camera.near = Math.max(0.1, dist / 100); s.camera.far = dist * 20; s.camera.updateProjectionMatrix();
     }
+    // the real printed parts: swap each stand-in for its OpenSCAD part as soon as that has loaded
+    const gen = ++s.gen;
+    type P = Record<string, string | number>;
+    const swapAll = (list: P[], fn: (gs: THREE.BufferGeometry[]) => void) => {
+      if (!real) return;
+      const now = list.map(p => real.parts.ready(p));
+      if (now.every(Boolean)) { fn(now as THREE.BufferGeometry[]); return; }
+      void Promise.all(list.map(p => real.parts.load(p))).then(gs => { if (gs.every(Boolean) && st.current === s && s.gen === gen) fn(gs as THREE.BufferGeometry[]); });
+    };
+    const swap = (params: P | undefined, fn: (g: THREE.BufferGeometry) => void) => { if (params) swapAll([params], ([g]) => fn(g)); };
+    const addReal = (g: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = s.group) => {
+      const mesh = new THREE.Mesh(g, m); mesh.position.set(x, y, z); mesh.castShadow = mesh.receiveShadow = true; parent.add(mesh);
+    };
+    if (real) {
+      swap(real.items.get("tile"), g => { for (const t of tileBoxes) { t.box.visible = false; addReal(g, topMat, t.x, t.y, 0); } });
+      for (const kn of knobs) {
+        const p = real.items.get(`knob:${kn.pin}`);
+        if (p?.part === "knob" || p?.part === "dial_knob") swap(p, g => { kn.knob.visible = false; if (kn.dial) kn.dial.visible = false; addReal(g, knobMat, kn.x, kn.y, kn.z); });
+      }
+      // a crank or pointer sits on its gear's top face (z = T in the real gear's frame) and turns with it
+      for (const tp of toppers) {
+        const p = real.items.get(`${tp.kind}:${tp.k}`);
+        if (!p) continue;
+        swap(p, g => { tp.hide.forEach(o => (o.visible = false)); addReal(g, addonMat, 0, 0, T, tp.mesh); });
+        const hp = real.items.get(`handle:${tp.k}`), sp = real.items.get(`sh:${tp.k}`);
+        if (tp.grip && hp && sp) swapAll([p, sp, hp], ([c, spacerG, h]) => {
+          // the handle spacer and grip ride the crank's bolt post, from the arm's top
+          const zt = T + c.boundingBox!.max.z;
+          tp.grip!.visible = false;
+          addReal(spacerG, addonMat, tp.t, 0, zt, tp.mesh); addReal(h, addonMat, tp.t, 0, zt + 0.5, tp.mesh);
+        });
+      }
+      for (const pin of layout.pins) for (const gear of pin.gears) {
+        const p = real.items.get(key(pin, gear.level)), mesh = meshes.get(key(pin, gear.level));
+        if (!p || !mesh || !REAL_ITEMS.has(String(p.part))) continue;
+        // the stand-in stands 1 mm higher than the real part, whose bottom face is 1 mm over its bearing's
+        const z0 = mesh.position.z;
+        const keep = new Set<THREE.Object3D>(planetsOf.get(key(pin, gear.level)) ?? []);   // the planets are parts of their own
+        swap(p, g => {
+          if (p.part === "pawl") {
+            // the pawl is modelled with its ratchet at +x and stands on its bearing, not 1 mm over it
+            mesh.geometry = g; (mesh.userData as ItemData).fixed = analysis.pawls.get(key(pin, gear.level)) ?? 0;
+          } else { mesh.geometry = p.part === "anchor" ? quarterTurn(g) : g; mesh.position.z = z0 - 1; }
+          for (const o of standKids.get(key(pin, gear.level)) ?? []) if (!keep.has(o)) o.visible = false;
+          const up = p.part === "compound" ? meshes.get(key(pin, gear.level + 1)) : undefined;
+          if (up) up.material = HIDDEN;
+        });
+      }
+    }
     // shadows: solid parts cast and catch them; flat markers (sockets, selection rings, outlines) stay out
     s.group.traverse(o => {
       const m = o as THREE.Mesh;
@@ -631,7 +705,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
       m.castShadow = m.receiveShadow = true;
     });
     s.look.fit(new THREE.Box3().setFromObject(s.group));
-  }, [layout, analysis, selected, selectedFixture]);
+  }, [layout, analysis, selected, selectedFixture, real]);
 
   return <div className="viewer board" ref={host} />;
 }

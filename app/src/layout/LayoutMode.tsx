@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
   MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
@@ -6,7 +6,8 @@ import {
 } from "./model";
 import { analyze, billOfMaterials, jawPair, key, label, ratioText } from "./rules";
 import { decodeLayout, encodeLayout } from "./share";
-import { partKind, type Joint, type Overrides, type Params, type Profile, type Size } from "../parts";
+import { realParts } from "./realParts";
+import { defines, partKind, type Joint, type Overrides, type Params, type Profile, type Size } from "../parts";
 import KitDownloads from "../components/KitDownloads";
 import type { RenderResult } from "../engine/protocol";
 
@@ -73,6 +74,11 @@ export default function LayoutMode({ size, profile, overrides, joint, render, en
 
   const analysis = useMemo(() => analyze(layout, joint), [layout, joint]);
   const bom = useMemo(() => billOfMaterials(layout, joint), [layout, joint]);
+  // the real printed parts for the 3D view, rendered once each and cached with the downloads' renders
+  const renderNow = useRef(render);
+  renderNow.current = render;
+  const parts = useMemo(() => realParts(({ part, ...params }) => defines(String(part), params, size, profile, overrides, joint), d => renderNow.current(d)), [size, profile, overrides, joint]);
+  const real = useMemo(() => (engineReady ? { items: bom.items, parts } : null), [engineReady, bom.items, parts]);
   const d = std(layout.size);
   const selPin = selected ? layout.pins.find(p => p.x === selected.i && p.y === selected.j) : undefined;
   const selFix = selectedFixture ? (layout.fixtures ?? []).find(f => f.id === selectedFixture) : undefined;
@@ -246,7 +252,7 @@ export default function LayoutMode({ size, profile, overrides, joint, render, en
           </span>
           <span className="legend"><i style={{ background: "#7ee787" }} /> input <i style={{ background: "#e8b44c" }} /> driven <i style={{ background: "#7a8296" }} /> free <i style={{ background: "#c9a2ff" }} /> add-on <i style={{ background: "#ff6b62" }} /> collides</span>
         </div>
-        <BoardView layout={layout} analysis={analysis} selected={selected ? { ...selected, pin: selPin?.id } : null} selectedFixture={selectedFixture} playing={playing} onPick={onPick} onHover={setHover} />
+        <BoardView layout={layout} analysis={analysis} selected={selected ? { ...selected, pin: selPin?.id } : null} selectedFixture={selectedFixture} playing={playing} onPick={onPick} onHover={setHover} real={real} />
       </main>
 
       <aside className="panel">
