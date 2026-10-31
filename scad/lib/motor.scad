@@ -11,8 +11,8 @@
 // N20 "micro metal gearmotor": 12 x 10 mm body, 3 mm D shaft 10 mm long, two
 // M1.6 holes 9 mm apart on the gearbox face. Pick a 100:1 or 300:1 ratio.
 
-include <standard.scad>
-include <gear.scad>
+// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 NEMA_SHAFT_D = 5;
 N20_W = 12; N20_H = 10; N20_HOLE_PITCH = 9; N20_SHAFT_D = 3; N20_SHAFT_L = 10;

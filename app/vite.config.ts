@@ -7,6 +7,8 @@ import path from "node:path";
 // wasm inlined. It is served as-is from /engine/openscad.js instead of being
 // bundled, and the worker imports it at runtime.
 const engineSrc = path.resolve(__dirname, "../node_modules/openscad-wasm-prebuilt/dist/openscad.js");
+// part of the browser render cache key (src/engine/cache.ts)
+const engineVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../node_modules/openscad-wasm-prebuilt/package.json"), "utf8")).version;
 
 function engine(): Plugin {
   return {
@@ -34,6 +36,7 @@ export default defineConfig({
   root: __dirname,
   base: process.env.GEARBOX_BASE ?? "/GearBox/",
   plugins: [react(), engine()],
+  define: { __ENGINE_VERSION__: JSON.stringify(engineVersion) },
   build: {
     outDir: path.resolve(__dirname, "../dist"),
     emptyOutDir: true,

@@ -19,9 +19,8 @@
 //
 // Levels: a part at level k has its bottom at lvl_z(k) above the plate top.
 
-include <standard.scad>
-include <gear.scad>
-include <addons.scad>
+// Needs standard.scad, gear.scad, addons.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 function lvl_z(k) = BASE_SPACER_H + (k - 1) * LEVEL;
 

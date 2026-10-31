@@ -10,8 +10,8 @@
 // The jaws sit on the hub between the bearing seat and the root circle of the
 // smallest jaw gear (20T), so every jaw gear fits every other.
 
-include <standard.scad>
-include <gear.scad>
+// Needs standard.scad, gear.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 JAW_N      = 3;
 JAW_ARC    = 40;                                  // degrees of arc per jaw

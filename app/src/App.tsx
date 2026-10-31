@@ -21,7 +21,7 @@ const LS_KEY = "gearbox.settings";
 
 type Selection = { kindId: string; params: Params };
 type Settings = { size: Size; profile: Profile; overrides: Overrides; auto: boolean };
-type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; hw?: Uint8Array | null; seconds: number; messages: string[]; log: string[] };
+type RenderState = { status: "idle" | "rendering" | "done" | "error"; name: string; stl: Uint8Array | null; hw?: Uint8Array | null; seconds: number; messages: string[]; log: string[]; cached?: boolean };
 
 function loadSettings(): Settings {
   try {
@@ -99,13 +99,13 @@ export default function App() {
     const asm = kind.id === "assembly";
     const result: RenderResult = await c.render(asm ? [...defs, `layer="printed"`] : defs, "stl", onLine);
     if (result.messages[0] === "Cancelled") return;
-    let hw: Uint8Array | null = null, seconds = result.seconds;
+    let hw: Uint8Array | null = null, seconds = result.seconds, cached = result.cached;
     if (asm && result.ok) {
       const h = await c.render([...defs, `layer="hardware"`], "stl", onLine);
       if (h.messages[0] === "Cancelled") return;
-      if (h.ok) hw = h.bytes; seconds += h.seconds;
+      if (h.ok) hw = h.bytes; seconds += h.seconds; cached = cached && h.cached;
     }
-    setRender({ status: result.ok ? "done" : "error", name, stl: result.ok ? result.bytes : null, hw, seconds, messages: result.messages, log: result.log });
+    setRender({ status: result.ok ? "done" : "error", name, stl: result.ok ? result.bytes : null, hw, seconds, messages: result.messages, log: result.log, cached });
   }, [defs, name, kind.id]);
 
   // Auto-render: the first time the engine is ready, and after each change (debounced).
@@ -195,7 +195,7 @@ export default function App() {
               {engine === "ready" && render.status === "rendering" && `Rendering ${render.name}… ${liveLog.current.length ? `(${liveLog.current.length} lines)` : ""}`}
               {engine === "ready" && render.status === "done" && size && (
                 <>
-                  <b>{render.name}</b> · {size.map(v => v.toFixed(1)).join(" × ")} mm · {(mesh!.triangles.length / 3).toLocaleString()} triangles · {render.seconds.toFixed(1)} s
+                  <b>{render.name}</b> · {size.map(v => v.toFixed(1)).join(" × ")} mm · {(mesh!.triangles.length / 3).toLocaleString()} triangles · {render.cached ? "from cache" : `${render.seconds.toFixed(1)} s`}
                   {render.messages.some(m => /WARNING/.test(m)) && <span className="badge warn" title={render.messages.join("\n")}>warnings</span>}
                 </>
               )}

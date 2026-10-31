@@ -5,7 +5,8 @@
 // in multiples of 10 land on the grid; two gears mesh when their tooth counts
 // add up to a multiple of 20. Gears print flat, either face down.
 
-include <standard.scad>
+// Needs standard.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 include <BOSL2/std.scad>
 include <BOSL2/gears.scad>
 

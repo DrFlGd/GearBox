@@ -3,9 +3,8 @@
 // holes (slip fit) and a press-fit pin hole, plus a magnet pocket. Print it with
 // a knob and a spacer; try a bolt, a nut, a bearing, a dowel pin and a magnet.
 
-include <standard.scad>
-include <gear.scad>
-include <board.scad>
+// Needs standard.scad, gear.scad, board.scad: gearbox.scad includes each library file once (a nested
+// include would parse BOSL2 again for every file that pulls it in).
 
 module coupon() {
     W = 2 * GRID; H = GRID;

@@ -6,6 +6,7 @@ name: Release
 # source changed since the previous release (the OpenSCAD library, the catalog,
 # BOSL2, the render tools or the engine version); otherwise the previous
 # release's zips are carried over under the new version. `parts` forces either.
+# A fresh render runs one job per profile in parallel, each on every core.
 on:
   push:
     tags: ["v*"]
@@ -26,22 +27,21 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      prev: ${{ steps.parts.outputs.prev }}
+      render: ${{ steps.parts.outputs.render }}
+      note: ${{ steps.parts.outputs.note }}
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: true
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
       - name: Pick the version
         id: ver
         run: echo "tag=${{ inputs.version || github.ref_name }}" >> "$GITHUB_OUTPUT"
-      - name: Render or reuse the STL zips
+      - name: Render or reuse the STL zips?
         id: parts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -49,35 +49,73 @@ jobs:
           MODE: ${{ inputs.parts || 'auto' }}
         run: |
           prev=$(gh api "repos/${{ github.repository }}/releases?per_page=20" --jq '.[] | select(.draft | not) | .tag_name' | grep -vx "$TAG" | head -1 || true)
+          echo "prev=$prev" >> "$GITHUB_OUTPUT"
           mode=$MODE
           if [ "$mode" = auto ]; then
-            if [ -n "$prev" ] && git diff --quiet "$prev" HEAD -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/stl-stats.mjs package-lock.json; then mode=reuse; else mode=render; fi
+            if [ -n "$prev" ] && git diff --quiet "$prev" HEAD -- scad catalog lib tools/render.mjs tools/render-catalog.mjs tools/render-worker.mjs tools/stl-stats.mjs package-lock.json; then mode=reuse; else mode=render; fi
           fi
-          if [ "$mode" = reuse ]; then
-            if [ -n "$prev" ] && gh release download "$prev" -p 'gearbox-*-stl-*.zip' && ls gearbox-*-stl-*.zip >/dev/null 2>&1; then
-              for f in gearbox-"$prev"-stl-*.zip; do mv "$f" "${f/$prev/$TAG}"; done
-              echo "note=STL zips: no part changed since $prev, so these are the same parts as $prev." >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "No zips to reuse from '$prev', rendering instead."
+          if [ "$mode" = reuse ] && [ -n "$prev" ] && gh release view "$prev" --json assets --jq '.assets[].name' | grep -q '^gearbox-.*-stl-.*\.zip$'; then
+            echo "render=false" >> "$GITHUB_OUTPUT"
+            echo "note=STL zips: no part changed since $prev, so these are the same parts as $prev." >> "$GITHUB_OUTPUT"
+          else
+            [ "$mode" = reuse ] && echo "No zips to reuse from '$prev', rendering instead."
+            echo "render=true" >> "$GITHUB_OUTPUT"
+            echo "note=STL zips: every catalog part rendered fresh for this release." >> "$GITHUB_OUTPUT"
           fi
-          echo "render=true" >> "$GITHUB_OUTPUT"
-          echo "note=STL zips: every catalog part rendered fresh for this release." >> "$GITHUB_OUTPUT"
-      - name: Render every size and profile
-        if: steps.parts.outputs.render == 'true'
+
+  render:
+    needs: plan
+    if: needs.plan.outputs.render == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        profile: [PLA, PETG, ABS]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Render every size in ${{ matrix.profile }}
         run: |
-          for p in PLA PETG ABS; do
-            node tools/render-catalog.mjs --profile $p --out out
-            for s in M2 M1.5 M1; do
-              (cd out/$s && zip -qr ../../gearbox-${{ steps.ver.outputs.tag }}-stl-$s-$p.zip $p)
-            done
+          node tools/render-catalog.mjs --profile ${{ matrix.profile }} --out out
+          for s in M2 M1.5 M1; do
+            (cd out/$s && zip -qr ../../gearbox-${{ needs.plan.outputs.tag }}-stl-$s-${{ matrix.profile }}.zip ${{ matrix.profile }})
           done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zips-${{ matrix.profile }}
+          path: gearbox-*.zip
+          retention-days: 1
+
+  publish:
+    needs: [plan, render]
+    if: always() && needs.plan.result == 'success' && (needs.render.result == 'success' || needs.render.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.render == 'true'
+        with:
+          pattern: zips-*
+          merge-multiple: true
+      - name: Carry over the previous release's zips
+        if: needs.plan.outputs.render != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREV: ${{ needs.plan.outputs.prev }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          gh release download "$PREV" -R "${{ github.repository }}" -p 'gearbox-*-stl-*.zip'
+          for f in gearbox-"$PREV"-stl-*.zip; do mv "$f" "${f/$PREV/$TAG}"; done
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.ver.outputs.tag }}
+          tag_name: ${{ needs.plan.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: ${{ steps.ver.outputs.tag }}
-          body: ${{ steps.parts.outputs.note }}
+          name: ${{ needs.plan.outputs.tag }}
+          body: ${{ needs.plan.outputs.note }}
           generate_release_notes: true
           files: gearbox-*.zip

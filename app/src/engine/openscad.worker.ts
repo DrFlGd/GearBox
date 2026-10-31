@@ -1,7 +1,9 @@
 // Web Worker that runs OpenSCAD (WASM, Manifold backend) on the embedded kit.
 // One fresh engine instance per render: the emscripten main() cannot be called
-// twice on the same instance.
+// twice on the same instance. A request rendered before comes from the browser
+// cache (cache.ts) without starting the engine.
 import { files, WORK_DIR } from "./files";
+import { getCached, putCached, renderKey } from "./cache";
 import type { RenderRequest, WorkerMessage } from "./protocol";
 
 type Engine = {
@@ -47,6 +49,13 @@ function mount(FS: FileSystem) {
 }
 
 async function render(req: Extract<RenderRequest, { kind: "render" }>) {
+  const key = await renderKey(req.defines, req.format).catch(() => null);
+  const hit = key ? await getCached(key) : null;
+  if (hit) {
+    send({ type: "log", id: req.id, text: `Loaded from the browser cache (first rendered in ${hit.seconds.toFixed(1)} s).` });
+    send({ type: "done", id: req.id, ok: true, bytes: hit.bytes, seconds: hit.seconds, messages: hit.messages, exitCode: 0, cached: true }, [hit.bytes.buffer as ArrayBuffer]);
+    return;
+  }
   const engine = await loadEngine();
   const log: string[] = [];
   const onLine = (text: string) => {
@@ -76,6 +85,7 @@ async function render(req: Extract<RenderRequest, { kind: "render" }>) {
   const ok = !!bytes && bytes.length > 0 && !messages.some(l => /ERROR/.test(l));
   if (ok && bytes) {
     const copy = new Uint8Array(bytes); // detach from the wasm heap before transferring
+    if (key) await putCached(key, { bytes: copy, seconds, messages });
     send({ type: "done", id: req.id, ok: true, bytes: copy, seconds, messages, exitCode }, [copy.buffer]);
   } else {
     send({ type: "done", id: req.id, ok: false, bytes: null, seconds, messages, exitCode });
