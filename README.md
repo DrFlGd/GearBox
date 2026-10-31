@@ -46,12 +46,17 @@ and the same part names. Pick one size for a board; parts do not mix.
 
 - **Tile.** A flat plate with a plain hole at every grid point and a captive
   hex nut pocket under each hole. It prints top face down, so the top gets the
-  bed finish and nothing needs support. Push nuts into the pockets from below.
-  Dovetail keys on every edge are laid out so that each edge is its own
-  mirror image with male and female swapped: any edge mates with any other
-  edge of the same length, either way round. (Tiles from before v0.8.0 with
-  an even number of keys per edge, such as `B4x4`, did not mate; reprint
-  them.)
+  bed finish and nothing needs support. Push nuts into the pockets from below:
+  by default they are a press fit, held by three crush ribs that flatten as the
+  nut goes in, and a rod down the bolt hole pushes a nut out again (the
+  `nut_fit` option makes them a plain slip fit). Dovetail keys on every edge
+  are laid out so that each edge is its own mirror image with male and female
+  swapped: any edge mates with any other edge of the same length, either way
+  round. Each male key carries a crush rib down both tail flanks; the first
+  assembly flattens them against the slot, so joined tiles have no play. Tiles
+  from before v0.14.0 still mate with new ones, but only with the old play; tiles
+  from before v0.8.0 with an even number of keys per edge, such as `B4x4`, did
+  not mate at all. Reprint them.
 - **Pin.** A hex bolt dropped down through the gear stack into the nut,
   tightened by hand with a printed knob. A 2 mm base spacer sits on the plate
   under the first bearing; a 3 mm spacer sits between bearings; the knob's
@@ -109,7 +114,8 @@ and the same part names. Pick one size for a board; parts do not mix.
 Hardened steel dowel pins (ISO 8734 / DIN 6325) are cheap in assortment
 boxes. The pin holes are a slip fit in gear faces and a press fit where a
 pin stays put (hub rings, post tops); both are in the print profile, as are
-the jaws' flank clearance (`jaw_flank`) and radial clearance (`slot_clear`).
+the jaws' flank clearance (`jaw_flank`) and radial clearance (`slot_clear`),
+the tile keys' clearance (`key_clear`) and the press-fit nut pockets (`nut_press`).
 The `JOINT` post's cap and the planetary carrier's caps keep their dowel pin
 with every joint.
 

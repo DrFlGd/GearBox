@@ -29,6 +29,7 @@ export type PartKind = {
 const NOT_M1 = ["M2", "M1.5"] as const;
 
 const toothOptions = [20, 30, 40, 50, 60, 70, 80].map(t => ({ value: t, label: `${t} teeth` }));
+const NUT_FIT_OPTIONS = [{ value: "press", label: "Press fit (crush ribs)" }, { value: "slip", label: "Slip fit" }];
 const faceOptions = ["solid", "spokes", "cross", "holes", "spiral"].map(v => ({ value: v, label: v }));
 const tileCount = (key: string, label: string): ParamDef => ({ key, label, type: "number", min: 2, max: 8, step: 1, help: "bolt sockets along this edge, one grid step each" });
 const faceSuffix = (p: Params) => (p.face && p.face !== "solid" ? `-${p.face}` : "");
@@ -69,14 +70,15 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "tile", title: "Board tile", group: "Board and pins",
-    blurb: "Interlocking pegboard tile: a flat top with a plain bolt hole at every grid point, a captive nut pocket under each hole, and dovetail keys on every edge. Prints top face down with no supports.",
+    blurb: "Interlocking pegboard tile: a flat top with a plain bolt hole at every grid point, a captive nut pocket under each hole, and dovetail keys on every edge. Crush ribs on the male keys take up the print clearance so joined tiles have no play. Prints top face down with no supports.",
     params: [
       tileCount("tile_nx", "Sockets across"),
       tileCount("tile_ny", "Sockets down"),
+      { key: "nut_fit", label: "Nut pockets", type: "select", options: NUT_FIT_OPTIONS, help: "press: the nut pushes in over three crush ribs and stays put; a rod down the bolt hole pushes it out again" },
       { key: "flip", label: "Orientation", type: "select", options: [{ value: "true", label: "Print-ready (top face down)" }, { value: "false", label: "As used (top face up)" }] },
     ],
-    defaults: { tile_nx: 4, tile_ny: 4, flip: "true" },
-    name: p => `B${p.tile_nx}x${p.tile_ny}`,
+    defaults: { tile_nx: 4, tile_ny: 4, nut_fit: "press", flip: "true" },
+    name: p => `B${p.tile_nx}x${p.tile_ny}${p.nut_fit === "slip" ? "-SN" : ""}`,
   },
   {
     id: "knob", title: "Bolt knob", group: "Board and pins",
@@ -406,7 +408,7 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "coupon", title: "Fit test coupon", group: "Legacy and test",
-    blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets, a dovetail pair, the bearing seat, a magnet pocket and the face joint: with jaws, three jaws on the bearing block for a gear's pockets to drop over (M2 and M1.5; M1's block takes pin holes); with pins, the dowel pin holes (slip fit in the bearing block's face, press fit in the strip). Print this first and tune the profile.",
+    blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets (one press fit on crush ribs, one slip), a dovetail pair with the key's crush ribs (two coupons chain key to slot), the bearing seat, a magnet pocket and the face joint: with jaws, three jaws on the bearing block for a gear's pockets to drop over (M2 and M1.5; M1's block takes pin holes); with pins, the dowel pin holes (slip fit in the bearing block's face, press fit in the strip). Print this first and tune the profile.",
     params: [], defaults: {}, name: () => "COUPON",
   },
 ];

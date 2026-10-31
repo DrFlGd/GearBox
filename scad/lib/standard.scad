@@ -40,6 +40,11 @@ WALL_T  = 2;                // perimeter wall
 RIB_T   = 1.2;              // internal ribs on every grid line
 BOSS_WALL = 1.6;            // wall around a nut pocket
 DOVETAIL = sz([8, 11, 4], [6, 8.5, 3], [4.5, 6.4, 2.2]); // edge key: neck width, tail width, depth
+// Crush ribs: [width, height] of the rounded ridges that preload a fit and flatten
+// on the first assembly. One down each tail flank of a male dovetail key; three
+// on alternate flats of a press-fit nut pocket.
+KEY_RIB = [0.6, 0.2];
+NUT_RIB = [0.6, 0.25];
 // Nut pockets alternate 30 degrees on a grid this tight (M1: an M5 nut on a 10 mm
 // grid), so neighbouring pockets meet flat to corner and keep a wall between them.
 NUT_STAGGER = GRID - (BOLT[1] + 0.3) / cos(30) < 2;

@@ -31,6 +31,9 @@ magnets = "none";  // [none, top, bottom] gear: six magnet pockets in that face,
 tile_nx = 4;       // [2:1:8]
 tile_ny = 4;       // [2:1:8]
 flip = false;      // tile, crank, pointer, carriage, rack, yoke: render print-ready (upside down)
+// Nut pockets under a tile (and in the coupon): press holds the nut on three crush ribs
+// (push it out again with a rod through the bolt hole); slip lets it drop in and out.
+nut_fit = "press"; // [press, slip]
 
 /* [Spacer] */
 spacer_h = 3;      // [1:0.5:30] 27 (M2) or 23 (M1.5) is the handle core
