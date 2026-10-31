@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BoardView, { type Pick } from "./BoardView";
 import {
   MAX_LEVEL, TEETH, addonsLayout, boardH, boardW, crankLinkLevel, drivesLayout, emptyLayout, hasScrews, MAG_COUPLE_MIN, MAG_TEETH, magnetsLayout, exampleLayout, gearAt, kindOf, mechanismsLayout, motorType, newId, pinById, springMinTeeth, std, topLevel,
@@ -6,15 +6,13 @@ import {
 } from "./model";
 import { analyze, billOfMaterials, jawPair, key, label, ratioText } from "./rules";
 import { decodeLayout, encodeLayout } from "./share";
-import { buildKitZip } from "../kitzip";
-import { download } from "../download";
-import { JOINT_TITLES, type Joint, type Overrides, type Profile, type Size } from "../parts";
-import JointPicker from "../components/JointPicker";
+import { partKind, type Joint, type Overrides, type Params, type Profile, type Size } from "../parts";
+import KitDownloads from "../components/KitDownloads";
 import type { RenderResult } from "../engine/protocol";
 
 const LS = "gearbox.layout";
 
-type Props = { size: Size; profile: Profile; overrides: Overrides; joint: Joint; onJoint: (j: Joint) => void; render: (defs: string[]) => Promise<RenderResult>; engineReady: boolean };
+type Props = { size: Size; profile: Profile; overrides: Overrides; joint: Joint; render: (defs: string[]) => Promise<RenderResult>; engineReady: boolean; openPart: (kindId: string, params: Params) => void };
 
 function initialLayout(size: Size): Layout {
   const h = new URLSearchParams(location.hash.replace(/^#/, ""));
@@ -27,13 +25,20 @@ function initialLayout(size: Size): Layout {
 // tiles across/down: 1..MAX_TILES (a 16x16 board of 8x8 tiles is 128x128 sockets, still fine to draw)
 const MAX_TILES = 16;
 const clampTiles = (v: string) => Math.min(MAX_TILES, Math.max(1, Math.round(Number(v) || 1)));
-const KINDS: { id: ItemKind; label: string; needsCrank?: boolean }[] = [
-  { id: "gear", label: "Gear" }, { id: "partial", label: "Partial gear" }, { id: "pulley", label: "Pulley" }, { id: "ratchet", label: "Ratchet wheel" }, { id: "pawl", label: "Pawl" },
-  { id: "rocker", label: "Rocker (linkage)", needsCrank: true }, { id: "qrlever", label: "Quick-return lever", needsCrank: true },
-  { id: "cam", label: "Cam" }, { id: "follower", label: "Cam follower" }, { id: "geneva", label: "Geneva driver" }, { id: "genevaWheel", label: "Geneva wheel" },
-  { id: "escwheel", label: "Escape wheel" }, { id: "anchor", label: "Anchor" }, { id: "winch", label: "Winch drum" },
-  { id: "carrier", label: "Planet carrier (planetary set)" }, { id: "bevel", label: "Bevel gear (to a shaft bracket)" }, { id: "wormgear", label: "Worm gear (on a shaft bracket)" }, { id: "flywheel", label: "Flywheel" },
-  { id: "maggear", label: "Magnetic gear (meshes without touching)" },
+type KindOption = { id: ItemKind; label: string; needsCrank?: boolean };
+/** What can go on a level, grouped for the Add menu. */
+const KIND_GROUPS: [string, KindOption[]][] = [
+  ["Gears", [{ id: "gear", label: "Gear" }, { id: "partial", label: "Partial gear" }, { id: "pulley", label: "Pulley" }]],
+  ["Add-ons", [{ id: "ratchet", label: "Ratchet wheel" }, { id: "pawl", label: "Pawl" }, { id: "rocker", label: "Rocker (linkage)", needsCrank: true }, { id: "qrlever", label: "Quick-return lever", needsCrank: true }]],
+  ["Mechanisms", [{ id: "cam", label: "Cam" }, { id: "follower", label: "Cam follower" }, { id: "geneva", label: "Geneva driver" }, { id: "genevaWheel", label: "Geneva wheel" }, { id: "escwheel", label: "Escape wheel" }, { id: "anchor", label: "Anchor" }, { id: "winch", label: "Winch drum" }]],
+  ["Drives", [{ id: "carrier", label: "Planet carrier (planetary set)" }, { id: "bevel", label: "Bevel gear (to a shaft bracket)" }, { id: "wormgear", label: "Worm gear (on a shaft bracket)" }, { id: "flywheel", label: "Flywheel" }]],
+  ["Magnets", [{ id: "maggear", label: "Magnetic gear (meshes without touching)" }]],
+];
+/** Boards to start from; the samplers are laid out for M2 and M1.5. */
+const STARTS: { id: string; label: string; make: (size: Size) => Layout; notM1?: boolean }[] = [
+  { id: "example", label: "1:16 example", make: exampleLayout }, { id: "addons", label: "Add-ons sampler", make: addonsLayout, notM1: true },
+  { id: "mechanisms", label: "Mechanisms sampler", make: mechanismsLayout, notM1: true }, { id: "drives", label: "Drives sampler", make: drivesLayout, notM1: true },
+  { id: "magnets", label: "Magnets sampler", make: magnetsLayout }, { id: "empty", label: "Empty board", make: emptyLayout },
 ];
 const THROWS = [20, 30, 40, 50, 60, 70, 80];
 /** Items too big for M1's 10 mm grid (the library refuses to make them in M1). */
@@ -46,23 +51,22 @@ const TOPPER_OK = new Set<ItemKind>(["gear", "pulley", "ratchet", "partial", "ca
 const DIRS = ["+x (right)", "+y (up the board)", "−x (left)", "−y (down)"];
 
 /** Phase 3 + 4: build a train on a virtual board, check it, animate it, print it. */
-export default function LayoutMode({ size, profile, overrides, joint, onJoint, render, engineReady }: Props) {
+export default function LayoutMode({ size, profile, overrides, joint, render, engineReady, openPart }: Props) {
   const [layout, setLayoutRaw] = useState<Layout>(() => initialLayout(size));
   const [selected, setSelected] = useState<{ i: number; j: number } | null>(null);
   const [selectedFixture, setSelectedFixture] = useState<string | null>(null);
   const [hover, setHover] = useState<Pick>(null);
   const [playing, setPlaying] = useState(true);
-  const [zipState, setZipState] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [newKind, setNewKind] = useState<ItemKind>("gear");
   const [newTeeth, setNewTeeth] = useState<Teeth>(40);
-  const busy = useRef(false);
+  const [dlBusy, setDlBusy] = useState(false);
 
   useEffect(() => { if (layout.size !== size) setLayoutRaw(l => ({ ...l, size })); }, [size, layout.size]);
   const setLayout = (f: (l: Layout) => Layout) => setLayoutRaw(l => f(l));
   useEffect(() => {
     try { localStorage.setItem(LS, JSON.stringify(layout)); } catch { /* ignore */ }
-    const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const h = new URLSearchParams();
     h.set("mode", "layout"); h.set("size", layout.size); h.set("l", encodeLayout(layout));
     history.replaceState(null, "", "#" + h.toString());
   }, [layout]);
@@ -160,18 +164,6 @@ export default function LayoutMode({ size, profile, overrides, joint, onJoint, r
     return tidy({ ...l, tile, tiles, pins: l.pins.filter(p => p.x < W && p.y < H) });
   });
 
-  const downloadKit = async () => {
-    if (busy.current) return;
-    busy.current = true;
-    try {
-      const { zip, failed } = await buildKitZip({
-        title: "layout", items: bom.printed.map(b => ({ name: b.name, title: b.title, qty: b.qty, params: b.params! })),
-        hardware: bom.hardware.map(h => `${h.qty} x ${h.title}`), size, profile, overrides, joint, render, onProgress: setZipState,
-      });
-      download(zip, `gearbox-layout-${size}-${profile}${joint === "jaws" ? "" : `-${joint}`}.zip`, "application/zip");
-      setZipState(failed.length ? `${failed.length} failed: ${failed.join(", ")}` : null);
-    } finally { busy.current = false; }
-  };
   const share = async () => {
     try { await navigator.clipboard.writeText(location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
   };
@@ -208,30 +200,31 @@ export default function LayoutMode({ size, profile, overrides, joint, onJoint, r
             </div>
             <span className="field-help">{boardW(layout)} × {boardH(layout)} sockets, {boardW(layout) * d.grid} × {boardH(layout) * d.grid} mm</span>
           </label>
-          <div className="row">
-            <button type="button" onClick={() => load(exampleLayout(size))}>1:16 example</button>
-            <button type="button" onClick={() => load(addonsLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Add-ons sampler</button>
-            <button type="button" onClick={() => load(mechanismsLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Mechanisms sampler</button>
-            <button type="button" onClick={() => load(drivesLayout(size))} disabled={size === "M1"} title={size === "M1" ? "laid out for M2 and M1.5" : undefined}>Drives sampler</button>
-            <button type="button" onClick={() => load(magnetsLayout(size))}>Magnets sampler</button>
-            <button type="button" onClick={() => load(emptyLayout(size))}>Clear</button>
-          </div>
+          <label className="field"><span className="field-label">Start from</span>
+            <select value="" onChange={e => { const st = STARTS.find(x => x.id === e.target.value); if (st) load(st.make(size)); }}>
+              <option value="" disabled>Load a board…</option>
+              {STARTS.map(st => <option key={st.id} value={st.id} disabled={st.notM1 && size === "M1"}>{st.label}{st.notM1 && size === "M1" ? " (M2 and M1.5)" : ""}</option>)}
+            </select>
+            <span className="field-help">replaces the board you have</span>
+          </label>
         </div>
 
-        <h2>Joints</h2>
-        <JointPicker joint={joint} size={size} onJoint={onJoint} disabled={busy.current} />
-        <h2>Bill of materials</h2>
+        <h2>Parts list</h2>
         <ul className="kit-list">
-          {bom.printed.map(b => <li key={b.name}><b>{b.qty}×</b> {b.name} <span className="muted">{b.title}</span></li>)}
+          {bom.printed.map(b => (
+            <li key={b.name}>
+              <button type="button" className="bom-row" title="Open in the Parts tab" disabled={!b.params || !partKind(String(b.params.part))}
+                onClick={() => { const { part, ...params } = b.params!; openPart(String(part), params); }}><b>{b.qty}×</b> {b.name} <span className="muted">{b.title}</span></button>
+            </li>
+          ))}
           {bom.hardware.map(h => <li key={h.name}><b>{h.qty}×</b> <span className="muted">{h.title}</span></li>)}
         </ul>
-        <div className="form">
-          <button type="button" className="primary" onClick={downloadKit} disabled={!engineReady || busy.current || !gearCount}>
-            {zipState && busy.current ? `Rendering ${zipState}` : `Download kit zip (${size}, ${profile}, ${JOINT_TITLES[joint].toLowerCase()})`}
-          </button>
-          {zipState && !busy.current && <p className="muted small">{zipState}</p>}
-          <button type="button" onClick={share}>{copied ? "Link copied" : "Copy share link"}</button>
-        </div>
+        <p className="muted small">Click a printed part to open it in Parts.</p>
+        <KitDownloads title="Layout" id="layout" items={bom.printed.map(b => ({ name: b.name, title: b.title, qty: b.qty, params: b.params! }))}
+          hardware={bom.hardware.map(h => `${h.qty} x ${h.title}`)} size={size} profile={profile} overrides={overrides} joint={joint}
+          render={render} disabled={!engineReady || !gearCount} onBusy={setDlBusy}>
+          <button type="button" onClick={share} disabled={dlBusy}>{copied ? "Link copied" : "Copy share link"}</button>
+        </KitDownloads>
       </aside>
 
       <main className="stage">
@@ -326,13 +319,17 @@ export default function LayoutMode({ size, profile, overrides, joint, onJoint, r
         ) : !selected ? (
           <>
             <h2>Layout</h2>
-            <p className="blurb">Click a socket on the board to add a pin and an item. Click an item to change it, stack another level on it, or make it the input.</p>
-            <p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p>
-            <p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part; any other pair drops onto the lower one's tapered jaws (with the jaws joint; a pair too small for them, like a cam or the ratchet, gets dowel pin holes instead), or is held by three steel dowel pins, plus three screws through a joint ring with pins + screws when both are big enough. Two plain 40T or bigger gears can be joined by magnets instead, through a fixed barrier.</p>
-            <p className="hint">Add-ons: a pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p>
-            <p className="hint">Drives: a planet carrier (a 60T gear with four posts) takes a plain 20T sun on the level above it, inside a ring gear whose legs bolt in four sockets away on either side; sun in, carrier out, 4:1. A bevel gear on level 1 turns a shaft bracket's shaft; the worm on the shaft turns a worm gear on level 4. A NEMA 17 sits on a socket with its mount's legs at (−2, 0) and (2, 0). A flywheel is a heavy disc on any pin.</p>
-            <p className="hint">Magnets: a magnetic gear has its magnets standing in the rim, poles alternating, and turns another magnetic gear across a 1 mm gap like a spur gear 2.5 times its magnet count (16 magnets = 40T), so the same spacing rule applies. It slips instead of stalling. It collides with toothed gears.</p>
-            <p className="hint">Mechanisms: a cam wants its follower two sockets away on its level. A Geneva driver (a 40T with a post and a locking crescent one level up) indexes a Geneva wheel three sockets away, one level above it. An escape wheel wants its anchor two sockets away. A quick-return lever on a crank's row, two levels above its gear, swings with the crank post. A partial gear drives in bursts. A wind-up spring sits on a plain gear of {springMinTeeth(layout.size)}T or more. A slider rail bolts to the board and carries a rack, a scotch yoke or a crank slider.</p>
+            <p className="blurb">Click a socket on the board to add a pin and an item. Click an item to change it, stack another level on it, or make it the input that drives the rest.</p>
+            <p className="hint">Start from an example in the left column, or clear the board. The parts list and downloads follow the board as you build.</p>
+            <div className="rules">
+              <h3>How things fit</h3>
+              <details><summary>Meshing</summary><p className="hint">Two gears on the same level mesh when their tooth counts add up to a multiple of 20 and their pins are that many twentieths apart: 20T+20T two sockets apart, 20T+40T three, 40T+40T four, 20T+80T five (straight, or on a 3-4-5 diagonal).</p></details>
+              <details><summary>Joining levels</summary><p className="hint">Join a stacked item to the one below it to carry motion to another level: a bigger gear below a smaller one becomes one compound part; any other pair drops onto the lower one's tapered jaws (with the jaws joint; a pair too small for them, like a cam or the ratchet, gets dowel pin holes instead), or is held by three steel dowel pins, plus three screws through a joint ring with pins + screws when both are big enough. Two plain 40T or bigger gears can be joined by magnets instead, through a fixed barrier.</p></details>
+              <details><summary>Add-ons</summary><p className="hint">A pulley takes a band to any other pulley on its level (cross it to reverse). A ratchet wants its pawl two sockets away along the grid. A crank on a gear's top face turns a handle, or drives a rocker on another pin two levels up through a coupler link. A pointer reads the dial knob on its own pin. A motor sits on a socket with its mount's legs at (−1, 2) and (1, 2).</p></details>
+              <details><summary>Drives</summary><p className="hint">A planet carrier (a 60T gear with four posts) takes a plain 20T sun on the level above it, inside a ring gear whose legs bolt in four sockets away on either side; sun in, carrier out, 4:1. A bevel gear on level 1 turns a shaft bracket's shaft; the worm on the shaft turns a worm gear on level 4. A NEMA 17 sits on a socket with its mount's legs at (−2, 0) and (2, 0). A flywheel is a heavy disc on any pin.</p></details>
+              <details><summary>Magnets</summary><p className="hint">A magnetic gear has its magnets standing in the rim, poles alternating, and turns another magnetic gear across a 1 mm gap like a spur gear 2.5 times its magnet count (16 magnets = 40T), so the same spacing rule applies. It slips instead of stalling. It collides with toothed gears.</p></details>
+              <details><summary>Mechanisms</summary><p className="hint">A cam wants its follower two sockets away on its level. A Geneva driver (a 40T with a post and a locking crescent one level up) indexes a Geneva wheel three sockets away, one level above it. An escape wheel wants its anchor two sockets away. A quick-return lever on a crank's row, two levels above its gear, swings with the crank post. A partial gear drives in bursts. A wind-up spring sits on a plain gear of {springMinTeeth(layout.size)}T or more. A slider rail bolts to the board and carries a rack, a scotch yoke or a crank slider.</p></details>
+            </div>
             {analysis.problems.length > 0 && <ul className="problems">{analysis.problems.map((p, i) => <li key={i} className="err">{p.text}</li>)}</ul>}
           </>
         ) : (
@@ -500,7 +497,7 @@ export default function LayoutMode({ size, profile, overrides, joint, onJoint, r
                     </div>
                   ) : (
                     <div className="row">
-                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KINDS.map(kd => <option key={kd.id} value={kd.id} disabled={(kd.needsCrank && !crankPins.length) || (layout.size === "M1" && NOT_IN_M1.has(kd.id))}>{kd.label}{layout.size === "M1" && NOT_IN_M1.has(kd.id) ? " (not in M1)" : ""}</option>)}</select>
+                      <select value={newKind} onChange={e => setNewKind(e.target.value as ItemKind)}>{KIND_GROUPS.map(([g, kinds]) => <optgroup key={g} label={g}>{kinds.map(kd => <option key={kd.id} value={kd.id} disabled={(kd.needsCrank && !crankPins.length) || (layout.size === "M1" && NOT_IN_M1.has(kd.id))}>{kd.label}{layout.size === "M1" && NOT_IN_M1.has(kd.id) ? " (not in M1)" : kd.needsCrank && !crankPins.length ? " (needs a crank)" : ""}</option>)}</optgroup>)}</select>
                       {(newKind === "gear" || newKind === "pulley" || newKind === "partial" || newKind === "wormgear" || newKind === "bevel") && <select value={newTeeth} onChange={e => setNewTeeth(Number(e.target.value) as Teeth)}>{(newKind === "wormgear" || newKind === "bevel" ? [20, 40] as Teeth[] : TEETH).map(t => <option key={t} value={t}>{newKind === "pulley" ? `P${t}` : `${t} teeth`}</option>)}</select>}
                       <button type="button" onClick={() => addItem(level)}>Add</button>
                     </div>

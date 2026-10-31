@@ -8,7 +8,7 @@ export type KitItem = { name: string; title: string; qty: number; params: Params
 export async function buildKitZip(opts: {
   title: string; items: KitItem[]; hardware: string[]; size: Size; profile: Profile; overrides: Overrides; joint?: Joint;
   render: (defs: string[]) => Promise<RenderResult>; onProgress?: (text: string) => void;
-}): Promise<{ zip: Uint8Array; failed: string[] }> {
+}): Promise<{ zip: Uint8Array; failed: string[] } | null> {
   const { items, size, profile } = opts;
   const zip: Record<string, Uint8Array> = {};
   const failed: string[] = [];
@@ -17,6 +17,7 @@ export async function buildKitZip(opts: {
     opts.onProgress?.(`${i + 1}/${items.length} ${it.name}`);
     const { part, ...params } = it.params;
     const r = await opts.render(defines(String(part), params, size, profile, opts.overrides, opts.joint));
+    if (r.messages[0] === "Cancelled") return null;
     if (r.ok && r.bytes) zip[`${it.name}.stl`] = r.bytes; else failed.push(it.name);
   }
   const std = catalog.standards[size];

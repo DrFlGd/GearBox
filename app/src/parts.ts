@@ -68,7 +68,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => `G${p.teeth}-${p.teeth_upper}${faceSuffix(p)}`,
   },
   {
-    id: "tile", title: "Board tile", group: "Board",
+    id: "tile", title: "Board tile", group: "Board and pins",
     blurb: "Interlocking pegboard tile: a flat top with a plain bolt hole at every grid point, a captive nut pocket under each hole, and dovetail keys on every edge. Prints top face down with no supports.",
     params: [
       tileCount("tile_nx", "Sockets across"),
@@ -79,34 +79,34 @@ export const PART_KINDS: PartKind[] = [
     name: p => `B${p.tile_nx}x${p.tile_ny}`,
   },
   {
-    id: "knob", title: "Bolt knob", group: "Pins",
+    id: "knob", title: "Bolt knob", group: "Board and pins",
     blurb: "Printed knob that grips the hex head of the bolt so pins are tightened by hand. Its boss is the last spacer and presses only the bearing inner race.",
     params: [], defaults: {}, name: () => "K",
   },
   {
-    id: "spacer", title: "Spacer", group: "Pins",
+    id: "spacer", title: "Spacer", group: "Board and pins",
     blurb: "Sits between bearing inner races so stacked gears turn freely. 3 mm fills the gap between levels; 10 mm skips a level.",
     params: [{ key: "spacer_h", label: "Height (mm)", type: "number", min: 1, max: 10, step: 0.5 }],
     defaults: { spacer_h: 3 },
     name: p => `S${String(p.spacer_h).replace(".", "_")}`,
   },
   {
-    id: "base_spacer", title: "Base spacer", group: "Pins",
+    id: "base_spacer", title: "Base spacer", group: "Board and pins",
     blurb: "2 mm ring on the plate under the first bearing, so the bottom gear clears the tile.",
     params: [], defaults: {}, name: () => "BS",
   },
   {
-    id: "joint_ring", title: "Joint ring", group: "Pins",
+    id: "joint_ring", title: "Joint ring", group: "Board and pins",
     blurb: "For the pins + screws joint: a 1.8 mm ring that fills the gap between two screwed gears, with holes for the three screws and the three dowel pins. Turn the upper gear 60 degrees so its counterbores sit over the lower gear's nut pockets.",
     params: [], defaults: {}, name: () => "JRING",
   },
   {
-    id: "coupler", title: "Coupler half (legacy)", group: "Pins",
+    id: "coupler", title: "Coupler half (legacy)", group: "Legacy and test",
     blurb: "The old printed peg coupler, kept for gears printed with pin holes (before v0.8.0, or with the pins joint). Steel dowel pins replace it: three pins in the face holes join two gears.",
     params: [], defaults: {}, name: () => "CPL",
   },
   {
-    id: "bushing", title: "Bushing", group: "Pins",
+    id: "bushing", title: "Bushing", group: "Board and pins",
     blurb: "Plain printed ring in place of a bearing, for a gear that only turns now and then.",
     params: [], defaults: {}, name: () => "BSH",
   },
@@ -121,7 +121,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => `CRANK${p.throw}`,
   },
   {
-    id: "post", title: "Post (legacy)", group: "Add-ons",
+    id: "post", title: "Crank post (legacy)", group: "Legacy and test",
     blurb: "The old printed crank post for cranks printed before v0.8.0; a kit bolt is the crank post now.",
     params: [{ key: "post_h", label: "Height (mm)", type: "number", min: 8, max: 40, step: 1 }],
     defaults: { post_h: 11 },
@@ -170,14 +170,14 @@ export const PART_KINDS: PartKind[] = [
     name: p => (p.flip_pawl === "true" ? "PAWL-L" : "PAWL"),
   },
   {
-    id: "motor_mount", title: "N20 motor mount", group: "Motor",
+    id: "motor_mount", title: "N20 motor mount", group: "Motors",
     blurb: "Bridge that bolts into the two sockets at (-1, 2) and (1, 2) from the motor socket and holds an N20 gearmotor upside down over it, shaft down into the pinion. Two knobs and two 1-level bolts hold it. Prints legs down.",
     params: [{ key: "level", label: "Pinion level", type: "select", options: [1, 2, 3].map(v => ({ value: v, label: `level ${v}` })) }],
     defaults: { level: 1 },
     name: p => (Number(p.level) === 1 ? "MOTOR" : `MOTOR${p.level}`),
   },
   {
-    id: "pinion", title: "Motor pinion", group: "Motor",
+    id: "pinion", title: "Motor pinion", group: "Motors",
     blurb: "20T gear with a D bore for the motor shaft instead of a bearing: 3 mm for an N20, 5 mm for a NEMA 17.",
     params: [{ key: "shaft", label: "Shaft", type: "select", options: [{ value: "n20", label: "N20, 3 mm D" }, { value: "nema17", label: "NEMA 17, 5 mm D" }] }],
     defaults: { shaft: "n20" },
@@ -185,7 +185,7 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     sizes: NOT_M1,
-    id: "nema_mount", title: "NEMA 17 motor mount", group: "Motor",
+    id: "nema_mount", title: "NEMA 17 motor mount", group: "Motors",
     blurb: "Two legs bolt into the sockets at (-2, 0) and (2, 0) from the motor socket and carry a plate the stepper screws onto from below, shaft down into the PINION5 at level 1, 2 or 3. Prints legs down.",
     params: [{ key: "level", label: "Pinion level", type: "select", options: [1, 2, 3].map(v => ({ value: v, label: `level ${v}` })) }],
     defaults: { level: 1 },
@@ -242,7 +242,7 @@ export const PART_KINDS: PartKind[] = [
   { id: "barrier", title: "Coupling barrier", group: "Magnets", blurb: "A 3 mm spacer with a 0.8 mm flange that fills the gap between the two gears of a magnetic face coupling. It is clamped between the bearings' inner races, so it stands still while both gears turn: torque through a wall.", params: [], defaults: {}, name: () => "MAGB" },
   {
     sizes: ["M2"],
-    id: "jaw_gear", title: "Straight jaw gear (test)", group: "Gears",
+    id: "jaw_gear", title: "Straight jaw gear (test)", group: "Legacy and test",
     blurb: "The first jaw test (v0.10.0, M2): three crescent jaws with straight flanks on the top face and matching pockets underneath. Kept for a rock test against the tapered jaws every gear now has: the straight jaw needs the full slot clearance on both flanks, about 2.8 degrees of play against about 0.8.",
     params: [
       { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
@@ -252,21 +252,21 @@ export const PART_KINDS: PartKind[] = [
     name: p => `JG${p.teeth}${faceSuffix(p)}`,
   },
   {
-    id: "hex_sleeve", title: "Hex sleeve", group: "Hex sleeve",
+    id: "hex_sleeve", title: "Hex sleeve", group: "Legacy and test",
     blurb: "A printed hex tube that turns on the pin's bolt on two small bearings pressed into its ends (688 for M2, 686 for M1.5, 685 for M1), with the core tube between their inner races. Hex-bore gears, spacers and levers slide onto it and turn together: no pins or screws, and a stack comes apart by sliding parts off the top. Base spacer below, knob on top, as on any pin. Prints standing.",
     params: [{ key: "hex_levels", label: "Levels", type: "select", options: [1, 2, 3, 4].map(v => ({ value: v, label: `${v} level${v > 1 ? "s" : ""}` })) }],
     defaults: { hex_levels: 2 },
     name: p => `HXS${p.hex_levels}`,
   },
   {
-    id: "hex_core", title: "Hex sleeve core", group: "Hex sleeve",
+    id: "hex_core", title: "Hex sleeve core", group: "Legacy and test",
     blurb: "The thin tube inside a hex sleeve, between its two bearings' inner races, so the bolt clamps the races and not the sleeve. Make it for the same number of levels as the sleeve.",
     params: [{ key: "hex_levels", label: "Levels", type: "select", options: [1, 2, 3, 4].map(v => ({ value: v, label: `${v} level${v > 1 ? "s" : ""}` })) }],
     defaults: { hex_levels: 2 },
     name: p => `HXC${p.hex_levels}`,
   },
   {
-    id: "hex_gear", title: "Hex-bore gear", group: "Hex sleeve",
+    id: "hex_gear", title: "Hex-bore gear", group: "Legacy and test",
     blurb: "A gear with a hex bore that slides onto the hex sleeve, 1 mm thinner than a standard gear so a 3 mm gap is left to the next level. It meshes with standard gears on the next pin like any gear of its size.",
     params: [
       { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
@@ -276,14 +276,14 @@ export const PART_KINDS: PartKind[] = [
     name: p => `HG${p.teeth}${faceSuffix(p)}`,
   },
   {
-    id: "hex_spacer", title: "Hex spacer", group: "Hex sleeve",
+    id: "hex_spacer", title: "Hex spacer", group: "Legacy and test",
     blurb: "A hex-bore ring between two parts on the sleeve: the 3 mm gap to the next level, or that plus one or two empty levels.",
     params: [{ key: "hex_levels", label: "Empty levels", type: "select", options: [0, 1, 2].map(v => ({ value: v, label: v ? `skips ${v} level${v > 1 ? "s" : ""}` : "next level" })) }],
     defaults: { hex_levels: 0 },
     name: p => `HSP${p.hex_levels}`,
   },
   {
-    id: "hex_lever", title: "Hex lever", group: "Hex sleeve",
+    id: "hex_lever", title: "Hex lever", group: "Legacy and test",
     blurb: "A lever one level thick with a hex hole at the hub end and flush seats for standard bearings from two grid steps out (the first step is too close to the hex), to drive a link or a slot from a stack.",
     params: [{ key: "holes", label: "Holes", type: "select", options: [3, 4, 5, 6].map(v => ({ value: v, label: `${v} holes, ${v - 2} bearing seat${v > 3 ? "s" : ""}` })) }],
     defaults: { holes: 4 },
@@ -291,19 +291,19 @@ export const PART_KINDS: PartKind[] = [
   },
   { id: "flywheel", title: "Flywheel", group: "Drives", blurb: "A disc on the gear hub with eight nut pockets around the rim: drop in nuts for the mass. Smooths a crank's or an escapement's drive.", params: [], defaults: {}, name: () => "FLYWHEEL" },
   {
-    id: "rail", title: "Slider rail", group: "Mechanisms",
+    id: "rail", title: "Slider rail", group: "Rail and sliders",
     blurb: "Dovetail rail that bolts into the sockets at both ends of the row beside it; carriages slide along it. Prints flat.",
     params: [{ key: "rail_n", label: "Sockets spanned", type: "number", min: 2, max: 8, step: 1 }],
     defaults: { rail_n: 4 },
     name: p => `RAIL${p.rail_n}`,
   },
   {
-    id: "carriage", title: "Carriage", group: "Mechanisms",
+    id: "carriage", title: "Carriage", group: "Rail and sliders",
     blurb: "Slides on the rail; a square pocket on top takes the scotch yoke's tower or the slider post. Prints upside down.",
     params: [flipOption("Print-ready (upside down)")], defaults: { flip: "true" }, name: () => "CARRIAGE",
   },
   {
-    id: "rack", title: "Rack carriage", group: "Mechanisms",
+    id: "rack", title: "Rack carriage", group: "Rail and sliders",
     blurb: "Carriage with a toothed bar along one side; a gear on the level of the teeth drives it back and forth. The pitch line is one grid step from the rail, so a 20T sits two rows away and a 40T three. Prints upside down.",
     params: [
       { key: "rack_len", label: "Length (grid steps)", type: "number", min: 2, max: 4, step: 1 },
@@ -314,7 +314,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => `RACK${p.rack_len}${Number(p.level) > 1 ? `-L${p.level}` : ""}`,
   },
   {
-    id: "yoke", title: "Scotch yoke", group: "Mechanisms",
+    id: "yoke", title: "Scotch yoke", group: "Rail and sliders",
     blurb: "Tower that plugs into the carriage and carries a slotted plate two levels above the crank's gear; the crank post's bearing rides in the slot and the carriage reciprocates with a pure sine motion. Prints upside down.",
     params: [
       { key: "level", label: "Crank gear on level", type: "select", options: [1, 2].map(v => ({ value: v, label: `level ${v}` })) },
@@ -326,7 +326,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => `YOKE${p.throw}R${p.reach}${Number(p.level) > 1 ? `-L${p.level}` : ""}`,
   },
   {
-    id: "slider_post", title: "Slider post", group: "Mechanisms",
+    id: "slider_post", title: "Slider post", group: "Rail and sliders",
     blurb: "Column that plugs into the carriage with a post on top at the crank's link level; a link from the crank post makes a crank slider.",
     params: [{ key: "level", label: "Crank gear on level", type: "select", options: [1, 2].map(v => ({ value: v, label: `level ${v}` })) }],
     defaults: { level: 1 },
@@ -355,7 +355,7 @@ export const PART_KINDS: PartKind[] = [
     name: p => `GENEVA${p.slots}`,
   },
   {
-    id: "partial", title: "Partial gear", group: "Mechanisms",
+    id: "partial", title: "Partial gear", group: "Gears",
     blurb: "Gear with teeth on only half or a quarter of its rim: whatever it meshes with turns in bursts and rests between them.",
     params: [
       { key: "teeth", label: "Teeth", type: "select", options: toothOptions },
@@ -384,19 +384,19 @@ export const PART_KINDS: PartKind[] = [
     name: p => (p.cw === "false" ? "ANCHOR-L" : "ANCHOR"),
   },
   {
-    id: "spring_gear", title: "Spring gear", group: "Mechanisms",
+    id: "spring_gear", title: "Spring gear", group: "Spring and winch",
     blurb: "Gear with a wall on its top face for the wind-up spring; the spring's outer hook catches a notch in the wall.",
     params: [{ key: "teeth", label: "Teeth", type: "select", options: toothOptions.filter(o => Number(o.value) >= 30) }],
     defaults: { teeth: 40 },
     name: p => `SG${p.teeth}`,
   },
-  { id: "spring", title: "Wind-up spring", group: "Mechanisms", blurb: "Printed spiral spring (PETG works best): its boss grips the bearing's inner race on a pin held by its knob, the hook catches the spring gear's wall. Wind the knob, let the train run down.", params: [], defaults: {}, name: () => "SPRING" },
-  { id: "winch", title: "Winch drum", group: "Mechanisms", blurb: "Two-level drum with a bottom flange on two bearings; a string winds on it. The top flange presses on.", params: [], defaults: {}, name: () => "WINCH" },
-  { id: "winch_flange", title: "Winch flange", group: "Mechanisms", blurb: "Press-on top flange for the winch drum.", params: [], defaults: {}, name: () => "WFLANGE" },
-  { id: "hook", title: "Hook", group: "Mechanisms", blurb: "Small hook for the end of the winch string.", params: [], defaults: {}, name: () => "HOOK" },
+  { id: "spring", title: "Wind-up spring", group: "Spring and winch", blurb: "Printed spiral spring (PETG works best): its boss grips the bearing's inner race on a pin held by its knob, the hook catches the spring gear's wall. Wind the knob, let the train run down.", params: [], defaults: {}, name: () => "SPRING" },
+  { id: "winch", title: "Winch drum", group: "Spring and winch", blurb: "Two-level drum with a bottom flange on two bearings; a string winds on it. The top flange presses on.", params: [], defaults: {}, name: () => "WINCH" },
+  { id: "winch_flange", title: "Winch flange", group: "Spring and winch", blurb: "Press-on top flange for the winch drum.", params: [], defaults: {}, name: () => "WFLANGE" },
+  { id: "hook", title: "Hook", group: "Spring and winch", blurb: "Small hook for the end of the winch string.", params: [], defaults: {}, name: () => "HOOK" },
   {
-    id: "assembly", title: "Kit assembly", group: "Assemblies",
-    blurb: "A kit put together on a board tile: every printed part in the print colour and the hardware (bolts, nuts, bearings, magnets, motors, and with the pin joints dowel pins and screws) in steel grey. Exploded pulls everything apart along its bolt in the order it goes on. This is a picture to build from, not a part to print: download the kit zip from the left column.",
+    id: "assembly", title: "Kit assembly", group: "Kits",
+    blurb: "A kit put together on a board tile: every printed part in the print colour and the hardware (bolts, nuts, bearings, magnets, motors, and with the pin joints dowel pins and screws) in steel grey. Exploded pulls everything apart along its bolt in the order it goes on. This is a picture to build from, not a part to print: the Kits tab downloads the parts.",
     params: [
       { key: "kit", label: "Kit", type: "select", options: ASSEMBLY_KITS.map(([value, label]) => ({ value, label })) },
       { key: "explode", label: "View", type: "select", options: [{ value: 0, label: "Assembled" }, { value: 1, label: "Exploded" }] },
@@ -405,13 +405,31 @@ export const PART_KINDS: PartKind[] = [
     name: p => `ASM-${p.kit}${Number(p.explode) ? "-x" : ""}`,
   },
   {
-    id: "coupon", title: "Fit test coupon", group: "Test",
+    id: "coupon", title: "Fit test coupon", group: "Legacy and test",
     blurb: "One small print that checks every fit in the kit: bolt holes, nut pockets, a dovetail pair, the bearing seat, a magnet pocket and the face joint: with jaws, three jaws on the bearing block for a gear's pockets to drop over (M2 and M1.5; M1's block takes pin holes); with pins, the dowel pin holes (slip fit in the bearing block's face, press fit in the strip). Print this first and tune the profile.",
     params: [], defaults: {}, name: () => "COUPON",
   },
 ];
 
 export const partKind = (id: string) => PART_KINDS.find(k => k.id === id);
+
+/** Part groups in list order. Kit assemblies live in the Kits tab; the legacy and test parts in Settings. */
+export const LEGACY_GROUP = "Legacy and test";
+export const PART_GROUPS = ["Gears", "Board and pins", "Add-ons", "Motors", "Drives", "Rail and sliders", "Mechanisms", "Spring and winch", "Magnets"];
+export const isLegacyKind = (id: string) => partKind(id)?.group === LEGACY_GROUP;
+
+/** Kits in the Kits tab, by group. The legacy and test kits are reached from Settings. */
+export const KIT_GROUPS: [string, string[]][] = [
+  ["Basics", ["starter", "joint", "crank", "pointer"]],
+  ["Motors", ["motor", "nema17"]],
+  ["Mechanisms", ["ratchet", "linkage", "rack", "yoke", "slider", "cam", "geneva", "quickreturn", "escapement", "spring", "winch"]],
+  ["Drives", ["planetary", "shaft", "flywheel"]],
+  ["Magnets", ["maggear", "magcouple"]],
+];
+export const LEGACY_KITS = ["coupon", "hexsleeve", "jaws"];
+export const kitGroup = (kitId: string) => KIT_GROUPS.find(([, ids]) => ids.includes(kitId))?.[0] ?? LEGACY_GROUP;
+/** Kits that have an assembled view in scad/lib/assembly.scad. */
+export const hasAssembly = (kitId: string) => ASSEMBLY_KITS.some(([id]) => id === kitId);
 
 export const SIZES = ["M2", "M1.5", "M1"] as const;
 export type Size = (typeof SIZES)[number];
