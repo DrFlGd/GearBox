@@ -142,6 +142,48 @@
       }
     },
     {
+      "name": "MOD3",
+      "title": "Magnetic module plate 3x3 (test: hub port 30T)",
+      "group": "test",
+      "params": {
+        "part": "module_plate",
+        "mod_n": 3
+      },
+      "expect": {
+        "M2": [62, 62, 12],
+        "M1.5": [46.5, 46.5, 10],
+        "M1": [31.2, 31.2, 8.5]
+      }
+    },
+    {
+      "name": "MOD5",
+      "title": "Magnetic module plate 5x5 (test: hub port 50T)",
+      "group": "test",
+      "params": {
+        "part": "module_plate",
+        "mod_n": 5
+      },
+      "expect": {
+        "M2": [102, 102, 12],
+        "M1.5": [76.5, 76.5, 10],
+        "M1": [51.2, 51.2, 8.5]
+      }
+    },
+    {
+      "name": "MOD7",
+      "title": "Magnetic module plate 7x7 (test: hub port 70T)",
+      "group": "test",
+      "params": {
+        "part": "module_plate",
+        "mod_n": 7
+      },
+      "expect": {
+        "M2": [142, 142, 12],
+        "M1.5": [106.5, 106.5, 10],
+        "M1": [71.2, 71.2, 8.5]
+      }
+    },
+    {
       "name": "B2x2",
       "title": "Tile 2x2",
       "group": "board",

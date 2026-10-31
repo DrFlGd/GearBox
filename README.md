@@ -252,6 +252,7 @@ bolts to the board and carries a sliding carriage.
 ```
 scad/gearbox.scad      one entry point for every part (desktop customizer or -D on the CLI)
 scad/fit-check.scad    interference checks for the face joint (jaws, grooves, cranks, knobs)
+scad/module-check.scad interference check for two magnetic module plates joined edge to edge
 scad/lib/standard.scad all three sizes: every shared dimension
 scad/lib/tolerances.scad  print profiles: PLA, PETG, ABS; every clearance in one table
 scad/lib/board.scad    tiles, sockets, dovetail edges
@@ -264,6 +265,7 @@ scad/lib/motor.scad    N20 motor mount and pinion
 scad/lib/mechanisms.scad  rail, carriages, rack, yoke, cams, Geneva, partial gears, quick return, escapement, spring, winch
 scad/lib/drives.scad   planetary ring and carrier, shaft bracket, bevel pair, worm and worm gear, NEMA 17 mount, flywheel
 scad/lib/magnets.scad  magnetic gears and the face coupling's barrier
+scad/lib/modules.scad  magnetic module plates (test): ports, magnet and ridge edges
 scad/lib/assembly.scad every kit put together, with its hardware, for the Assembly part
 catalog/parts.json     every stock part with its parameters and expected size in each size
 tools/render.mjs       render one part with OpenSCAD (WASM, Manifold backend)
@@ -475,6 +477,40 @@ lets a stacked pair rock about ±3 degrees. The tapered jaws seat on their
 20 degree flanks instead (about ±0.4 degrees in M2). The `jaws` kit stacks
 all three on one 3-level pin; a `G40` and a `G30` stacked on one pin are the
 tapered pair to try against `JG40` and `JG30`. M2 only.
+
+## Magnetic module plates (test)
+
+`MOD3`, `MOD5` and `MOD7` are standalone bases for one mechanism each. They sit
+loose on the table and snap together edge to edge with magnets, so a mechanism
+is built once on its plate and then plugged into others without moving a bolt.
+
+- **Ports.** A gear is a port when its pitch circle touches the plate's edge
+  (its centre one pitch radius in). Two ports facing each other across a joint
+  always mesh, whatever their tooth counts. Sockets sit half a step, 1.5 steps,
+  2.5 steps in from an edge, so the ports are the odd gears: a 30T one socket
+  in, a 50T two in, a 70T three in. The centre of a `MOD3`, `MOD5` or `MOD7`
+  takes a 30T, 50T or 70T hub that touches all four edges, so any two hub
+  modules mesh when one is centred on an edge of the other (30:50, 30:70,
+  50:70 or 1:1). No gear may cross an edge, so the outer ring of sockets is
+  left out.
+- **Edges.** Every grid step of every edge carries the same pattern: a disc
+  magnet a quarter step either side of the step centre, north outward on the
+  one with a dot behind it on the bottom face and south outward on the other,
+  and in the plate a ridge and a groove an eighth of a step in from the step's
+  ends. Any edge mates any edge, either way round and shifted along the joint
+  by whole sockets; facing magnets are always opposite poles (checked for every
+  pair of sizes, turn and shift). The ridges hold the joint against the
+  sideways push of the gear teeth; the magnets hold it shut. The slot next to
+  each corner is left out.
+- **Magnets.** The kit's discs (6 x 3 mm in M2, 4 x 2 in M1.5, 3 x 2 in M1)
+  push into slots from the bottom over a crush rib. Snap all the magnets into
+  one stack, mark its top end and keep it for every plate. Slide magnets off
+  the bottom of the stack without turning them: in a dotted slot the side that
+  faced the marked end faces out of the edge, in a plain slot it faces in. Two
+  plates that repel on one pair have one magnet in backwards. A plate takes 16 (`MOD3`), 32
+  (`MOD5`) or 48 (`MOD7`) magnets; `mod_magnets = "centre"` halves that by
+  keeping only every other step from the middle, which still holds the hub
+  layouts (plates centred on each other) but nothing else.
 
 ## Assemblies
 

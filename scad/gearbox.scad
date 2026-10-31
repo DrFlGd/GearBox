@@ -5,7 +5,7 @@
 // libraries folder). Run `npm run render` to build the whole catalog.
 
 /* [Part] */
-part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, jaw_gear, joint_ring, handle_spacer, assembly, coupler, post, joint]
+part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, jaw_gear, joint_ring, handle_spacer, module_plate, assembly, coupler, post, joint]
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
@@ -34,6 +34,10 @@ flip = false;      // tile, crank, pointer, carriage, rack, yoke: render print-r
 // Nut pockets under a tile (and in the coupon): press holds the nut on three crush ribs
 // (push it out again with a rod through the bolt hole); slip lets it drop in and out.
 nut_fit = "press"; // [press, slip]
+
+/* [Modules] */
+mod_n = 5;         // [3:1:9] magnetic module plate (test): sockets a side; odd sizes carry a hub port gear of mod_n x 10 teeth in the centre
+mod_magnets = "all"; // [all, centre] all: a magnet pair at every step of every edge; centre: every other step from the middle (odd plates centred on each other only)
 
 /* [Spacer] */
 spacer_h = 3;      // [1:0.5:30] 27 (M2) or 23 (M1.5) is the handle core
@@ -86,6 +90,7 @@ include <lib/mechanisms.scad>
 include <lib/drives.scad>
 include <lib/magnets.scad>
 include <lib/hexsleeve.scad>
+include <lib/modules.scad>
 include <lib/assembly.scad>
 
 // turn a part upside down for printing (cranks and pointers: hub ring up; carriages: flat top down)
@@ -150,5 +155,6 @@ else if (part == "hex_gear")    hex_gear(teeth, face);
 else if (part == "hex_spacer")  hex_spacer(hex_levels);
 else if (part == "hex_lever")   hex_lever(holes);
 else if (part == "jaw_gear")    jaw_gear(teeth, face);
+else if (part == "module_plate") module_plate(mod_n, flip = flip);
 else if (part == "assembly")    assembly(kit, explode, layer);
 else assert(false, str("unknown part: ", part));
