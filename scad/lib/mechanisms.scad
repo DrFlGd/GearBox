@@ -190,8 +190,7 @@ module geneva_driver(n = 6) {
             gear_blank(40);
             translate([0, 0, GEAR_T]) cylinder(r = rl, h = 1 + EPS);
             translate([0, 0, GEAR_T + 1]) linear_extrude(h_upper - GEAR_T - 1) difference() { circle(r = rl); translate([GEN_C, 0]) circle(r = b + 0.6); }
-            translate([a, 0, GEAR_T - EPS]) cylinder(d = POST_D + 3, h = 1 + EPS);
-            translate([a, 0, GEAR_T]) cylinder(d = POST_D, h = h_upper - GEAR_T - 0.5);
+            translate([a, 0, GEAR_T - EPS]) cylinder(d = POST_D, h = h_upper - GEAR_T - 0.5 + EPS);   // no base collar: it caught the wheel when the post leans
             translate([a, 0, h_upper - 0.5]) cylinder(d1 = POST_D, d2 = POST_D - 1, h = 0.5);
         }
         double_bearing_seat();
