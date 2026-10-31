@@ -3,15 +3,18 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 
-/** `hardware`: a second mesh drawn in steel grey (an assembly's bolts, bearings, pins and magnets). */
-type Props = { stl: Uint8Array | null; hardware?: Uint8Array | null; busy: boolean; grid: number };
+/** `hardware`: a second mesh drawn in steel grey (an assembly's bolts, bearings, pins and magnets).
+ *  `beds`: outlines of print beds from the origin along +x (a print layout), in place of the board grid. */
+type Props = { stl: Uint8Array | null; hardware?: Uint8Array | null; busy: boolean; grid: number; beds?: { size: number; gap: number; count: number } | null; label?: string };
 
 /** three.js view of the current part: orbit, a 20 mm grid that matches the board, auto-fit on each new mesh. */
-export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
+export default function Viewer({ stl, hardware = null, busy, grid, beds = null, label = "Rendering…" }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const bedsNow = useRef(beds);
+  bedsNow.current = beds;
   const state = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
-    mesh: THREE.Mesh | null; hw: THREE.Mesh | null; grid: THREE.GridHelper; fitted: boolean;
+    mesh: THREE.Mesh | null; hw: THREE.Mesh | null; grid: THREE.GridHelper; beds: THREE.Group | null; fitted: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -37,7 +40,7 @@ export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
     gridHelper.rotation.x = Math.PI / 2;
     scene.add(gridHelper);
     scene.add(new THREE.AxesHelper(20));
-    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, hw: null as THREE.Mesh | null, grid: gridHelper, fitted: false };
+    const s = { renderer, scene, camera, controls, mesh: null as THREE.Mesh | null, hw: null as THREE.Mesh | null, grid: gridHelper, beds: null as THREE.Group | null, fitted: false };
     state.current = s;
 
     const resize = () => {
@@ -71,6 +74,7 @@ export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
     const g = new THREE.GridHelper(grid * 20, 20, 0x5a6475, 0x323a47);
     g.rotation.x = Math.PI / 2;
     g.position.z = s.grid.position.z;
+    g.visible = !s.beds;
     s.scene.add(g);
     s.grid = g;
   }, [grid]);
@@ -91,13 +95,17 @@ export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
     s.scene.add(mesh);
     s.mesh = mesh;
     geometry.computeBoundingBox();
-    const bb = geometry.boundingBox!;
+    const bb = geometry.boundingBox!.clone();
+    // a print layout fits the whole of its beds, not just the parts on them
+    const bd = bedsNow.current;
+    if (bd) bb.union(new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(bd.count * (bd.size + bd.gap) - bd.gap, bd.size, 0)));
     const size = new THREE.Vector3();
     bb.getSize(size);
     const center = new THREE.Vector3();
     bb.getCenter(center);
     const radius = Math.max(size.x, size.y, size.z) * 0.5 || 20;
-    const dist = (radius / Math.sin((s.camera.fov * Math.PI) / 360)) * 1.25;
+    // fit the wider of the two directions: a tall, narrow view (a phone) fits the width
+    const dist = ((radius / Math.sin((s.camera.fov * Math.PI) / 360)) * 1.25) / Math.min(1, s.camera.aspect);
     const dir = s.fitted ? s.camera.position.clone().sub(s.controls.target).normalize() : new THREE.Vector3(0.6, -0.7, 0.55).normalize();
     s.controls.target.copy(center);
     s.camera.position.copy(center).add(dir.multiplyScalar(dist));
@@ -107,6 +115,23 @@ export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
     s.fitted = true;
     s.grid.position.z = Math.min(0, bb.min.z);
   }, [stl]);
+
+  useEffect(() => {
+    const s = state.current;
+    if (!s) return;
+    if (s.beds) { s.scene.remove(s.beds); s.beds.children.forEach(c => (c as THREE.LineLoop).geometry.dispose()); s.beds = null; }
+    s.grid.visible = !beds;
+    if (!beds) return;
+    const g = new THREE.Group();
+    const mat = new THREE.LineBasicMaterial({ color: 0x5a6475 });
+    for (let i = 0; i < beds.count; i++) {
+      const x0 = i * (beds.size + beds.gap), n = beds.size;
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x0, 0, 0), new THREE.Vector3(x0 + n, 0, 0), new THREE.Vector3(x0 + n, n, 0), new THREE.Vector3(x0, n, 0)]);
+      g.add(new THREE.LineLoop(geo, mat));
+    }
+    s.scene.add(g);
+    s.beds = g;
+  }, [beds?.size, beds?.gap, beds?.count]);
 
   useEffect(() => {
     const s = state.current;
@@ -122,7 +147,7 @@ export default function Viewer({ stl, hardware = null, busy, grid }: Props) {
 
   return (
     <div className={"viewer" + (busy ? " busy" : "")} ref={host}>
-      {busy && <div className="viewer-overlay"><div className="spinner" /><span>Rendering…</span></div>}
+      {busy && <div className="viewer-overlay"><div className="spinner" /><span>{label}</span></div>}
     </div>
   );
 }

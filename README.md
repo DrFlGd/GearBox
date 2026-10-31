@@ -5,9 +5,13 @@ sockets, spur gears riding on ball bearings, and a web app that generates the
 parts in your browser. The plan lives in
 [Gear Board Generator Plan](https://claude.ai/artifact/VEH5Cni2EtvSYfoMdG2Zfw).
 
-**Part generator: https://drflgd.github.io/GearBox/** – pick a size and a part,
-set its options and print profile, and download STL, 3MF or OBJ. Everything
-renders in the browser (OpenSCAD compiled to WebAssembly), nothing is uploaded.
+**Web app: https://drflgd.github.io/GearBox/** – **Kits** shows each kit
+assembled, exploded or laid out for printing, with its parts and hardware,
+and downloads the whole kit; **Parts** makes one part with your own options
+as STL, 3MF or OBJ; **Layout** is a virtual board for your own gear train.
+Print profile, gear joints, fit tuning and the legacy and test parts are under
+**Settings**. Everything renders in the browser (OpenSCAD compiled to
+WebAssembly), nothing is uploaded.
 Ready-made STLs for every catalog part are on the
 [releases page](https://github.com/DrFlGd/GearBox/releases/latest).
 
@@ -73,8 +77,8 @@ and the same part names. Pick one size for a board; parts do not mix.
   flywheel) takes the dowel pin holes instead and joins with pins whichever
   joint is picked. Compound gears (60T over 20T etc.) are one part and need
   no joint.
-- **Other joints.** The generator, the kit zips and the layout tester's
-  export have a **Joints** switch for every part that takes a joint:
+- **Other joints.** The app's **Settings** have a **Gear joints** switch that
+  sets the joint of every part, kit download and layout export:
   - *Jaws* (default): as above.
   - *Dowel pins*: the legacy joint. Six dowel pin holes in each face; three
     steel pins sit in the lower gear's top face and the upper gear drops
@@ -296,13 +300,28 @@ npm run build     # static site in dist/, deployed to GitHub Pages by .github/wo
 The app embeds `scad/` and the parts of BOSL2 it needs at build time, so a
 change to the library shows up in the app on the next build. The engine
 (`openscad-wasm-prebuilt`, 11 MB) is served as one file from `engine/` and
-loaded by the render worker. Every part, catalog or custom, downloads from the panel as STL, 3MF or OBJ
-once it has rendered. A part's options live in the URL hash, so a link
+loaded by the render worker.
+
+The app opens on the **Kits** tab. Pick a kit on the left (grouped into basics,
+motors, mechanisms, drives and magnets); the tabs over the view switch between
+the assembled kit, the exploded kit and the print layout (every printed part
+flat on 220 mm beds). Click a part in the kit's list to see it alone, download
+it, or open it in **Parts** to change it. The download box takes the whole kit
+as a print layout 3MF (one object per part), a print layout STL, or a zip of
+STLs with a README of the hardware. **Parts** has a search box, folding groups
+and the catalog presets as chips over each part's options; the one download
+group in the toolbar takes the part as STL, 3MF or OBJ. **Settings** (top
+right) hold the print profile, the gear joint, the fit overrides with a link
+to the fit test kit, the legacy and test parts (fit test coupon, printed
+coupler, the old crank post, the hex sleeve and straight jaw experiments),
+whether a part re-renders as you change it, the OpenSCAD console, and a button
+to clear the saved renders. The selection lives in the URL hash, so a link
 like `https://drflgd.github.io/GearBox/#size=M1.5&part=gear&teeth=60` opens
-that part. Rendered models are kept in the browser (IndexedDB, newest 400),
+that part and `#mode=kits&kit=geneva&view=exploded` that kit (older
+`#part=assembly&kit=...` links still work). Rendered models are kept in the browser (IndexedDB, newest 400),
 keyed by the part's settings, profile, fit overrides and a hash of the
 library and engine, so opening a part, kit zip or print plate again loads
-at once; any change to those renders fresh. The fit overrides in the profile panel are the keys of
+at once; any change to those renders fresh. The fit overrides in Settings are the keys of
 `scad/lib/tolerances.scad` and are passed to OpenSCAD as `overrides=[...]`.
 
 ### The layout tester
@@ -316,8 +335,8 @@ the same level mesh when their tooth counts add up to a multiple of 20 and
 their pins are that many twentieths of the grid apart (20T+20T two sockets,
 20T+80T five sockets, or a 3-4-5 diagonal). Joining a stacked gear to the one
 below carries motion between levels: a bigger gear under a smaller one is
-one compound part, any other pair joins with the **Joints** setting above
-the bill (jaws by default; dowel pins; or pins and screws when both are 30T
+one compound part, any other pair joins with the **Gear joints** setting in
+Settings (jaws by default; dowel pins; or pins and screws when both are 30T
 or more, 40T in M1); two plain 40T or bigger gears can be joined by magnets
 instead. With jaws the kit export sets each face to what its stack needs:
 a part gets jaws on top only where something is joined onto it or a crank
@@ -325,9 +344,10 @@ or pointer keys onto it, and a flat top otherwise (`-FT`), so a free gear
 or the knob can sit right above it; a joined pair too small for the jaws
 gets dowel pin holes instead (`-PT`, `-PB`). The bill
 of materials counts tiles, gears, knobs, spacers, bolts by length, nuts,
-bearings, dowel pins, screws and magnets; "Download kit zip" renders every
-distinct part for your size, profile and joint. The whole layout lives in the link, so it can be bookmarked or sent.
-"1:16 example" is the plan's gate: two 20:80 stages on three pins.
+bearings, dowel pins, screws and magnets (click a printed part to open it in
+Parts); the download box under it renders every distinct part for your size,
+profile and joint, as a print layout 3MF or STL or as a zip of STLs. The whole layout lives in the link, so it can be bookmarked or sent.
+The **Start from** menu loads the examples; "1:16 example" is the plan's gate: two 20:80 stages on three pins.
 
 The add-ons are placeable too. An empty level takes a gear, a pulley, a
 ratchet wheel, a pawl or a rocker; the top item of a pin can carry a crank
@@ -445,7 +465,7 @@ one bearing and one magnet to hand, plus a gear of your size for the jaws
 6. The male dovetail of a second coupon (or a tile) slides into the female slot without force and without slop.
 
 If a fit is off, change that one value in `scad/lib/tolerances.scad` (or use
-the fit overrides in the web app) and print the coupon again.
+the fit overrides in the web app's Settings) and print the coupon again.
 
 ## Print settings
 

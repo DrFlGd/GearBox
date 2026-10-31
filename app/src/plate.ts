@@ -12,7 +12,8 @@ export type Placed = { name: string; part: number; x: number; y: number; z: numb
 export type PrintPlate = { parts: { name: string; title: string; mesh: Mesh }[]; placed: Placed[]; plates: number; failed: string[] };
 
 const GAP = 6;        // between parts, mm
-const PLATE_GAP = 30; // between plates when one bed is not enough
+export const PLATE_GAP = 30; // between plates when one bed is not enough
+export const BED = 220;      // square bed, mm
 
 /** Shelf packing: tallest footprints first, rows left to right, a new plate when a bed fills. */
 export function layOut(sizes: { w: number; d: number }[], bed: number): { x: number; y: number; plate: number }[] {
@@ -32,8 +33,10 @@ export function layOut(sizes: { w: number; d: number }[], bed: number): { x: num
 export async function buildPrintPlate(opts: {
   items: KitItem[]; size: Size; profile: Profile; overrides: Overrides; joint?: Joint; bed?: number;
   render: (defs: string[]) => Promise<RenderResult>; onProgress?: (text: string) => void;
-}): Promise<PrintPlate> {
-  const bed = opts.bed ?? 220;
+  /** Called with the plate so far after each part, so a view can fill in as parts arrive. */
+  onPartial?: (plate: PrintPlate) => void;
+}): Promise<PrintPlate | null> {
+  const bed = opts.bed ?? BED;
   const parts: PrintPlate["parts"] = [];
   const failed: string[] = [];
   for (let i = 0; i < opts.items.length; i++) {
@@ -41,18 +44,29 @@ export async function buildPrintPlate(opts: {
     opts.onProgress?.(`${i + 1}/${opts.items.length} ${it.name}`);
     const { part, ...params } = it.params;
     const r = await opts.render(defines(String(part), params, opts.size, opts.profile, opts.overrides, opts.joint));
+    if (r.messages[0] === "Cancelled") return null;
     if (r.ok && r.bytes) parts.push({ name: it.name, title: it.title, mesh: parseBinaryStl(r.bytes) }); else failed.push(it.name);
+    if (opts.onPartial && parts.length && r.ok) opts.onPartial(layPlate(parts, opts.items, bed, failed));
   }
+  return layPlate(parts, opts.items, bed, failed);
+}
+
+/** Every copy of every rendered part placed on the beds. */
+export function layPlate(parts: PrintPlate["parts"], items: KitItem[], bed = BED, failed: string[] = []): PrintPlate {
   const copies: { part: number; name: string }[] = [];
-  parts.forEach((p, pi) => { const qty = opts.items.find(it => it.name === p.name)?.qty ?? 1; for (let k = 0; k < qty; k++) copies.push({ part: pi, name: qty > 1 ? `${p.name} ${k + 1}` : p.name }); });
+  parts.forEach((p, pi) => { const qty = items.find(it => it.name === p.name)?.qty ?? 1; for (let k = 0; k < qty; k++) copies.push({ part: pi, name: qty > 1 ? `${p.name} ${k + 1}` : p.name }); });
   const dims = copies.map(c => { const b = parts[c.part].mesh.bbox; return { w: b.max[0] - b.min[0], d: b.max[1] - b.min[1] }; });
   const spots = layOut(dims, bed);
   const placed = copies.map((c, i) => {
     const b = parts[c.part].mesh.bbox;
     return { name: c.name, part: c.part, x: spots[i].x - b.min[0], y: spots[i].y - b.min[1], z: -b.min[2] };
   });
-  return { parts, placed, plates: spots.reduce((m, s) => Math.max(m, s.plate + 1), 0), failed };
+  return { parts: [...parts], placed, plates: spots.reduce((m, s) => Math.max(m, s.plate + 1), 0), failed: [...failed] };
 }
+
+/** "8 parts on 1 plate (220 mm bed)", plus what failed. */
+export const plateSummary = (p: PrintPlate) =>
+  `${p.placed.length} part${p.placed.length === 1 ? "" : "s"} on ${p.plates} plate${p.plates > 1 ? "s" : ""} (${BED} mm bed)${p.failed.length ? `; failed to render: ${p.failed.join(", ")}` : ""}`;
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(4).replace(/\.?0+$/, ""));
 const esc = (s: string) => s.replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[c]!);
@@ -103,4 +117,14 @@ export function plateToStl(p: PrintPlate): Uint8Array {
     }
   }
   return new Uint8Array(buf);
+}
+
+// The last few plates built, so a kit's print layout view and its download share one build.
+const plates = new Map<string, PrintPlate>();
+export const plateKey = (items: KitItem[], ...rest: unknown[]) => JSON.stringify([items.map(it => [it.name, it.qty, it.params]), ...rest]);
+export const recallPlate = (key: string) => plates.get(key);
+export function rememberPlate(key: string, plate: PrintPlate) {
+  plates.delete(key);
+  plates.set(key, plate);
+  while (plates.size > 4) plates.delete(plates.keys().next().value!);
 }
