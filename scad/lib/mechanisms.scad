@@ -194,8 +194,7 @@ module geneva_driver(n = 6) {
             translate([a, 0, GEAR_T]) cylinder(d = POST_D, h = h_upper - GEAR_T - 0.5);
             translate([a, 0, h_upper - 0.5]) cylinder(d1 = POST_D, d2 = POST_D - 1, h = 0.5);
         }
-        bearing_seat(ledge_at_bottom = false);
-        translate([0, 0, LEVEL - 1]) bearing_seat();
+        double_bearing_seat();
         bottom_cut(undef, gear_rr(40));
         rotate(30) face_pattern(40, "holes");   // between the holes, the post has solid material under it
     }
@@ -370,8 +369,7 @@ module winch() {
             cylinder(r = WINCH_FLANGE_R, h = 1.5);
             cylinder(r = WINCH_CORE_R, h = WINCH_H);
         }
-        bearing_seat(ledge_at_bottom = false);
-        translate([0, 0, LEVEL - 1]) bearing_seat();
+        double_bearing_seat();
         bottom_cut(undef, WINCH_CORE_R);
         translate([min(WINCH_CORE_R + 4, (WINCH_CORE_R + WINCH_FLANGE_R) / 2), 0, -1]) cylinder(d = 2.4, h = 4, $fn = 16);
     }
