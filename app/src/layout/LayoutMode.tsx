@@ -269,7 +269,7 @@ export default function LayoutMode({ size, profile, overrides, joint, render, en
                   <select value={selFix.span} onChange={e => updateFixture(selFix.id, x => ({ ...x, span: Number(e.target.value) }))}>{[2, 3, 4].map(n => <option key={n} value={n}>{n} sockets</option>)}</select>
                 </label>
               </div>
-              <p className="hint">The bracket's bar bolts into the sockets between its two housings; a bolt through the housings' bearings is the shaft, at the middle of level 4. A bevel gear on a pin two sockets before the first housing, on the bracket's row, turns the shaft through its mate. A worm gear on level 4 beside the middle of the bar (20T two rows out, 40T three) is turned by the worm on the shaft.</p>
+              <p className="hint">The bracket's bar bolts into the sockets between its two housings; a bolt through the housings' bearings is the shaft, at the middle of level 4. A bevel gear on a pin two sockets before the first housing, on the bracket's row (three sockets for a bevel on a 40T, whose teeth would hit the housing at two), turns the shaft through its mate. A worm gear on level 4 beside the middle of the bar (20T two rows out, 40T three) is turned by the worm on the shaft.</p>
               <button type="button" className="link" onClick={() => { updateFixture(selFix.id, () => null); setSelectedFixture(null); }}>Remove bracket</button>
               {analysis.problems.filter(p => p.fixture === selFix.id).map((p, i) => <p key={i} className="err">{p.text}</p>)}
             </div>

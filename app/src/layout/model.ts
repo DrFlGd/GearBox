@@ -152,9 +152,12 @@ export function planetaryDims(size: Size) {
     legR: Math.max((boltD(size) * 1.6 + 5) / 2, (sz(size, 14, 10.5, 10) + 0.6 + 5) / 2), ratio: 1 / (1 + PLN.ring / PLN.sun) };
 }
 export const SHAFT_LEVEL = 4;
-export function bracketDims(size: Size) {
+/** A bevel pin sits 2 sockets before a shaft bracket (BEVEL-S), or 3 (BEVEL-S3): a 40T spur
+ *  under the bevel reaches 2 * grid + module and would run into the first housing at 2. */
+export const BEVEL_REACH = [2, 3] as const;
+export function bracketDims(size: Size, reach = 2) {
   const s = std(size), bw = Number(s.bearing.split("x")[2]) || 7;
-  return { shaftH: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2, housingT: bw + 1, housingW: bearingOD(size) + 8, barT: sz(size, 6, 4.7, 4.2), bevelD: 2 * s.grid, bevelHub: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2 - 10 * s.module - 2, wormD: 2 * s.grid, wormL: 2 * s.grid, bevelT: 20 };
+  return { shaftH: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2, housingT: bw + 1, housingW: bearingOD(size) + 8, barT: sz(size, 6, 4.7, 4.2), bevelD: reach * s.grid, bevelHub: lvlZ(size, SHAFT_LEVEL) + s.gear_thickness / 2 - 10 * s.module - 2, wormD: 2 * s.grid, wormL: 2 * s.grid, bevelT: 20 };
 }
 export const flyR = (size: Size) => 2 * std(size).grid - 2.5;
 export const NEMA = { w: 42.3, plate: 48, legSteps: 2 };
@@ -380,9 +383,10 @@ export function drivesLayout(size: Size): Layout {
     { id: "m", x: 2, y: 4, gears: [{ level: 3, teeth: 20, joined: false }], motor: { dir: 1, type: "nema17" } },
     { id: "s", x: 6, y: 4, gears: [{ level: 1, teeth: 60, joined: false, kind: "carrier", legs: "y" }, { level: 2, teeth: 20, joined: false }, { level: 3, teeth: 60, joined: true }] },
     { id: "b", x: 10, y: 1, gears: [{ level: 1, teeth: 40, joined: false, kind: "bevel" }] },
-    { id: "w", x: 14, y: 4, gears: [{ level: 4, teeth: 40, joined: false, kind: "wormgear" }] },
-    { id: "f", x: 14, y: 7, gears: [{ level: 3, teeth: 20, joined: false, kind: "flywheel" }, { level: 4, teeth: 20, joined: true }] },
+    { id: "w", x: 15, y: 4, gears: [{ level: 4, teeth: 40, joined: false, kind: "wormgear" }] },
+    { id: "f", x: 15, y: 7, gears: [{ level: 3, teeth: 20, joined: false, kind: "flywheel" }, { level: 4, teeth: 20, joined: true }] },
   ];
-  const fixtures: Fixture[] = [{ id: "br", kind: "bracket", x: 12, y: 1, dir: 0, span: 4 }];
+  // the bevel's 40T spur needs the bracket three sockets away (at two it hits the housing)
+  const fixtures: Fixture[] = [{ id: "br", kind: "bracket", x: 13, y: 1, dir: 0, span: 4 }];
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 5, rows: 3 }, pins, bands: [], fixtures, input: { pin: "m", level: 3 }, rpm: 10 };
 }

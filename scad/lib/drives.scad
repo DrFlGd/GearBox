@@ -12,7 +12,8 @@
 // Shaft bracket: a base bar along a socket row (bolt heads flush in hex
 // pockets) with a bearing housing at each end carries a bolt as a horizontal
 // shaft at the middle of level 4. A bevel gear on a pin two steps before the
-// first housing turns the shaft through its mate; a worm between the housings
+// first housing (three for a 40T spur under it, whose teeth would run into the
+// housing at two) turns the shaft through its mate; a worm between the housings
 // turns a worm gear on a pin beside the bar (20T two rows away, 40T three).
 //
 // NEMA 17: like the N20 mount, two legs at (-2, 0) and (2, 0) and a plate the
@@ -98,6 +99,7 @@ HOUSING_W = BEARING[1] + 8;
 BAR_T     = BOLT[2] + 0.7;              // bolt heads sit flush in the base bar
 BEVEL_T   = 20;
 BEVEL_D   = 2 * GRID;                   // bevel pin: two steps before the first housing
+function bevel_d(reach = 2) = reach * GRID;   // or three: room for a 40T spur under the bevel
 BEVEL_HUB = SHAFT_H - BEVEL_T * MOD / 2 - drv_z(1);   // hub height to the pitch base, so the apex lands on the shaft
 WORM_D    = 2 * GRID;                   // worm pitch diameter: a 20T wheel two rows out, a 40T three
 WORM_L    = 2 * GRID;
@@ -132,7 +134,9 @@ module bracket(span = 4) {
 }
 
 // Bevel gear on a pin, teeth up: a 20T or 40T spur gear at level 1 drives it, a tall
-// hub carries the cone whose apex sits on the shaft. It fills its pin.
+// hub carries the cone whose apex sits on the shaft. It fills its pin. A 20T sits two
+// sockets before the bracket; a 40T's teeth reach 2 * GRID + MOD and would run into the
+// first housing there, so it sits three sockets before it, with the long BEVEL-S3 mate.
 module bevel_pin(teeth = 20) {
     assert(teeth == 20 || teeth == 40, "bevel: 20 or 40 tooth spur");
     difference() {
@@ -148,9 +152,11 @@ module bevel_pin(teeth = 20) {
 }
 
 // Its mate on the shaft: the cone toward the pin, a hub back to the first housing
-// with a nut pocket that keys and clamps it. Prints hub down.
-module bevel_shaft() {
-    hub_l = BEVEL_D - gear_pr(BEVEL_T) - HOUSING_T / 2 - 0.5;
+// with a nut pocket that keys and clamps it. `reach`: sockets from the bevel pin to the
+// first housing (2, or 3 for a bevel on a 40T spur). Prints hub down.
+module bevel_shaft(reach = 2) {
+    assert(reach == 2 || reach == 3, "bevel on the shaft: the pin sits 2 or 3 sockets before the bracket");
+    hub_l = bevel_d(reach) - gear_pr(BEVEL_T) - HOUSING_T / 2 - 0.5;
     af = BOLT[1] + fit("nut_clear");
     hub_d = af / cos(30) + 6;
     back_r = gear_pr(BEVEL_T) + 1.5 * MOD;

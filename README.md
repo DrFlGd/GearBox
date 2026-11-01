@@ -107,7 +107,7 @@ and the same part names. Pick one size for a board; parts do not mix.
 | Hub dowel pins (3 per crank or pointer; pins and pins + screws) | 3 x 6 mm | 2 x 4 mm | 2 x 4 mm |
 | Joint screws (3 per pair; pins + screws) | M3 x 14 + nut, 30T and up | M2.5 x 12 + nut, 30T and up | M2 x 10 + nut, 40T and up |
 | Crank post bolt, handle / link or slot | M8 x 40 / M8 x 20 + nut | M6 x 35 / M6 x 20 + nut | M5 x 30 / M5 x 15 + nut |
-| Shaft bracket shaft | M8 x 100 | M6 x 80 | M5 x 60 |
+| Shaft bracket shaft, bevel 2 / 3 sockets back | M8 x 100 / 120 | M6 x 80 / 90 | M5 x 60 |
 | Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm | 3 x 2 mm |
 | Hex sleeve bearings (2 per sleeve) | 688 (8 x 16 x 5) | 686 (6 x 13 x 5) | 685 (5 x 11 x 5) |
 
@@ -249,9 +249,11 @@ bolts to the board and carries a sliding carriage.
   (tighten with a socket, the nuts are in the board). A 4-level bolt through
   the housings' bearings is a horizontal shaft at the middle of level 4.
 - **Bevel pair.** `BEVEL` (`BEVEL40`) is a 20T (40T) spur gear with a tall hub and a 20T bevel
-  on top, on a pin two sockets before the first housing; it fills its pin.
-  `BEVEL-S` is the mate on the shaft, with a hub back to the housing and a
-  nut pocket that keys and clamps it. The spur below is driven like any 20T.
+  on top; it fills its pin. `BEVEL` sits on a pin two sockets before the first
+  housing, with `BEVEL-S` as the mate on the shaft (a hub back to the housing and a
+  nut pocket that keys and clamps it). A 40T's teeth would run into the housing
+  there, so `BEVEL40` sits three sockets back with the long-hubbed `BEVEL-S3`
+  and the longer shaft bolt. The spur below is driven like any gear.
 - **Worm.** `WORM` fills the gap between the housings, keyed to the shaft by
   a nut in its hub, and turns `WG20` (two rows from the shaft) or `WG40`
   (three rows) on level 4, one tooth per turn: 20:1 or 40:1, self-locking.

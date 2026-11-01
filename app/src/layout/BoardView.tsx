@@ -544,7 +544,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
     for (const info of analysis.fixtures) {
       const f = info.fixture;
       if (f.kind === "bracket") {
-        const fr = railFrame(layout, f), b = bracketDims(size), L = fr.len, m = d.module;
+        const fr = railFrame(layout, f), b = bracketDims(size, info.reach), L = fr.len, m = d.module;
         const bad = badFixtures.has(f.id);
         const railMat = new THREE.MeshStandardMaterial({ color: bad ? COLORS.collide : COLORS.rail, roughness: 0.7 });
         const grp = new THREE.Group(); grp.position.set(fr.o.x, fr.o.y, d.tile_h); grp.rotation.z = fr.angle; grp.userData = { fixture: f.id };

@@ -66,6 +66,7 @@ poles = 16;        // [12, 16, 20, 24] magnetic gear: magnets in the rim; it mes
 
 /* [Drives] */
 span = 4;          // [2:1:4] shaft bracket: sockets between its housings
+bevel_reach = 2;   // [2:1:3] bevel on the shaft: sockets from the bevel pin to the bracket (3 for a bevel on a 40T spur)
 shaft = "n20";     // [n20, nema17] pinion: which motor shaft it fits
 
 /* [Assembly] */
@@ -143,7 +144,7 @@ else if (part == "ring")        print_flip(flip, ring_top(level)) planet_ring(le
 else if (part == "carrier")     carrier();
 else if (part == "bracket")     bracket(span);
 else if (part == "bevel")       bevel_pin(teeth);
-else if (part == "bevel_shaft") bevel_shaft();
+else if (part == "bevel_shaft") bevel_shaft(bevel_reach);
 else if (part == "worm")        worm_part(span);
 else if (part == "worm_gear")   worm_gear_part(teeth);
 else if (part == "nema_mount")  nema_mount(level);

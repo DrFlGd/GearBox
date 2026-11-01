@@ -2,7 +2,7 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, crankReach, crankMinThrow, followerTail, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, BEVEL_REACH, MAGF_N, crankReach, crankMinThrow, followerTail, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, yokeWall, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
@@ -21,6 +21,7 @@ export type FixtureInfo = {
   drive?: GearRef;              // the crank's gear (yoke, slider), the pinion (rack) or the bevel gear (bracket)
   wormGear?: GearRef;           // bracket: the worm gear beside the bar
   side?: number;                // bracket: which side (+1 left, -1 right) the worm gear is on
+  reach?: number;               // bracket: sockets from the bevel pin to the first housing (2 or 3)
   pinU?: number;                // the drive pin's position along the rail, mm
   range: [number, number];      // carriage centre travel along the rail, mm
   limit: [number, number];      // where the carriage may be
@@ -114,7 +115,7 @@ export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): Fixture
   const s = std(l.size), g = s.grid, r = railDims(l.size);
   const box = (u0: number, u1: number, v0: number, v1: number, lo: number, hi: number, what: FixtureBox["what"]): FixtureBox => ({ u0, u1, v0, v1, lo, hi, what });
   if (f.kind === "bracket") {
-    const b = bracketDims(l.size), L = f.span * g;
+    const b = bracketDims(l.size, info?.reach), L = f.span * g;
     const out: FixtureBox[] = [box(-b.housingT / 2, L + b.housingT / 2, -b.housingW / 2, b.housingW / 2, 1, 1, "rail")];
     for (const u of [0, L]) out.push(box(u - b.housingT / 2, u + b.housingT / 2, -b.housingW / 2, b.housingW / 2, 1, 4, "rail"));
     const wr = b.wormD / 2 + s.module;
@@ -424,22 +425,30 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     const info: FixtureInfo = { fixture: f, range: [rd.carL / 2, fr.len - rd.carL / 2], limit: [rd.carL / 2 - 4, fr.len - rd.carL / 2 + 4], ok: true };
     const bad = (text: string) => { problems.push({ text, fixture: f.id }); info.ok = false; };
     if (f.kind === "bracket") {
-      const b = bracketDims(l.size);
       info.range = [0, 0]; info.limit = [0, 0];
       for (const pin of l.pins) {
         const p = fr.toLocal(mm(l, pin));
         if (Math.abs(p.v) < 1 && p.u > -1 && p.u < fr.len + 1) bad(`a pin sits under the shaft bracket at socket ${pin.x + 1}, ${pin.y + 1}`);
       }
-      const bevel = gears.find(o => kindOf(o.gear) === "bevel" && Math.abs(fr.toLocal(mm(l, o.pin)).v) < 0.05 && Math.abs(fr.toLocal(mm(l, o.pin)).u + b.bevelD) < 0.05);
+      const bevelAt = (o: GearRef) => { const p = fr.toLocal(mm(l, o.pin)); return Math.abs(p.v) < 0.05 ? BEVEL_REACH.find(r => Math.abs(p.u + r * g) < 0.05) : undefined; };
+      const bevel = gears.find(o => kindOf(o.gear) === "bevel" && bevelAt(o) !== undefined);
+      if (bevel) info.reach = bevelAt(bevel);
       const wg = gears.find(o => kindOf(o.gear) === "wormgear" && Math.abs(fr.toLocal(mm(l, o.pin)).u - fr.len / 2) < 0.05 && Math.abs(Math.abs(fr.toLocal(mm(l, o.pin)).v) - (g + pitchR(l.size, o.gear.teeth))) < 0.05);
       if (bevel) info.drive = bevel;
       if (wg) { info.wormGear = wg; info.side = fr.toLocal(mm(l, wg.pin)).v > 0 ? 1 : -1; }
-      if (!bevel && !wg) bad("the shaft bracket has nothing on its shaft: a bevel gear two sockets before it on its row turns the shaft, a worm gear on level 4 beside the middle of the bar is turned by it");
+      if (!bevel && !wg) bad("the shaft bracket has nothing on its shaft: a bevel gear two sockets before it on its row (three for one on a 40T) turns the shaft, a worm gear on level 4 beside the middle of the bar is turned by it");
+      let bevelHit = false;
       for (const box of fixtureBoxes(l, f, info)) for (const o of occ) {
         if (o.level < box.lo || o.level > box.hi) continue;
-        if ((bevel && o.ref === bevel) || (wg && o.ref === wg)) continue;
+        // the bevel and the worm gear mesh with the shaft's gears by design, but the bevel's
+        // spur on level 1 can still run into the bar or the first housing (a 40T two sockets away)
+        if ((wg && o.ref === wg) || (bevel && o.ref === bevel && box.what === "carriage")) continue;
         const p = fr.toLocal(mm(l, o.ref.pin));
-        if (rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1) < o.r + 0.5) { hits.push({ gear: o.ref, pin: o.ref.pin, what: box.what === "rail" ? "rail" : "carriage" }); break; }
+        if (rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1) < o.r + 0.5) {
+          if (bevel && o.ref === bevel) { if (!bevelHit) bad(`the ${bevel.gear.teeth}T spur under the bevel gear hits the shaft bracket's housing: put the bevel ${bevel.gear.teeth >= 40 ? "three" : "more"} sockets before the bracket`); bevelHit = true; }
+          else hits.push({ gear: o.ref, pin: o.ref.pin, what: box.what === "rail" ? "rail" : "carriage" });
+          break;
+        }
       }
       fixtures.push(info);
       continue;
@@ -692,12 +701,16 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
       tag = `bracket:${f.id}`;
       addP("BRACKET", `Shaft bracket, housings ${f.span} sockets apart`, { part: "bracket", span: f.span });
       bolt(1, f.span - 1); addH("nut", `${s.nut} nut`, f.span - 1);
-      addH(`shaft-bolt`, `${s.bolt} x ${hw.shaft_bolt} mm hex bolt as the shaft`); addH("nut", `${s.nut} nut`, 2); bearing(2);
       const fr = railFrame(l, f);
-      const hasBevel = l.pins.some(p => p.gears.some(x => kindOf(x) === "bevel") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u < 0);
+      const bevelPin = l.pins.find(p => p.gears.some(x => kindOf(x) === "bevel") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).v) < 0.05 && fr.toLocal(socketPos(l, p.x, p.y)).u < 0);
+      const hasBevel = !!bevelPin;
+      const reach = bevelPin && Math.round(-fr.toLocal(socketPos(l, bevelPin.x, bevelPin.y)).u / s.grid) >= 3 ? 3 : 2;
       const hasWorm = l.pins.some(p => p.gears.some(x => kindOf(x) === "wormgear") && Math.abs(fr.toLocal(socketPos(l, p.x, p.y)).u - fr.len / 2) < 0.05);
+      // with the long bevel hub the shaft runs on through it
+      const sb = reach === 3 ? hw.shaft_bolt3 : hw.shaft_bolt;
+      addH(`shaft-bolt-${sb}`, `${s.bolt} x ${sb} mm hex bolt as the shaft`); addH("nut", `${s.nut} nut`, 2); bearing(2);
       tag = `bevelshaft:${f.id}`;
-      if (hasBevel) addP("BEVEL-S", "Bevel gear on the shaft", { part: "bevel_shaft" });
+      if (hasBevel) addP(reach === 3 ? "BEVEL-S3" : "BEVEL-S", `Bevel gear on the shaft${reach === 3 ? ", pin 3 sockets back" : ""}`, { part: "bevel_shaft", bevel_reach: reach });
       tag = `worm:${f.id}`;
       if (hasWorm) addP("WORM", "Worm for the shaft bracket", { part: "worm", span: f.span });
       tag = null;
