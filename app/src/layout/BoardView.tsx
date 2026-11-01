@@ -5,7 +5,7 @@ import { studio, type Studio } from "../components/look";
 import type { RealParts } from "./realParts";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
-  ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, followerTail, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
+  ARM_W, NEMA, PLN, crankArm, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, followerTail, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
   boltD, magnetSize, pitchR, sz, planetaryDims, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, tipR, topLevel, winchR, type Layout,
 } from "./model";
 import { anchorAngle, followerAngle, sliderX, yokeX } from "./motion";
@@ -439,10 +439,12 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           const t = gear.throw ?? 2 * d.grid;
           const ring = new THREE.Mesh(cyl(16 * d.module / 2, 2), addonMat);
           ring.position.z = T + 1; mesh.add(ring);
-          const arm = new THREE.Mesh(new THREE.BoxGeometry(t - d.knob_d / 2, armW, d.level + 2), addonMat);
-          arm.position.set((t + d.knob_d / 2) / 2, 0, T + (d.level + 2) / 2); mesh.add(arm);
+          // the arm runs above a neighbour's jaw tops, from its gear's top face (T)
+          const ca = crankArm(size);
+          const arm = new THREE.Mesh(new THREE.BoxGeometry(t - d.knob_d / 2, armW, ca.top - ca.z0), addonMat);
+          arm.position.set((t + d.knob_d / 2) / 2, 0, T + (ca.top + ca.z0) / 2); mesh.add(arm);
           const post = new THREE.Mesh(cyl(boltR, 28, 16), boltMat);
-          post.position.set(t, 0, T + d.level + 2 + 14); mesh.add(post);
+          post.position.set(t, 0, T + ca.top + 14); mesh.add(post);
           if (drivesSomething(pin.id, gear.level)) {
             const brg = new THREE.Mesh(cyl(boreR, Number(d.bearing.split("x")[2]) || 7, 24), boltMat);
             brg.position.set(t, 0, 2 * d.level + T / 2); mesh.add(brg);
@@ -725,7 +727,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           // the handle spacer and grip ride the crank's bolt post, from the arm's top
           const zt = T + c.boundingBox!.max.z;
           tp.grip!.visible = false;
-          addReal(spacerG, addonMat, tp.t, 0, zt, tp.mesh); addReal(h, addonMat, tp.t, 0, zt + 0.5, tp.mesh);
+          addReal(spacerG, addonMat, tp.t, 0, zt, tp.mesh); addReal(h, addonMat, tp.t, 0, zt + 2, tp.mesh);   // the grip clears the crank spacer's 1.5 mm
         });
       }
       for (const pin of layout.pins) for (const gear of pin.gears) {

@@ -25,9 +25,9 @@
         "pin_hub": "3 x 6 mm",
         "screw": "M3 x 14",
         "magnet": "6 x 3 mm",
-        "crank_bolt": 25,
+        "crank_bolt": 20,
         "follower_bolt": 25,
-        "handle_bolt": 45,
+        "handle_bolt": 40,
         "lever_bolt": 25,
         "shaft_bolt": 100,
         "pin_r": 14.3,
@@ -68,7 +68,7 @@
         "magnet": "4 x 2 mm",
         "crank_bolt": 20,
         "follower_bolt": 20,
-        "handle_bolt": 40,
+        "handle_bolt": 35,
         "lever_bolt": 20,
         "shaft_bolt": 80,
         "pin_r": 10.8,
@@ -107,9 +107,9 @@
         "pin_hub": "2 x 4 mm",
         "screw": "M2 x 10",
         "magnet": "3 x 2 mm",
-        "crank_bolt": 20,
+        "crank_bolt": 15,
         "follower_bolt": 20,
-        "handle_bolt": 35,
+        "handle_bolt": 30,
         "lever_bolt": 20,
         "shaft_bolt": 60,
         "pin_r": 9.3,
@@ -640,9 +640,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [47.2, 35.1, 13],
-        "M1.5": [41.07, 26.3, 12],
-        "M1": [40.56, 27.6, 11]
+        "M2": [47.2, 35.1, 11.5],
+        "M1.5": [41.32, 26.8, 10.5],
+        "M1": [40.56, 27.6, 9.5]
       }
     },
     {
@@ -655,9 +655,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [67.2, 35.1, 13],
-        "M1.5": [61.07, 26.3, 12],
-        "M1": [60.56, 27.6, 11]
+        "M2": [67.2, 35.1, 11.5],
+        "M1.5": [61.32, 26.8, 10.5],
+        "M1": [60.56, 27.6, 9.5]
       }
     },
     {
@@ -670,9 +670,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [87.2, 35.1, 13],
-        "M1.5": [81.07, 26.3, 12],
-        "M1": [80.56, 27.6, 11]
+        "M2": [87.2, 35.1, 11.5],
+        "M1.5": [81.32, 26.8, 10.5],
+        "M1": [80.56, 27.6, 9.5]
       }
     },
     {
@@ -737,9 +737,22 @@
         "part": "handle_spacer"
       },
       "expect": {
-        "M2": [11, 11, 27],
-        "M1.5": [8.5, 8.5, 23],
-        "M1": [7.2, 7.2, 19]
+        "M2": [11, 11, 28.5],
+        "M1.5": [8.5, 8.5, 24.5],
+        "M1": [7.2, 7.2, 20.5]
+      }
+    },
+    {
+      "name": "SC",
+      "title": "Crank spacer, 1.5 mm (under the crank post's bearing)",
+      "group": "addon",
+      "params": {
+        "part": "crank_spacer"
+      },
+      "expect": {
+        "M2": [11, 11, 1.5],
+        "M1.5": [8.5, 8.5, 1.5],
+        "M1": [7.2, 7.2, 1.5]
       }
     },
     {
@@ -2098,17 +2111,17 @@
     "crank": {
       "title": "Hand crank kit",
       "parts": [
-        "CRANK60",
+        "CRANK40",
         "SH",
         "HANDLE"
       ],
       "hardware": [
-        "1 bolt as the crank post (M8 x 45 for M2, M6 x 40 for M1.5, M5 x 35 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 40 for M2, M6 x 35 for M1.5, M5 x 30 for M1) and 1 nut",
         "(the hub ring drops over any gear's jaws)"
       ],
       "hardware_pins": [
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) pressed into the hub ring",
-        "1 bolt as the crank post (M8 x 45 for M2, M6 x 40 for M1.5, M5 x 35 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 40 for M2, M6 x 35 for M1.5, M5 x 30 for M1) and 1 nut",
         "(pins onto any gear's top face)"
       ]
     },
@@ -2169,6 +2182,7 @@
       "title": "Crank and rocker linkage",
       "parts": [
         "CRANK40",
+        "SC",
         "CAP",
         "L4",
         "L3",
@@ -2182,14 +2196,14 @@
       ],
       "hardware": [
         "1 bolt (4-level length) and 1 nut for the rocker pin",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "4 bearings",
         "1 dowel pin for the joint cap",
         "(the crank drops over the jaws of a gear on level 1)"
       ],
       "hardware_pins": [
         "1 bolt (4-level length) and 1 nut for the rocker pin",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "4 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank, 1 dowel pin for the joint cap",
         "(the crank pins onto a gear on level 1)"
@@ -2218,6 +2232,7 @@
         "CARRIAGE",
         "YOKE20R6",
         "CRANK20",
+        "SC",
         "G30",
         "K",
         "K",
@@ -2226,12 +2241,12 @@
       ],
       "hardware": [
         "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "2 bearings (one rides in the slot)"
       ],
       "hardware_pins": [
         "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "2 bearings (one rides in the slot)",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank"
       ]
@@ -2244,6 +2259,7 @@
         "SLPOST-L2",
         "CAP",
         "CRANK20",
+        "SC",
         "L7",
         "G30",
         "K",
@@ -2255,14 +2271,14 @@
       "hardware": [
         "2 bolts (1-level length) and 2 nuts for the rail",
         "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "3 bearings",
         "1 dowel pin for the cap"
       ],
       "hardware_pins": [
         "2 bolts (1-level length) and 2 nuts for the rail",
         "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "3 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank, 1 dowel pin for the cap"
       ]
@@ -2315,6 +2331,7 @@
       "parts": [
         "QR3-20",
         "CRANK20",
+        "SC",
         "G40",
         "K",
         "K",
@@ -2327,12 +2344,12 @@
       ],
       "hardware": [
         "1 bolt (1-level length) for the crank gear, 1 bolt (3-level length) for the lever, 2 nuts",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "3 bearings"
       ],
       "hardware_pins": [
         "1 bolt (1-level length) for the crank gear, 1 bolt (3-level length) for the lever, 2 nuts",
-        "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
+        "1 bolt as the crank post (M8 x 20 for M2, M6 x 20 for M1.5, M5 x 15 for M1) and 1 nut",
         "3 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank"
       ]

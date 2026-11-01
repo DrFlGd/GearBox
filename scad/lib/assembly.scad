@@ -98,15 +98,16 @@ module crank_on(k, throw, rides = "handle") {
     asm_p() ex(2 * k + 1.6) translate([0, 0, z0]) crank(throw);
     hub_pins(k);
     translate([throw, 0, 0]) {
-        ex(2 * k + 1.2) translate([0, 0, z0]) hw_bolt_up(crank_bolt(rides == "handle"));
+        ex(2 * k + 1.2) translate([0, 0, z0 + ARM_Z0 + BOLT[2]]) hw_bolt_up(crank_bolt(rides == "handle"));
         zt = z0 + crank_top();
         if (rides == "handle") {
-            asm_p() ex(2 * k + 2.4) translate([0, 0, zt]) spacer(HANDLE_H + 1);
-            asm_p() ex(2 * k + 3.2) translate([0, 0, zt + 0.5]) handle();
-            ex(2 * k + 4.4) translate([0, 0, zt + HANDLE_H + 1]) hw_nut();
+            asm_p() ex(2 * k + 2.4) translate([0, 0, zt]) spacer(HANDLE_H + 1 + CRANK_BOSS);
+            asm_p() ex(2 * k + 3.2) translate([0, 0, zt + CRANK_BOSS + 0.5]) handle();
+            ex(2 * k + 4.4) translate([0, 0, zt + CRANK_BOSS + HANDLE_H + 1]) hw_nut();
         } else {
-            ex(2 * k + 2.6) translate([0, 0, zt]) hw_bearing();
-            ex(2 * k + 4) translate([0, 0, zt + BEARING[2]]) hw_nut();
+            asm_p() ex(2 * k + 2.2) translate([0, 0, zt]) crank_spacer();
+            ex(2 * k + 2.6) translate([0, 0, zt + CRANK_BOSS]) hw_bearing();
+            ex(2 * k + 4) translate([0, 0, zt + CRANK_BOSS + BEARING[2]]) hw_nut();
         }
     }
 }
@@ -128,7 +129,7 @@ module asm_crank() {
     asm_tile(-1, -1, 3, 3);
     std_pin([1]);
     asm_p() ex(2) translate([0, 0, gz(1)]) gear(40, "spokes");
-    crank_on(1, 60, "handle");
+    crank_on(1, 40, "handle");
 }
 module asm_pointer() {
     asm_tile(-1, -1, 3, 3);

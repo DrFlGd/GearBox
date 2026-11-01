@@ -7,10 +7,12 @@
 //   node tools/render.mjs scad/fit-check.scad -o /tmp/fit.stl -D 'size="M1.5"' -D 'what="pair"' -D ang=0.6
 //
 // what: pair, free, compound, crank, crankknob, knob, pointer, dial, winch,
-// pulley, wheel, esc, mag, fly. t1, t2: teeth of the lower and upper part.
+// pulley, wheel, esc, mag, fly, crankjaws. t1, t2: teeth of the lower and upper part.
+// crankjaws: a crank (throw) on a t1 gear swings over a meshing t2 gear's jaws on its
+// level, pointed at it, with a jaw facing back (ang turns the crank off the line).
 
 size = "M2"; profile = "PETG"; overrides = []; joint = "jaws";
-ang = 0; dz = 0; t1 = 40; t2 = 30; what = "pair";
+ang = 0; dz = 0; t1 = 40; t2 = 30; what = "pair"; throw = 40;
 include <lib/standard.scad>
 include <lib/gear.scad>
 include <lib/jaws.scad>
@@ -26,6 +28,10 @@ if (what == "pair") intersection() { gear(t1); translate([0, 0, LEVEL + dz]) rot
 if (what == "free") intersection() { gear(t1); translate([0, 0, LEVEL + dz]) rotate(ang) gear(t2, $joint_bottom = "groove"); }
 if (what == "compound") intersection() { compound_gear(60, t1); translate([0, 0, 2 * LEVEL + dz]) rotate(ang) gear(t2); }
 if (what == "crank") intersection() { gear(t1); translate([0, 0, T + dz]) rotate(ang) crank(40); }
+if (what == "crankjaws") intersection() {
+    translate([0, 0, T]) rotate(ang) crank(throw);
+    translate([(t1 + t2) * MOD / 2, 0, 0]) gear(t2);
+}
 if (what == "crankknob") intersection() { translate([0, 0, T]) crank(40); translate([0, 0, T]) knob(); }
 if (what == "knob") intersection() { gear(t1); translate([0, 0, T]) knob(); }
 if (what == "pointer") intersection() { gear(t1); translate([0, 0, T + dz]) rotate(ang) pointer(); }
