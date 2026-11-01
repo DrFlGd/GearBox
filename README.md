@@ -185,7 +185,11 @@ bolts to the board and carries a sliding carriage.
   throw.
 - **Crank slider.** `SLPOST` plugs into the carriage and puts a post at the
   crank's link level; a link from the crank post to it is the classic
-  piston drive.
+  piston drive. The kit puts the crank on a 30T gear on level 2, where it
+  turns above the rail, the carriage and the tab knobs, three sockets past
+  the end of a `RAIL7`, with an `L7` link: that keeps the whole 40 mm stroke
+  on the rail and the post clear of the crank in every size. The layout
+  tester checks a crank's reach against rails, tab knobs, carriages and posts.
 - **Cams.** `CAM-E` (eccentric, sine lift), `CAM-H` (heart, even rise and
   fall) and `CAM-S` (snail, slow rise and a drop) are discs on the gear hub
   lifting half a grid step (joined with dowel pins: a cam is too small for

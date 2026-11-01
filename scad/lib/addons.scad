@@ -28,13 +28,13 @@
 
 HUB_ID  = SPACER_OD + 1.5;            // clears the knob boss
 ARM_W   = 7 * MOD;                    // 14 / 10.5
-ARM_T   = LEVEL + 2;                  // thick part of a crank: the bolt's bearing seat starts at level + 2
+ARM_T   = LEVEL + 1;                  // thick part of a crank: 1 mm under a link or lever two levels up, which swings over it
 R_FREE  = KNOB_D / 2 + 1.5;           // beyond this radius a part may rise above the hub ring
 POST_D  = BOLT[0] - 0.1;              // printed posts (slider post, Geneva driver, legacy posts): a bearing's bore slides over it
 STEM_D  = 3 * MOD;                    // legacy press-fit stem of a printed post, 6 / 4.5
-STEM_H  = ARM_T - 2;
+STEM_H  = LEVEL;                      // legacy stem: the old crank's socket depth
 CAP_D   = PIN_D + fit("pin_press");   // a dowel pin pressed through the cap keys it into a post top
-CRANK_BOSS = 1;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin
+CRANK_BOSS = 2;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin; the link's ledge clears it
 DIAL_R  = sz(17, 13, 9);             // dial knob disc: clears a neighbour's gear one level up
 DIAL_T  = 2.5;
 DIAL_Z0 = JAWS ? max(KNOB_BOSS_H, JAW_H + 0.4) : KNOB_BOSS_H;   // dial disc bottom above the gear: clears the jaw tops
