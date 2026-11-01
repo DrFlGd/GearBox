@@ -1009,6 +1009,20 @@
       }
     },
     {
+      "name": "RAIL7",
+      "title": "Slider rail over 7 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 7
+      },
+      "expect": {
+        "M2": [138, 37, 5.32],
+        "M1.5": [105, 28, 4.32],
+        "M1": [73, 19.5, 3.41]
+      }
+    },
+    {
       "name": "CARRIAGE",
       "title": "Carriage with a plug pocket",
       "group": "rail",
@@ -1085,6 +1099,23 @@
         "M2": [82.25, 73.5, 27.5],
         "M1.5": [61.75, 67.5, 25],
         "M1": [42.25, 63.5, 22.6]
+      }
+    },
+    {
+      "name": "YOKE20R6",
+      "title": "Scotch yoke for a 20 mm crank on level 1, reach 6",
+      "group": "rail",
+      "params": {
+        "part": "yoke",
+        "level": 1,
+        "throw": 20,
+        "reach": 6,
+        "flip": true
+      },
+      "expect": {
+        "M2": [142.25, 73.5, 27.5],
+        "M1.5": [106.75, 67.5, 25],
+        "M1": [72.25, 63.5, 22.6]
       }
     },
     {
@@ -2145,11 +2176,11 @@
     "yoke": {
       "title": "Scotch yoke",
       "parts": [
-        "RAIL4",
+        "RAIL7",
         "CARRIAGE",
-        "YOKE20R3",
+        "YOKE20R6",
         "CRANK20",
-        "G20",
+        "G30",
         "K",
         "K",
         "K",
