@@ -341,7 +341,7 @@ export const PART_KINDS: PartKind[] = [
     defaults: { cam: "eccentric" },
     name: p => `CAM-${String(p.cam).slice(0, 1).toUpperCase()}`,
   },
-  { id: "follower", title: "Cam follower", group: "Mechanisms", blurb: "Arm on a pin two sockets from the cam with a round nose that rides the cam's edge and a tail for a rubber band to hold it down.", params: [], defaults: {}, name: () => "FOLLOWER" },
+  { id: "follower", title: "Cam follower", group: "Mechanisms", blurb: "Arm on a pin two sockets from the cam with a round nose that rides the cam's edge. The tail carries an output post (a bolt with a bearing one level up) for a link to a rocker, pointer or flag, and a hole for the rubber band that holds the nose on the cam.", params: [], defaults: {}, name: () => "FOLLOWER" },
   {
     id: "geneva_driver", title: "Geneva driver", group: "Mechanisms",
     blurb: "A 40T gear with a drive post and a locking crescent one level up: it turns the wheel one slot per turn and locks it in between. Takes two bearings.",
@@ -449,7 +449,7 @@ export type Size = (typeof SIZES)[number];
 export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; dial_r: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number>;
   /** Hardware beyond the bolts: dowel pin sizes, the clamp screw, magnets, post bolt lengths (mm), the pin circle, the smallest
    *  radius that has screw holes and the smallest that has room for the jaws. */
-  hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; pin_r: number; screw_min_r: number; jaw_min_r: number };
+  hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; follower_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; pin_r: number; screw_min_r: number; jaw_min_r: number };
   /** Bolt lengths for a pin whose dial knob stands over a jaw gear (it is taller than a knob). */
   dial_bolt_lengths: Record<string, number>;
 };

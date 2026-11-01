@@ -5,7 +5,7 @@ import { studio, type Studio } from "../components/look";
 import type { RealParts } from "./realParts";
 import { camGeometry, escapeWheelGeometry, gearGeometry, genevaWheelGeometry, pulleyGeometry, ratchetGeometry } from "./gearShape";
 import {
-  ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
+  ARM_W, NEMA, PLN, bearingOD, boardH, boardW, bracketDims, camR, crankLinkLevel, escDims, flyR, followerA, followerTail, gearAt, gearZ, genevaDims, itemR, kindOf, levelsUsed, lvlZ, motorType, noseR,
   boltD, magnetSize, pitchR, sz, planetaryDims, pointerReach, postD, railDims, railFrame, slotW, socketPos, springWallR, std, tipR, topLevel, winchR, type Layout,
 } from "./model";
 import { anchorAngle, followerAngle, sliderX, yokeX } from "./motion";
@@ -392,8 +392,12 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
           mesh = hub(itemR(size, gear));
           const A = followerA(size);
           mesh.add(bar(0, 0, A, 0, armW / 2, T / 2));
-          mesh.add(bar(0, 0, -g, 0, armW / 2, T / 2));
+          const ft = followerTail(size);
+          mesh.add(bar(0, 0, -ft.post, 0, armW / 2, T / 2));
           const nose = new THREE.Mesh(cylUp(noseR(size), T), mat); nose.position.set(A, 0, 0); mesh.add(nose);
+          // the output post a level tall, and the band lug beside it
+          const post = new THREE.Mesh(cylUp(ft.r, d.level), mat); post.position.set(-ft.post, 0, 0); mesh.add(post);
+          mesh.add(bar(-ft.post, 0, ft.band[0], ft.band[1], 6, T / 2));
         } else if (kind === "anchor") {
           mesh = hub(itemR(size, gear));
           const e = escDims(size);

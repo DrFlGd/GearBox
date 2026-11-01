@@ -26,6 +26,7 @@
         "screw": "M3 x 14",
         "magnet": "6 x 3 mm",
         "crank_bolt": 25,
+        "follower_bolt": 25,
         "handle_bolt": 45,
         "lever_bolt": 25,
         "shaft_bolt": 100,
@@ -66,6 +67,7 @@
         "screw": "M2.5 x 12",
         "magnet": "4 x 2 mm",
         "crank_bolt": 20,
+        "follower_bolt": 20,
         "handle_bolt": 40,
         "lever_bolt": 20,
         "shaft_bolt": 80,
@@ -106,6 +108,7 @@
         "screw": "M2 x 10",
         "magnet": "3 x 2 mm",
         "crank_bolt": 20,
+        "follower_bolt": 20,
         "handle_bolt": 35,
         "lever_bolt": 20,
         "shaft_bolt": 60,
@@ -361,6 +364,21 @@
         "M2": [63.77, 63.99, 12.5],
         "M1.5": [47.82, 47.99, 11],
         "M1": [31.88, 32, 10]
+      }
+    },
+    {
+      "name": "G30-PT",
+      "title": "Gear 30T, pin holes in the top face (under a cam)",
+      "group": "gear",
+      "params": {
+        "part": "gear",
+        "teeth": 30,
+        "joint_top": "pins"
+      },
+      "expect": {
+        "M2": [63.77, 63.99, 8],
+        "M1.5": [47.82, 47.99, 7],
+        "M1": [31.88, 32, 6]
       }
     },
     {
@@ -1227,9 +1245,9 @@
         "part": "follower"
       },
       "expect": {
-        "M2": [51.9, 28, 8],
-        "M1.5": [38.92, 23, 7],
-        "M1": [25.95, 20, 6]
+        "M2": [57.15, 28.65, 11],
+        "M1.5": [45.17, 24.42, 10],
+        "M1": [34.26, 21.76, 9]
       }
     },
     {
@@ -2250,15 +2268,23 @@
         "CAM-H",
         "CAM-S",
         "FOLLOWER",
+        "G30-PT",
+        "K",
         "K",
         "K",
         "BS",
-        "BS"
+        "BS",
+        "BS",
+        "S3",
+        "S10",
+        "S10"
       ],
       "hardware": [
-        "2 bolts (1-level length), 2 nuts",
-        "2 bearings",
-        "1 rubber band"
+        "3 bolts (2-level length), 3 nuts, 4 bearings: the 30T and the cam on one pin, the follower on level 2 two sockets away, a band pin on level 2 two sockets behind the follower and one over",
+        "3 dowel pins (3 x 8 mm for M2, 2 x 6 mm for M1.5 and M1) join the cam to the 30T under it: the cam is too small for the jaws",
+        "1 rubber band or small O-ring from the follower's tail hole round the band pin's bearing",
+        "output (optional): 1 bolt as the tail post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1), 1 nut and 1 bearing; a link on it, one level above the follower, carries the rocking on",
+        "(turn the 30T from your train; a snail cam only turns clockwise)"
       ]
     },
     "geneva": {

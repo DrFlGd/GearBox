@@ -106,6 +106,13 @@ export function camR(size: Size, kind: CamKind, a: number): number {
 }
 export const followerA = (size: Size) => 1.2 * std(size).grid;
 export const noseR = (size: Size) => 1.5 * std(size).module;
+/** The follower's tail (mirrors mechanisms.scad): the output post at `post` behind the
+ *  pivot (its end radius `r`; its bearing one level up), the band hole at `band`
+ *  (x back along the tail, y toward the nose's side). */
+export const followerTail = (size: Size) => sz(size,
+  { post: 20.5, r: 9.65, band: [-20.5, 11.65] as const },
+  { post: 17, r: 7.92, band: [-17, 9.92] as const },
+  { post: 14, r: 6.76, band: [-14, 8.76] as const });
 export const postD = (size: Size) => boltD(size) - 0.1;
 export function genevaDims(size: Size, n: number) {
   const C = 3 * std(size).grid;
