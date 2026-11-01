@@ -107,7 +107,8 @@ const segDist = (px: number, py: number, ax: number, ay: number, bx: number, by:
 const rectDist = (u: number, v: number, u0: number, u1: number, v0: number, v1: number) => Math.hypot(Math.max(u0 - u, 0, u - u1), Math.max(v0 - v, 0, v - v1));
 
 /** A box in the rail's frame, or (with `r`) a circle centred at (u0, v0). */
-export type FixtureBox = { u0: number; u1: number; v0: number; v1: number; lo: number; hi: number; what: "rail" | "carriage"; r?: number };
+/** `drive`: the fixture's drive overlaps it by design (the pinion in the rack's teeth, the crank under the yoke's arm). */
+export type FixtureBox = { u0: number; u1: number; v0: number; v1: number; lo: number; hi: number; what: "rail" | "carriage"; r?: number; drive?: boolean };
 /** The boxes a fixture occupies in its own frame, with the levels they fill. Carriage boxes span the travel. */
 export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): FixtureBox[] {
   const s = std(l.size), g = s.grid, r = railDims(l.size);
@@ -130,14 +131,14 @@ export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): Fixture
   if (c.kind === "rack") {
     const half = (c.len * g) / 2;
     out.push(box(lo - half, hi + half, -r.w / 2, r.w / 2, 1, c.level, "carriage"));
-    out.push(box(lo - half, hi + half, -(g - 1.25 * s.module), -r.w / 2, c.level, c.level, "carriage"));
+    out.push({ ...box(lo - half, hi + half, -(g - 1.25 * s.module), -r.w / 2, c.level, c.level, "carriage"), drive: true });
   } else {
     out.push(box(lo - r.carL / 2, hi + r.carL / 2, -r.w / 2, r.w / 2, 1, 1, "carriage"));
     if (c.kind === "yoke") {
       const sw = slotW(l.size), wall = yokeWall(l.size), aw = sw + 2 * wall, sl = 2 * c.throw + sw + 1;
       out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.w / 2, r.w / 2, 2, c.level + 2, "carriage"));                      // tower
-      out.push(box(lo - r.plugW / 2, hi + c.reach * g - aw / 2, -r.w / 2, r.w / 2, c.level + 2, c.level + 2, "carriage"));    // beam
-      out.push(box(lo + c.reach * g - aw / 2, hi + c.reach * g + aw / 2, -sl / 2 - wall, sl / 2 + wall, c.level + 2, c.level + 2, "carriage")); // slot plate
+      out.push({ ...box(lo - r.plugW / 2, hi + c.reach * g - aw / 2, -r.w / 2, r.w / 2, c.level + 2, c.level + 2, "carriage"), drive: true });    // beam
+      out.push({ ...box(lo + c.reach * g - aw / 2, hi + c.reach * g + aw / 2, -sl / 2 - wall, sl / 2 + wall, c.level + 2, c.level + 2, "carriage"), drive: true }); // slot plate
     } else out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.plugW / 2, r.plugW / 2, 2, c.level + 2, "carriage"));            // post
   }
   return out;
@@ -458,10 +459,20 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     for (const box of fixtureBoxes(l, f, info)) {
       for (const o of occ) {
         if (o.level < box.lo || o.level > box.hi) continue;
-        if (info.drive && o.ref === info.drive && box.what === "carriage") continue;   // the drive meshes with the rack or sits under the arm by design
+        if (info.drive && o.ref === info.drive && box.drive) continue;   // the drive meshes with the rack or sits under the arm by design
         const p = fr.toLocal(mm(l, o.ref.pin));
         const gap = box.r ? Math.hypot(p.u - box.u0, p.v - box.v0) - box.r : rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1);
         if (gap < o.r + 0.5) { hits.push({ gear: o.ref, pin: o.ref.pin, what: box.what }); break; }
+      }
+      // a crank arm sweeps the level above its gear: a circle of the crank's reach
+      for (const o of gears) {
+        // (a carriage's top stands 1 mm into the gap above its top level, where the arm starts)
+        const lv = o.gear.level;
+        if (o.gear.topper !== "crank" || (box.drive && o === info.drive)) continue;
+        if (!(box.lo <= lv + 1 && lv + 1 <= box.hi) && !(box.what === "carriage" && box.hi === lv)) continue;
+        const p = fr.toLocal(mm(l, o.pin));
+        const gap = box.r ? Math.hypot(p.u - box.u0, p.v - box.v0) - box.r : rectDist(p.u, p.v, box.u0, box.u1, box.v0, box.v1);
+        if (gap < crankR(o.gear) + 0.5) bad(`the crank on the pin at socket ${o.pin.x + 1}, ${o.pin.y + 1} hits ${box.what === "rail" ? (box.r ? "a rail tab's knob" : "the rail") : "the carriage or its post"} as it turns`);
       }
       // knobs of other pins under the arm
       if (box.what === "carriage" && box.lo > 1) for (const pin of l.pins) {

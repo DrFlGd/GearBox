@@ -877,6 +877,20 @@
       }
     },
     {
+      "name": "L7",
+      "title": "Link, 7 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 7
+      },
+      "expect": {
+        "M2": [148, 28, 8],
+        "M1.5": [113, 23, 7],
+        "M1": [80, 20, 6]
+      }
+    },
+    {
       "name": "RATCHET",
       "title": "Ratchet wheel",
       "group": "addon",
@@ -1006,6 +1020,20 @@
         "M2": [118, 37, 5.32],
         "M1.5": [90, 28, 4.32],
         "M1": [63, 19.5, 3.41]
+      }
+    },
+    {
+      "name": "RAIL7",
+      "title": "Slider rail over 7 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 7
+      },
+      "expect": {
+        "M2": [138, 37, 5.32],
+        "M1.5": [105, 28, 4.32],
+        "M1": [73, 19.5, 3.41]
       }
     },
     {
@@ -2170,26 +2198,29 @@
     "slider": {
       "title": "Crank slider",
       "parts": [
-        "RAIL4",
+        "RAIL7",
         "CARRIAGE",
-        "SLPOST",
+        "SLPOST-L2",
         "CAP",
         "CRANK20",
-        "L4",
-        "G20",
+        "L7",
+        "G30",
         "K",
         "K",
         "K",
-        "BS"
+        "BS",
+        "S10"
       ],
       "hardware": [
-        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "2 bolts (1-level length) and 2 nuts for the rail",
+        "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
         "1 dowel pin for the cap"
       ],
       "hardware_pins": [
-        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "2 bolts (1-level length) and 2 nuts for the rail",
+        "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank, 1 dowel pin for the cap"
