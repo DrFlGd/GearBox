@@ -114,10 +114,10 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "crank", title: "Crank", group: "Add-ons",
-    blurb: "Hub ring on any gear's top face under the knob, with a thick arm and a hex pocket at the throw. With jaws the ring and a collar drop over the gear's three jaws; with pins three short steel dowel pins pressed into the ring key it. A kit bolt dropped in from below is the crank post: a long spacer, the handle and a nut make a hand crank; a bearing and a nut carry a link for a crank-rocker, a yoke or a quick-return lever. Prints upside down.",
+    blurb: "A collar round the knob on any gear's top face, with an arm out to a hex pocket at the throw. The arm runs half a millimetre above the jaw tops of a neighbour's gear on the same level, so it swings over them. With jaws the collar drops over the gear's three jaws; with pins three short steel dowel pins pressed into the collar key it. A kit bolt dropped in from below is the crank post: the handle spacer, the handle and a nut make a hand crank; the 1.5 mm crank spacer, a bearing and a nut carry a link for a crank-rocker, a yoke or a quick-return lever. Prints arm top down, no support.",
     params: [
-      { key: "throw", label: "Throw (mm)", type: "select", options: [20, 30, 40, 50, 60, 70, 80].map(v => ({ value: v, label: `${v} mm` })) },
-      flipOption("Print-ready (hub ring up)"),
+      { key: "throw", label: "Throw (mm)", type: "select", options: [15, 20, 30, 40, 50, 60, 70, 80].map(v => ({ value: v, label: `${v} mm` })) },
+      flipOption("Print-ready (arm top down)"),
     ],
     defaults: { throw: 40, flip: "true" },
     name: p => `CRANK${p.throw}`,
@@ -131,7 +131,8 @@ export const PART_KINDS: PartKind[] = [
   },
   { id: "joint", title: "Joint post", group: "Add-ons", blurb: "Flanged post that joins two links to each other away from any pin: a bearing in each link, a 3 mm spacer between, the cap pinned on top.", params: [], defaults: {}, name: () => "JOINT" },
   { id: "handle", title: "Handle grip", group: "Add-ons", blurb: "Free-spinning grip over the handle spacer on the crank bolt; the nut clamps the spacer, so the grip turns.", params: [], defaults: {}, name: () => "HANDLE" },
-  { id: "handle_spacer", title: "Handle spacer", group: "Add-ons", blurb: "The long spacer the handle grip turns on: it sits on the crank's boss and the nut clamps it.", params: [], defaults: {}, name: () => "SH" },
+  { id: "handle_spacer", title: "Handle spacer", group: "Add-ons", blurb: "The long spacer the handle grip turns on: it sits on the crank's arm and the nut clamps it.", params: [], defaults: {}, name: () => "SH" },
+  { id: "crank_spacer", title: "Crank spacer", group: "Add-ons", blurb: "1.5 mm spacer on the crank post under its bearing: it lifts the bearing's inner race so the link, yoke or lever on it clears the crank arm.", params: [], defaults: {}, name: () => "SC" },
   { id: "cap", title: "Post cap", group: "Add-ons", blurb: "Disc that sits on the bearing at the top of a printed post (slider post, joint post, planet posts). A steel dowel pin pressed through it into the post keeps it on.", params: [], defaults: {}, name: () => "CAP" },
   {
     id: "pointer", title: "Pointer", group: "Add-ons",
@@ -503,6 +504,7 @@ export function validate(kindId: string, p: Params, size?: Size): string | null 
   if (size) {
     const k = partKind(kindId);
     if (k?.sizes && !k.sizes.includes(size)) return `The ${k.title.toLowerCase()} is not made in ${size}: it does not fit the ${catalog.standards[size].grid} mm grid. Pick another size.`;
+    if (kindId === "crank" && Number(p.throw) < catalog.standards[size].knob_d / 2 + 1.5 + 3.5 * catalog.standards[size].module) return `In ${size} a crank's throw must be 20 mm or more: a shorter arm runs into the knob. The 15 mm crank is for M1.`;
     if (size === "M1" && kindId === "spring_gear" && Number(p.teeth) < 50) return "In M1 the spring needs a gear of 50 teeth or more.";
     if (size === "M1" && kindId === "mag_gear" && Number(p.poles) < 16) return "In M1 a magnetic gear needs 16 magnets or more.";
     if (size === "M1" && kindId === "hex_gear" && Number(p.teeth) < 30) return "In M1 a hex-bore gear needs 30 teeth or more: a 20T has no wall left around the hex.";

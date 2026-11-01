@@ -42,7 +42,7 @@ const STARTS: { id: string; label: string; make: (size: Size) => Layout; notM1?:
   { id: "drives", label: "Drives sampler", make: drivesLayout, notM1: true },
   { id: "magnets", label: "Magnets sampler", make: magnetsLayout }, { id: "empty", label: "Empty board", make: emptyLayout },
 ];
-const THROWS = [20, 30, 40, 50, 60, 70, 80];
+const THROWS = [15, 20, 30, 40, 50, 60, 70, 80];
 /** Items too big for M1's 10 mm grid (the library refuses to make them in M1). */
 const NOT_IN_M1 = new Set<ItemKind>(["ratchet", "pawl", "escwheel", "anchor"]);
 /** Kinds that turn on their bearing (they can be the input and carry a topper). */

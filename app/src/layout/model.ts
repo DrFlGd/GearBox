@@ -276,6 +276,13 @@ export function motorLegs(dir: number, type: MotorType = "n20"): [number, number
 /** The pointer's reach past the dial knob's rim, in mm. */
 export const pointerReach = (size: Size) => std(size).dial_r + 4;
 export const ARM_W = (size: Size) => 7 * std(size).module;
+/** A crank's arm, from its gear's top face: the underside 0.5 mm over the jaw tops of a neighbour's
+ *  gear on the same level (so it swings over them), the top 0.5 mm under a link two levels up. */
+export const crankArm = (size: Size) => ({ z0: 2 + sz(size, 2.5, 2, 2) + 0.5, top: std(size).level + 1.5 });
+/** The shortest throw: the arm starts past the knob. 15 mm fits only in M1. */
+export const crankMinThrow = (size: Size) => std(size).knob_d / 2 + 1.5 + ARM_W(size) / 2;
+/** How far a crank reaches from its axis: the throw plus the round end around the bolt pocket. */
+export const crankReach = (size: Size, throwMm: number) => throwMm + sz(size, 9.7, 8, 6.8);
 
 /** A rail's frame: origin at its first socket, u along the rail, v to its left (the tab side). */
 export function railFrame(l: Layout, f: Fixture) {
@@ -296,9 +303,9 @@ export const newId = () => `p${Date.now().toString(36)}${(counter++).toString(36
 
 /** The plan's gate: a 1:16 reduction on three pins, two 20:80 stages. */
 export function exampleLayout(size: Size): Layout {
-  // (an M1 20T is too small for the crank's pins, so in M1 the input has no crank; in M1.5 a
-  // 60 mm throw would sweep into the 20T on the next pin)
-  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, ...(size === "M1" ? {} : { topper: "crank" as const, throw: size === "M2" ? 60 : 40 }) }] };
+  // (an M1 20T is too small for the crank's pins, so in M1 the input has no crank; the throw is
+  // two grid steps, short of the 80T's knob and the 20T joined on it)
+  const a: Pin = { id: "a", x: 1, y: 2, gears: [{ level: 1, teeth: 20, joined: false, ...(size === "M1" ? {} : { topper: "crank" as const, throw: size === "M2" ? 40 : 30 }) }] };
   const b: Pin = { id: "b", x: 6, y: 2, gears: [{ level: 1, teeth: 80, joined: false }, { level: 2, teeth: 20, joined: true }] };
   const c: Pin = { id: "c", x: 9, y: 6, gears: [{ level: 2, teeth: 80, joined: false, topper: "pointer" }] };
   return { size, tile: { nx: 4, ny: 4 }, tiles: { cols: 3, rows: 2 }, pins: [a, b, c], bands: [], fixtures: [], input: { pin: "a", level: 1 }, rpm: 10 };
@@ -346,7 +353,7 @@ export function mechanismsLayout(size: Size): Layout {
  *  travels so far, so the view rocks the crank back and forth on a board with a rack. */
 export function rackLayout(size: Size): Layout {
   const pins: Pin[] = [
-    { id: "c", x: 4, y: 3, gears: [{ level: 1, teeth: 40, joined: false, topper: "crank", throw: 20 }] },
+    { id: "c", x: 4, y: 3, gears: [{ level: 1, teeth: 40, joined: false, topper: "crank", throw: size === "M1" ? 15 : 20 }] },   // M1: a 20 mm throw sweeps into the 20T's knob
     { id: "p", x: 4, y: 6, gears: [{ level: 1, teeth: 20, joined: false }] },
   ];
   const fixtures: Fixture[] = [{ id: "rail", kind: "rail", x: 1, y: 8, dir: 0, n: 7, carriage: { kind: "rack", len: 3, level: 1 } }];

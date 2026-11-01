@@ -28,13 +28,12 @@
 
 HUB_ID  = SPACER_OD + 1.5;            // clears the knob boss
 ARM_W   = 7 * MOD;                    // 14 / 10.5
-ARM_T   = LEVEL + 1;                  // thick part of a crank: 1 mm under a link or lever two levels up, which swings over it
 R_FREE  = KNOB_D / 2 + 1.5;           // beyond this radius a part may rise above the hub ring
 POST_D  = BOLT[0] - 0.1;              // printed posts (slider post, Geneva driver, legacy posts): a bearing's bore slides over it
 STEM_D  = 3 * MOD;                    // legacy press-fit stem of a printed post, 6 / 4.5
 STEM_H  = LEVEL;                      // legacy stem: the old crank's socket depth
 CAP_D   = PIN_D + fit("pin_press");   // a dowel pin pressed through the cap keys it into a post top
-CRANK_BOSS = 2;                       // boss on a crank arm: its bearing lands at level + 2, level with a link on a pin; the link's ledge clears it
+CRANK_BOSS = 1.5;                     // crank spacer under the post's bearing: lands it at level + 2 with a link on a pin; the link's ledge clears the arm
 DIAL_R  = sz(17, 13, 9);             // dial knob disc: clears a neighbour's gear one level up
 DIAL_T  = 2.5;
 DIAL_Z0 = JAWS ? max(KNOB_BOSS_H, JAW_H + 0.4) : KNOB_BOSS_H;   // dial disc bottom above the gear: clears the jaw tops
@@ -72,30 +71,48 @@ module bolt_pocket(h, boss) {
 function post_bolt(h, boss, rides) = let(l = h - BOLT[2] + boss + rides + NUT_H + 1) ceil(l / 5) * 5;
 function bolt_end_d() = (BOLT[1] + fit("nut_clear")) / cos(30) + 2 * BOSS_WALL + 0.8;   // wall around the hex pocket
 
-// Crank: a hub ring, a thick arm beyond the knob and a bolt pocket at `throw` from
-// the axis: a 1-level bolt is the crank post, its bearing (or the handle's
-// spacer) sits on the boss two levels above the gear, so a link on it lines up
-// with a link on a pin two levels up. A nut on top keeps it.
+// Crank: a collar round the gear's jaws (or its hub pins) and an arm that runs
+// above the jaw tops of a neighbour's gear on the same level, out to a bolt pocket
+// at `throw` from the axis. A kit bolt dropped in from below is the crank post:
+// the crank spacer (or the handle's spacer) and the bearing sit on the arm's top,
+// two levels above the gear, so a link on it lines up with a link on a pin two
+// levels up. A nut on top keeps it.
+//
+// The collar stands the arm's full height outside the knob, so the crank prints
+// arm top down (flip) with every face on the bed or rising from it: no support.
+// z = 0 is the gear's top face.
+CRANK_IN  = KNOB_D / 2 + 0.6;                                  // the pin's knob turns inside the collar
+CRANK_OUT = max(HUB_OD / 2, PIN_R + PIN_D / 2 + 1.6);          // collar outside: covers the jaw band or the hub pins
+ARM_Z0    = JAW_H + 0.5;                                       // arm underside: 0.5 mm over a neighbour's jaw tops
+ARM_T     = LEVEL + CRANK_BOSS;                                // arm top: CRANK_BOSS - 1 under a link or lever two levels up
+CRANK_HEAD = BOLT[2] + 0.15;                                   // the post bolt's head pocket, up from the arm's underside
+assert(ARM_T - ARM_Z0 - CRANK_HEAD >= 1, "crank arm too thin over the bolt head");
 module crank(throw = 2 * GRID) {
     assert(throw >= R_FREE + ARM_W / 2, "throw too short for the knob");
     de = max(ARM_W + 2, bolt_end_d());
+    pin_d = PIN_D + fit("pin_press");
     difference() {
         union() {
-            hub_ring();
-            if (JAWS) linear_extrude(HUB_COLLAR) difference() { circle(d = HUB_OD); circle(r = KNOB_D / 2 + 0.6); }
-            // thin arm from the hub to the thick part
-            linear_extrude(HUB_T) hull() { translate([HUB_OD / 2 - ARM_W / 2, 0]) circle(d = ARM_W); translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); }
-            // thick arm to the bolt pocket
-            linear_extrude(ARM_T) hull() { translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); translate([throw, 0]) circle(d = de); }
-            translate([throw, 0, ARM_T - EPS]) cylinder(d = SPACER_OD, h = CRANK_BOSS + EPS);
+            linear_extrude(ARM_T) difference() { circle(r = CRANK_OUT); circle(r = CRANK_IN); }
+            translate([0, 0, ARM_Z0]) linear_extrude(ARM_T - ARM_Z0)
+                hull() { translate([R_FREE + ARM_W / 2, 0]) circle(d = ARM_W); translate([throw, 0]) circle(d = de); }
         }
-        translate([throw, 0, 0]) bolt_pocket(ARM_T, CRANK_BOSS);
-        translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
+        translate([0, 0, -1]) cylinder(r = CRANK_IN, h = ARM_T + 2);
         if (JAWS) hub_sockets(JAW_H + 0.3);
+        // pins: three short pins pressed into blind holes, proud of the collar's bottom
+        else for (i = [0, 2, 4]) rotate(i * 360 / PIN_N) translate([PIN_R, 0, -1]) cylinder(d = pin_d, h = 1 + PIN_HUB_L - PIN_DEPTH + 0.4, $fn = 32);
+        // the post bolt: head in a hex pocket up from the arm's underside (open below it where the arm meets the collar)
+        translate([throw, 0, 0]) {
+            af = BOLT[1] + fit("nut_clear");
+            translate([0, 0, -1]) cylinder(d = af / cos(30), h = 1 + ARM_Z0 + CRANK_HEAD, $fn = 6);
+            translate([0, 0, -1]) cylinder(d = BOLT[0] + fit("bolt_clear"), h = ARM_T + 2);
+        }
     }
 }
-function crank_top() = ARM_T + CRANK_BOSS;
-function crank_bolt(handle = false) = post_bolt(ARM_T, CRANK_BOSS, handle ? HANDLE_H + 1 : BEARING[2]);
+function crank_top() = ARM_T;   // where the crank spacer sits
+// the crank spacer: lifts the bearing's inner race so a link's ledge clears the arm
+module crank_spacer() spacer(CRANK_BOSS);
+function crank_bolt(handle = false) = post_bolt(ARM_T - ARM_Z0, CRANK_BOSS, handle ? HANDLE_H + 1 : BEARING[2]);
 
 // Legacy post: press the stem into an old crank. A bearing (link) or the handle
 // rides on the post; the cap pins into the hole on top and keeps it there.
@@ -160,7 +177,7 @@ module pointer() {
             hub_ring();
             linear_extrude(HUB_T) hull() { translate([HUB_OD / 2 - w, 0]) circle(d = 2 * w); translate([reach, 0]) circle(d = w); }
         }
-        translate([0, 0, -1]) cylinder(d = HUB_ID, h = ARM_T + 2);
+        translate([0, 0, -1]) cylinder(d = HUB_ID, h = HUB_T + 2);
         if (JAWS) hub_sockets(HUB_T + 1);
     }
 }

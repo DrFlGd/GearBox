@@ -106,7 +106,7 @@ and the same part names. Pick one size for a board; parts do not mix.
 | Joint dowel pins (3 per joined pair; pins and pins + screws) | 3 x 8 mm | 2 x 6 mm | 2 x 6 mm |
 | Hub dowel pins (3 per crank or pointer; pins and pins + screws) | 3 x 6 mm | 2 x 4 mm | 2 x 4 mm |
 | Joint screws (3 per pair; pins + screws) | M3 x 14 + nut, 30T and up | M2.5 x 12 + nut, 30T and up | M2 x 10 + nut, 40T and up |
-| Crank post bolt, handle / link or slot | M8 x 45 / M8 x 25 + nut | M6 x 40 / M6 x 20 + nut | M5 x 35 / M5 x 20 + nut |
+| Crank post bolt, handle / link or slot | M8 x 40 / M8 x 20 + nut | M6 x 35 / M6 x 20 + nut | M5 x 30 / M5 x 15 + nut |
 | Shaft bracket shaft | M8 x 100 | M6 x 80 | M5 x 60 |
 | Magnets | 6 x 3 mm neodymium discs | 4 x 2 mm | 3 x 2 mm |
 | Hex sleeve bearings (2 per sleeve) | 688 (8 x 16 x 5) | 686 (6 x 13 x 5) | 685 (5 x 11 x 5) |
@@ -125,17 +125,20 @@ Everything here rides on the same three interfaces: the joint on a gear's
 face (jaws, or pin holes with the other joints), a bolt pin with bearings, or
 the sockets themselves.
 
-- **Crank.** A thin hub ring sits on the top face of any gear under the knob,
+- **Crank.** A collar round the knob sits on the top face of any gear,
   keyed by three tapered sockets that drop over the gear's jaws (with the
-  pin joints, by three short dowel pins pressed into the ring); a collar
-  round the jaws stiffens it, and beyond the knob the arm is a full level
-  thick. The crank post is a bolt from the kit: its head
-  sits in a hex pocket under the arm at the throw (20 to 80 mm) and the shank
-  stands up. With the `SH` handle spacer, the `HANDLE` grip over it and a nut
-  on top (`M8 x 45`) it is a hand crank; with a bearing and a link or a slot
-  over it (`M8 x 25`) it drives a rocker, a lever or a carriage. Cranks and
-  pointers print upside down (hub ring up), which is how the app renders
-  them.
+  pin joints, by three short dowel pins pressed into the collar). The arm
+  runs from the collar to the throw (15 mm in M1, 20 to 80 mm) with its
+  underside 0.5 mm above the jaw tops, so it swings over the jaws of a
+  neighbour's gear on the same level; its top stays 0.5 mm under a link or
+  lever two levels up. The crank post is a bolt from the kit: its head sits
+  in a hex pocket under the arm at the throw and the shank stands up. With
+  the `SH` handle spacer, the `HANDLE` grip over it and a nut on top
+  (`M8 x 40`) it is a hand crank; with the 1.5 mm `SC` crank spacer, a
+  bearing and a link or a slot over it (`M8 x 20`) it drives a rocker, a
+  lever or a carriage. The arm still cannot pass a knob or a spacer on
+  another pin: the layout tester flags a throw that reaches one. Cranks
+  print arm top down without support; pointers print hub ring up.
 - **Pointer and dial knob.** The pointer is a hub ring with a flat arm,
   keyed on the jaws like the crank. The dial knob replaces the knob on that
   pin: a disc with clock numbers and 60 ticks under the grip, standing high
@@ -557,8 +560,9 @@ the fit overrides in the web app's Settings) and print the coupon again.
   and the catalog render them print-ready (flipped).
 - Gears, spacers, bushings, the joint ring: flat side down, 3 walls.
 - Knobs and the dial knob: boss down, 3 walls.
-- Cranks and pointers: hub ring up (the app renders them that way). The
-  joint, the handle and its spacer stand up; the cap prints flat.
+- Cranks: arm top down (the collar and the arm's top share the bed).
+  Pointers: hub ring up (the app renders them that way). The joint, the
+  handle and its spacer stand up; the cap prints flat.
 - Pawls: flat; PETG flexes best, PLA works for the small deflection.
 - Motor mount: legs down; the short tongue over the pinion is a 17 mm bridge.
 - Rails flat; carriages, racks and yokes upside down (the app renders them

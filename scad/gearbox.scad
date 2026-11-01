@@ -5,7 +5,7 @@
 // libraries folder). Run `npm run render` to build the whole catalog.
 
 /* [Part] */
-part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, jaw_gear, joint_ring, handle_spacer, module_plate, assembly, coupler, post, joint]
+part = "gear"; // [gear, compound, tile, knob, spacer, base_spacer, bushing, coupon, crank, handle, cap, pointer, dial_knob, pulley, link, ratchet, pawl, motor_mount, pinion, rail, carriage, rack, yoke, slider_post, cam, follower, geneva_driver, geneva_wheel, partial, qr_lever, escape_wheel, anchor, spring_gear, spring, winch, winch_flange, hook, ring, carrier, bracket, bevel, bevel_shaft, worm, worm_gear, nema_mount, flywheel, mag_gear, barrier, hex_sleeve, hex_core, hex_gear, hex_spacer, hex_lever, jaw_gear, joint_ring, handle_spacer, crank_spacer, module_plate, assembly, coupler, post, joint]
 
 /* [Size] */
 // M2: module 2, 20 mm grid, M8 bolts, 608 bearings. M1.5: module 1.5, 15 mm grid, M6 bolts, 606 bearings.
@@ -104,10 +104,11 @@ else if (part == "spacer")      spacer(spacer_h);
 else if (part == "base_spacer") base_spacer();
 else if (part == "coupler")     coupler_half();
 else if (part == "joint_ring")  joint_ring();
-else if (part == "handle_spacer") spacer(HANDLE_H + 1);
+else if (part == "handle_spacer") spacer(HANDLE_H + 1 + CRANK_BOSS);   // on the crank arm: the crank spacer's height more
 else if (part == "bushing")     bushing();
 else if (part == "coupon")      coupon();
 else if (part == "crank")       print_flip(flip, crank_top()) crank(throw);
+else if (part == "crank_spacer") crank_spacer();
 else if (part == "post")        post(post_h);
 else if (part == "joint")       joint();
 else if (part == "handle")      handle();

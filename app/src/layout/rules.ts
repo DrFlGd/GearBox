@@ -2,7 +2,7 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, followerTail, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, MAGF_N, crankReach, crankMinThrow, followerTail, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, yokeWall, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
@@ -269,7 +269,7 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
   for (const g0 of gears) if (kindOf(g0.gear) === "bevel" && g0.gear.level !== 1) problems.push({ text: "a bevel gear sits on level 1: it fills its pin up to the shaft", pin: g0.pin.id, level: g0.gear.level });
   for (const g0 of gears) if (kindOf(g0.gear) === "wormgear" && g0.gear.level !== SHAFT_LEVEL) problems.push({ text: `a worm gear sits on level ${SHAFT_LEVEL}, where the shaft runs`, pin: g0.pin.id, level: g0.gear.level });
   // quick-return levers: the crank's post rides in the slot two levels above the crank's gear
-  const crankR = (gr: Gear) => (gr.throw ?? 2 * g) + ARM_W(l.size) / 2 + 1;
+  const crankR = (gr: Gear) => crankReach(l.size, gr.throw ?? 2 * g);
   for (const g0 of gears) if (kindOf(g0.gear) === "qrlever") {
     const cp = g0.gear.crank ? pinById(l, g0.gear.crank) : undefined;
     const c = cp?.gears.find(o => o.topper === "crank");
@@ -330,6 +330,27 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
       }
     }
   }
+  // a crank's arm sweeps the level above its gear, its post and what rides on it the two above that:
+  // a knob or a spacer on another pin there is in the way (a neighbour's jaws on the crank's own
+  // level pass under the arm)
+  for (const pin of l.pins) for (const x of pin.gears) if (x.topper === "crank") {
+    for (const q of l.pins) {
+      if (q === pin || q.motor) continue;
+      const d = dist(l, pin, q);
+      const top = topLevel(q), topG = gearAt(q, top);
+      const topUsed = topG ? top + levelsUsed(l.size, topG) - 1 : top;
+      for (let lv = x.level + 1; lv <= x.level + 3; lv++) {
+        if (gearAt(q, lv) || q.gears.some(y => extraLevels(l.size, y).some(e => e.level === lv))) continue;
+        const hw = lv <= topUsed ? "a spacer" : lv === topUsed + 1 ? "the knob" : null;
+        if (!hw) continue;
+        const hr = hw === "a spacer" ? s.spacer_od / 2 : topG?.topper === "pointer" ? s.dial_r : s.knob_d / 2;
+        if (d < crankR(x) + hr + 0.5) {
+          problems.push({ text: `the ${x.throw ?? 2 * g} mm crank on level ${x.level} sweeps into ${hw} on the pin at socket ${q.x + 1}, ${q.y + 1}: a shorter throw clears it`, pin: pin.id, level: x.level });
+          break;
+        }
+      }
+    }
+  }
   // items the library does not make in M1
   if (l.size === "M1") {
     for (const g0 of gears) {
@@ -367,6 +388,7 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
       if (x.joined && below && extraLevels(l.size, below).length) problems.push({ text: `level ${x.level} cannot join a ${kindOf(below) === "carrier" ? "planet carrier" : "two-level part"} below it`, pin: pin.id, level: x.level });
       if (x.topper && x.level !== top) problems.push({ text: `the ${x.topper} must be on the top item of the pin`, pin: pin.id, level: x.level });
       if (x.topper && noTopper.has(kind)) problems.push({ text: `a ${label(x)} cannot carry a ${x.topper}`, pin: pin.id, level: x.level });
+      if (x.topper === "crank" && (x.throw ?? 2 * g) < crankMinThrow(l.size)) problems.push({ text: `a ${x.throw} mm crank is too short in ${l.size}: the arm would run into the knob (20 mm or more)`, pin: pin.id, level: x.level });
       if (x.topper === "crank" && crankLinkLevel(x.level) > 4) problems.push({ text: "a crank needs its gear on level 2 or lower", pin: pin.id, level: x.level });
       if (x.topper === "spring" && (kind !== "gear" || x.teeth < springMinTeeth(l.size))) problems.push({ text: `the spring needs a plain gear of ${springMinTeeth(l.size)}T or more`, pin: pin.id, level: x.level });
     }
@@ -857,8 +879,9 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
         if (!jaws || !keyed) hubPins();
         // the post is a kit bolt, head in the arm's pocket, with a nut on top of what rides it
         const fx = fixtureCranks.get(pin.id);
-        if (linkageCranks.has(pin.id)) postBolt(hw.crank_bolt);                                // the link's bearing is counted with the rocker
-        else if (leverCranks.has(pin.id) || fx) { postBolt(hw.crank_bolt); bearing(); }
+        const crankSpacer = () => { tag = `sc:${tk}`; addP("SC", "Crank spacer, 1.5 mm", { part: "crank_spacer" }); };
+        if (linkageCranks.has(pin.id)) { postBolt(hw.crank_bolt); crankSpacer(); }             // the link's bearing is counted with the rocker
+        else if (leverCranks.has(pin.id) || fx) { postBolt(hw.crank_bolt); crankSpacer(); bearing(); }
         else { postBolt(hw.handle_bolt); tag = `sh:${tk}`; addP("SH", "Handle spacer", { part: "handle_spacer" }); tag = `handle:${tk}`; addP("HANDLE", "Handle grip", { part: "handle" }); }
       }
       tag = null;
