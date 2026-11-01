@@ -201,15 +201,22 @@ GEN_C = 3 * GRID;
 function gen_a(n) = GEN_C * sin(180 / n);
 function gen_b(n) = GEN_C * cos(180 / n);
 function gen_lock(n) = gen_a(n) - POST_D / 2 - 3.5;   // leaves a wall beside each slot; the notch (b + 0.6) then frees the wheel just as the post leaves a slot
+// The wheel sits on the level of the driver's top bearing, so its rim stops this far
+// out: the slot mouths swing past the driver's hub clear of that bearing (and of a
+// wheel leaning on its pin). The post still meets the slot wall within a degree or
+// so of the wheel's travel; a small flare at each mouth takes up the rest.
+GEN_HUB_CLEAR = 1.2;
+function gen_rim(n) = min(gen_b(n), GEN_C - BEARING[1] / 2 - GEN_HUB_CLEAR);
 module geneva_driver(n = 6) {
     assert(n == 6 || n == 8, "geneva: 6 or 8 slots");
+    assert(gen_lock(n) >= BEARING[1] / 2 + 1.5, "geneva: the lock disc is smaller than the top bearing (8 slots in M1): use 6 slots");
     a = gen_a(n); b = gen_b(n); rl = gen_lock(n);
     h_upper = LEVEL + GEAR_T - 1;
     difference() {
         union() {
             gear_blank(40);
-            translate([0, 0, GEAR_T]) cylinder(r = rl, h = 1 + EPS);
-            translate([0, 0, GEAR_T + 1]) linear_extrude(h_upper - GEAR_T - 1) difference() { circle(r = rl); translate([GEN_C, 0]) circle(r = b + 0.6); }
+            // the lock rises straight off the gear face: no full disc under it (a leaning wheel caught its edge)
+            translate([0, 0, GEAR_T - EPS]) linear_extrude(h_upper - GEAR_T + EPS) difference() { circle(r = rl); translate([GEN_C, 0]) circle(r = b + 0.6); }
             translate([a, 0, GEAR_T - EPS]) cylinder(d = POST_D, h = h_upper - GEAR_T - 0.5 + EPS);   // no base collar: it caught the wheel when the post leans
             translate([a, 0, h_upper - 0.5]) cylinder(d1 = POST_D, d2 = POST_D - 1, h = 0.5);
         }
@@ -220,14 +227,18 @@ module geneva_driver(n = 6) {
 }
 module geneva_wheel(n = 6) {
     assert(n == 6 || n == 8, "geneva: 6 or 8 slots");
-    a = gen_a(n); b = gen_b(n); rl = gen_lock(n);
+    assert(gen_lock(n) >= BEARING[1] / 2 + 1.5, "geneva: the wheel's lock arcs would run into the driver's top bearing (8 slots in M1): use 6 slots");
+    a = gen_a(n); b = gen_b(n); rl = gen_lock(n); rim = gen_rim(n);
     sw = POST_D + 0.6;
     r_in = GEN_C - a - POST_D / 2 - 1.2;
     difference() {
         union() {
             linear_extrude(GEAR_T) difference() {
-            circle(r = b);
-            for (i = [0 : n - 1]) rotate(i * 360 / n) hull() { translate([r_in + sw / 2, 0]) circle(d = sw); translate([b + 1, 0]) circle(d = sw); }
+            circle(r = rim);
+            for (i = [0 : n - 1]) rotate(i * 360 / n) {
+                hull() { translate([r_in + sw / 2, 0]) circle(d = sw); translate([b + 1, 0]) circle(d = sw); }
+                polygon([[rim - 2.5, -sw / 2], [rim + 1, -sw / 2 - 1], [rim + 1, sw / 2 + 1], [rim - 2.5, sw / 2]]);   // mouth flare
+            }
             for (i = [0 : n - 1]) rotate(i * 360 / n + 180 / n) translate([GEN_C, 0]) circle(r = rl + 0.4);
             }
             face_jaws(GEAR_T, r_in);

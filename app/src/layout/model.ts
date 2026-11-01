@@ -117,7 +117,9 @@ export const postD = (size: Size) => boltD(size) - 0.1;
 export function genevaDims(size: Size, n: number) {
   const C = 3 * std(size).grid;
   const a = C * Math.sin(Math.PI / n), b = C * Math.cos(Math.PI / n);
-  return { C, a, b, lock: a - postD(size) / 2 - 3.5, slotW: postD(size) + 0.6, rIn: C - a - postD(size) / 2 - 1.2 };
+  // rim: the wheel stops short of b so its slot mouths pass the driver's top bearing (gen_rim in mechanisms.scad)
+  const rim = Math.min(b, C - bearingOD(size) / 2 - 1.2);
+  return { C, a, b, rim, lock: a - postD(size) / 2 - 3.5, slotW: postD(size) + 0.6, rIn: C - a - postD(size) / 2 - 1.2 };
 }
 export function escDims(size: Size) {
   const C = 2 * std(size).grid, alpha = (54 * Math.PI) / 180;
@@ -234,7 +236,7 @@ export function itemR(size: Size, g: Gear): number {
     case "rocker": return bearingOD(size) / 2 + 3;         // the bar end: bearing OD / 2 + 3
     case "cam": { const { r0, lift } = camDims(size); return r0 + lift; }
     case "follower": return bearingOD(size) / 2 + 3;       // the hub; the arm is checked with its cam
-    case "genevaWheel": return genevaDims(size, g.slots ?? 6).b;
+    case "genevaWheel": return genevaDims(size, g.slots ?? 6).rim;
     case "qrlever": return slotW(size) / 2 + 4;            // the hub; the bar sweeps
     case "escwheel": return escDims(size).R;
     case "anchor": return bearingOD(size) / 2 + 3;         // the hub; pallets and bar are checked separately

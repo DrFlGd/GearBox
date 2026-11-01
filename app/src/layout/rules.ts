@@ -240,6 +240,7 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     const d = find(o => o.pin !== g0.pin && kindOf(o.gear) === "geneva" && o.gear.level === g0.gear.level - 1 && straight(g0.pin, o.pin, 3));
     if (!d) { problems.push({ text: "the Geneva wheel needs its driver three sockets away, straight along the grid, one level below it", pin: g0.pin.id, level: g0.gear.level }); continue; }
     if ((d.gear.slots ?? 6) !== (g0.gear.slots ?? 6)) problems.push({ text: "the Geneva wheel and its driver disagree on the slot count", pin: g0.pin.id, level: g0.gear.level });
+    if (genevaDims(l.size, g0.gear.slots ?? 6).lock < bearingOD(l.size) / 2 + 1.5) problems.push({ text: "an 8 slot Geneva is too small for this size (its lock runs into the driver's top bearing): use 6 slots", pin: g0.pin.id, level: g0.gear.level });
     partners.set(k(g0), d); pairs.push({ a: d, b: g0, kind: "geneva" });
   }
   // anchors want an escape wheel two sockets away on their level; their bar points away from it

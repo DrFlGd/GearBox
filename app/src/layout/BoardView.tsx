@@ -328,7 +328,7 @@ export default function BoardView({ layout, analysis, selected, selectedFixture,
         else if (kind === "ratchet") mesh = new THREE.Mesh(ratchetGeometry(d.grid - 2.5, 1.6 * d.module, T, boreR), mat);
         else if (kind === "cam") { const ck = gear.cam ?? "eccentric"; mesh = new THREE.Mesh(camGeometry(ck, a => camR(size, ck, a), T, boreR), mat); }
         else if (kind === "escwheel") { const e = escDims(size); mesh = new THREE.Mesh(escapeWheelGeometry(e.R, e.depth, T, boreR), mat); }
-        else if (kind === "genevaWheel") { const gd = genevaDims(size, gear.slots ?? 6); mesh = new THREE.Mesh(genevaWheelGeometry(gear.slots ?? 6, gd.C, gd.b, gd.lock, gd.slotW, gd.rIn, T, boreR), mat); }
+        else if (kind === "genevaWheel") { const gd = genevaDims(size, gear.slots ?? 6); mesh = new THREE.Mesh(genevaWheelGeometry(gear.slots ?? 6, gd.C, gd.rim, gd.lock, gd.slotW, gd.rIn, T, boreR), mat); }
         else if (kind === "geneva") {
           // a 40T gear with the locking crescent and the drive post one level up
           const gd = genevaDims(size, gear.slots ?? 6);
