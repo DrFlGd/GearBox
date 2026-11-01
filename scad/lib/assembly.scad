@@ -211,12 +211,35 @@ module asm_slider() {
     asm_p() ex(6.5) link_between(P, [c, 0], 3) link(4);
     translate([c, 0, 0]) { ex(6.6) translate([0, 0, lvl_z(3)]) hw_bearing(); post_cap(lvl_z(3) + BEARING[2], 8); }
 }
+// The cam on level 2, pinned to the 30T under it that turns it (the cam is too
+// small for the jaws); the follower on level 2 two sockets away, its output post's
+// bearing on level 3; a rubber band from the tail to a pin two sockets back and
+// one over pulls the nose onto the cam.
 module asm_cam() {
-    asm_tile(-1, -1, 4, 3);
+    asm_tile(-3, -1, 6, 3);
     D = 2 * GRID; L = FOLLOWER_A; Rn = CAM_R0 + NOSE_R;
     phi = acos((D * D + L * L - Rn * Rn) / (2 * D * L));
-    at(0, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(phi) follower(); }
-    at(2, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) cam("eccentric"); }
+    at(0, 0) {
+        std_pin([2]);
+        asm_p() ex(4) translate([0, 0, gz(2)]) rotate(phi) follower();
+        rotate(phi) translate([-FOLLOWER_POST, 0, 0]) {
+            z0 = gz(2) + FOLLOWER_POST_H + FOLLOWER_BOSS;
+            ex(3.2) translate([0, 0, gz(2)]) hw_bolt_up(follower_bolt());
+            ex(5.4) translate([0, 0, z0]) hw_bearing();
+            ex(6.6) translate([0, 0, z0 + BEARING[2]]) hw_nut();
+        }
+    }
+    at(2, 0) {
+        std_pin([1, 2]);
+        asm_p() ex(2) translate([0, 0, gz(1)]) gear(30, $joint_top = "pins");
+        for (a = [0, 120, 240]) rotate(a) translate([PIN_R, 0, gtop(1) - PIN_DEPTH + 0.2]) ex(3) hw_pin(PIN_L);
+        asm_p() ex(4) translate([0, 0, gz(2)]) cam("eccentric");
+    }
+    at(-2, 1) std_pin([2]);
+    // the band, drawn as two strands from the tail hole round the anchor's bearing
+    t = [cos(phi) * FOLLOWER_BAND[0] - sin(phi) * FOLLOWER_BAND[1], sin(phi) * FOLLOWER_BAND[0] + cos(phi) * FOLLOWER_BAND[1]];
+    a = [-2 * GRID, GRID]; z = gz(2) + GEAR_T / 2; dv = a - t; nv = [-dv[1], dv[0]] / norm(dv) * (BEARING[1] / 2 + 0.6);
+    asm_h() ex(4) for (s = [-1, 1]) hull() { translate([t[0], t[1], z]) sphere(d = 1.6, $fn = 8); translate([a[0] + s * nv[0], a[1] + s * nv[1], z]) sphere(d = 1.6, $fn = 8); }
 }
 module asm_geneva() {
     asm_tile(-1, -1, 5, 3);

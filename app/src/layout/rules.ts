@@ -2,7 +2,7 @@
 // hardware an item hits, how the train turns (including the stepped and gated
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
-  ARM_W, MAGF_N, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
+  ARM_W, MAGF_N, followerTail, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
   motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
@@ -206,9 +206,9 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     pairs.push({ a, b: c, kind: "band" });
   }
   // an arm (follower, anchor, lever) sweeping over its level: does a segment from the pivot touch other items?
-  const sweepHits = (self: GearRef, except: GearRef | undefined, segs: [number, number, number, number][], extra: number, hit: (o: Occ) => void) => {
+  const sweepHits = (self: GearRef, except: GearRef | undefined, segs: [number, number, number, number][], extra: number, hit: (o: Occ) => void, level = self.gear.level) => {
     for (const o of occ) {
-      if (o.level !== self.gear.level || o.ref.pin === self.pin || (except && o.ref === except)) continue;
+      if (o.level !== level || o.ref.pin === self.pin || (except && o.ref === except)) continue;
       const t = mm(l, o.ref.pin);
       if (segs.some(([ax, ay, bx, by]) => segDist(t.x, t.y, ax, ay, bx, by) < o.r + extra + 0.5)) hit(o);
     }
@@ -225,9 +225,14 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     if (!c) { problems.push({ text: "the follower needs a cam two sockets away on its level, straight along the grid", pin: g0.pin.id, level: g0.gear.level }); continue; }
     partners.set(k(g0), c); pairs.push({ a: c, b: g0, kind: "cam" });
     const p = mm(l, g0.pin), dir = angle(l, g0.pin, c.pin), A = followerA(l.size);
-    const segs = [0, 0.3, 0.6, 0.9].map(th => [p.x, p.y, p.x + A * Math.cos(dir + th), p.y + A * Math.sin(dir + th)] as [number, number, number, number]);
-    segs.push([p.x, p.y, p.x - g * Math.cos(dir), p.y - g * Math.sin(dir)]);   // the tail
-    sweepHits(g0, c, segs, ARM_W(l.size) / 2, o => pairs.push({ a: g0, b: o.ref, kind: "collide" }));
+    const swing = [0, 0.25, 0.5, 0.75, 1.05], ft = followerTail(l.size);
+    const seg = (r: number, th: number, back = 1) => [p.x, p.y, p.x + back * r * Math.cos(dir + th), p.y + back * r * Math.sin(dir + th)] as [number, number, number, number];
+    const collide = (o: Occ) => pairs.push({ a: g0, b: o.ref, kind: "collide" });
+    sweepHits(g0, c, swing.map(th => seg(A, th)), ARM_W(l.size) / 2, collide);
+    // the tail with its output post and band lug, on the follower's level; the post's top reaches the next level
+    sweepHits(g0, c, swing.map(th => seg(ft.post, th, -1)), ft.r, collide);
+    const postEnd = (th: number) => { const [, , x, y] = seg(ft.post, th, -1); return [x, y, x, y] as [number, number, number, number]; };
+    sweepHits(g0, c, swing.map(postEnd), ft.r, collide, g0.gear.level + 1);
   }
   // Geneva wheels want their driver three sockets away, one level down
   for (const g0 of gears) if (kindOf(g0.gear) === "genevaWheel") {
@@ -602,6 +607,12 @@ export function analyze(l: Layout, joint: Joint = "jaws"): Analysis {
     const sp = w && speed.get(k(w));
     if (sp && ((sp < 0) !== (g0.gear.anchorCw ?? true))) problems.push({ text: `the escape wheel runs ${sp < 0 ? "clockwise" : "counter-clockwise"}: use the ${sp < 0 ? "standard anchor" : "mirrored anchor (ANCHOR-L)"}`, pin: g0.pin.id, level: g0.gear.level });
   }
+  // a snail cam has a step: turning counter-clockwise (seen from above) it drives the step into the nose and jams
+  for (const g0 of gears) if (kindOf(g0.gear) === "follower") {
+    const c = partners.get(k(g0));
+    const sp = c && c.gear.cam === "snail" ? speed.get(k(c)) : undefined;
+    if (sp && sp > 0) problems.push({ text: "the snail cam turns counter-clockwise, so its step runs into the follower's nose and jams: turn the drive the other way", pin: c!.pin.id, level: c!.gear.level });
+  }
   if (locked) problems.push({ text: "the train is locked: a loop disagrees with itself" });
   return { pairs, hits, problems, speed, phase, motion, smooth, locked, reachable, pawls, linkages, partners, fixtures };
 }
@@ -772,7 +783,7 @@ export function billOfMaterials(l: Layout, joint: Joint = "jaws"): { printed: Bo
           break;
         }
         case "cam": { const c = x.cam ?? "eccentric"; addP(`CAM-${c[0].toUpperCase()}${sf}`, `${c[0].toUpperCase()}${c.slice(1)} cam${nt}`, { part: "cam", cam: c, ...fp }); bearing(); break; }
-        case "follower": addP("FOLLOWER", "Cam follower arm", { part: "follower" }); bearing(); addH("band", "rubber band or O-ring"); break;
+        case "follower": addP("FOLLOWER", "Cam follower arm", { part: "follower" }); bearing(); addH("band", "rubber band or O-ring, from the follower's tail to a pin two sockets back and one over"); addH("follower-post", `${s.bolt} x ${hw.follower_bolt} mm bolt, a nut and a bearing for the follower's output post (only with a link on it)`); break;
         case "geneva": addP(`GENEVA${x.slots ?? 6}-D${sf}`, `Geneva driver, ${x.slots ?? 6} slot, on a 40T gear${nt}`, { part: "geneva_driver", slots: x.slots ?? 6, ...fp }); bearing(2); spacer(3); break;
         case "genevaWheel": addP(`GENEVA${x.slots ?? 6}${sf}`, `Geneva wheel, ${x.slots ?? 6} slots${nt}`, { part: "geneva_wheel", slots: x.slots ?? 6, ...fp }); bearing(); break;
         case "qrlever": {

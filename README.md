@@ -188,10 +188,18 @@ bolts to the board and carries a sliding carriage.
   piston drive.
 - **Cams.** `CAM-E` (eccentric, sine lift), `CAM-H` (heart, even rise and
   fall) and `CAM-S` (snail, slow rise and a drop) are discs on the gear hub
-  lifting half a grid step (joined with dowel pins: a cam is too small for
-  the jaws). `FOLLOWER` is an arm on a pin two sockets away
-  with a round nose on the cam and a tail for a rubber band that holds it
-  down.
+  lifting half a grid step. A cam has no teeth: it sits on a gear on the same
+  pin and turns with it, joined with dowel pins (a cam is too small for the
+  jaws), so the gear under it takes pin holes in its top face (`G30-PT`).
+  The snail turns clockwise only (seen from above); the other way its step
+  runs into the follower and jams, and the tester says so. `FOLLOWER` is an
+  arm on a pin two sockets away, on the cam's level, with a round nose on the
+  cam. The board lies flat, so a rubber band or small O-ring holds the nose
+  on: from the hole in the tail round a pin two sockets behind the follower
+  and one over, on the nose's side. The tail also carries an output post: a
+  kit bolt dropped in from below, like a crank post, with a bearing one level
+  above the follower, so a link on it takes the rocking on to a rocker, a
+  pointer or a flag. The arm swings about 28 degrees in M2.
 - **Geneva drive.** `GENEVA6-D` and `GENEVA8-D` are 40T gears with a drive
   post and a locking crescent one level up (two bearings); `GENEVA6` and
   `GENEVA8` are the slotted wheels, on a pin three sockets away one level

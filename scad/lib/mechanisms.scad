@@ -6,7 +6,7 @@
 //   yoke(lv, throw, reach)  scotch yoke: tower and arm with a slot that the crank bolt's bearing rides in
 //   slider_post(lv)         post on the carriage: a link from a crank bolt makes a crank slider
 //   cam(kind)               eccentric, heart or snail cam disc on the gear hub
-//   follower()              rocker arm on a pin two sockets from the cam, nose rides the cam
+//   follower()              rocker arm on a pin two sockets from the cam, nose rides the cam, output post on the tail
 //   geneva_driver(n)        40T gear with a locking crescent and drive post on top
 //   geneva_wheel(n)         n slot wheel three sockets away, one level above the driver gear
 //   partial_gear(t, keep)   gear with teeth on half or a quarter of its rim
@@ -156,20 +156,38 @@ module cam(kind = "eccentric") {
         face_joints(GEAR_T, 0, CAM_R0);   // too small for the jaws: it joins with pins
     }
 }
-// Follower: pivots on a pin two sockets from the cam, its nose rides the cam, a
-// rubber band through the tail hole pulls it on.
+// Follower: pivots on a pin two sockets from the cam, its nose rides the cam (on
+// the counter-clockwise side, seen from above). The tail carries an output post: a
+// kit bolt dropped in from below, head in a pocket, like a crank post. Its bearing
+// sits one level up, so a link on it carries the rocking to a rocker, a pointer or
+// a flag on that level. Beside the post, on the nose's side, a hole takes the
+// rubber band (to a pin two sockets back and one over) that holds the nose on the cam.
 FOLLOWER_A = 1.2 * GRID;
 NOSE_R = 1.5 * MOD;
+FOLLOWER_POST_D = max(ARM_W + 2, bolt_end_d());
+// out past the pin's knob, the thick part included
+FOLLOWER_POST = ceil(2 * max(GRID, R_FREE + ARM_W / 2, KNOB_D / 2 + 0.8 + FOLLOWER_POST_D / 2)) / 2;
+FOLLOWER_BAND = [-FOLLOWER_POST, FOLLOWER_POST_D / 2 + 2];   // the band hole
+FOLLOWER_BOSS = 1.5;                  // the post's bearing lands on the next level; the link clears the arm by 0.5 mm
+FOLLOWER_POST_H = LEVEL - 0.5;
+function follower_bolt() = post_bolt(FOLLOWER_POST_H, FOLLOWER_BOSS, BEARING[2]);
 module follower() {
-    w = ARM_W; tail = GRID;
+    w = ARM_W; P = FOLLOWER_POST; de = FOLLOWER_POST_D;
     difference() {
-        linear_extrude(GEAR_T) union() {
-            circle(d = BEARING[1] + 6);
-            hull() { circle(d = w); translate([FOLLOWER_A, 0]) circle(r = NOSE_R); }
-            hull() { circle(d = w); translate([-tail, 0]) circle(d = 0.7 * w); }
+        union() {
+            linear_extrude(GEAR_T) union() {
+                circle(d = BEARING[1] + 6);
+                hull() { circle(d = w); translate([FOLLOWER_A, 0]) circle(r = NOSE_R); }
+                hull() { circle(d = w); translate([-P, 0]) circle(d = de); }
+                hull() { translate([-P, 0]) circle(d = w); translate(FOLLOWER_BAND) circle(d = 6); }
+            }
+            // the post's thick part rises toward the next level, clear of the pin's knob
+            linear_extrude(FOLLOWER_POST_H) hull() { translate([-(R_FREE + w / 2), 0]) circle(d = w); translate([-P, 0]) circle(d = de); }
+            translate([-P, 0, FOLLOWER_POST_H - EPS]) cylinder(d = SPACER_OD, h = FOLLOWER_BOSS + EPS);
         }
         bearing_seat();
-        translate([-tail + 1.5, 0, -1]) cylinder(d = 2.5, h = GEAR_T + 2, $fn = 16);
+        translate([-P, 0, 0]) bolt_pocket(FOLLOWER_POST_H, FOLLOWER_BOSS);
+        translate([FOLLOWER_BAND[0], FOLLOWER_BAND[1], -1]) cylinder(d = 2.5, h = GEAR_T + 2, $fn = 16);
     }
 }
 
