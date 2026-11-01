@@ -66,8 +66,9 @@ module std_pin(levels, knob = "knob", bolt = true) {
 }
 // a bolt and nut through something `h` thick standing on the plate (rail tab, mount leg), knob on top
 module leg_pin(h) {
-    asm_p() ex(2) translate([0, 0, h - KNOB_BOSS_H]) knob();   // the knob's boss presses the leg top
-    ex(3.5) translate([0, 0, h + KNOB_FLOOR]) hw_bolt(ceil((h + KNOB_FLOOR + PLATE_T + NUT_H) / 5) * 5);
+    asm_p() ex(2) translate([0, 0, h]) knob();   // the knob's boss presses the leg top
+    zh = h + KNOB_BOSS_H + KNOB_FLOOR;           // under the bolt head
+    ex(3.5) translate([0, 0, zh]) hw_bolt(ceil((zh + PLATE_T + NUT_H) / 5) * 5);
     ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
 }
 module asm_tile(i0, j0, nx, ny) asm_p() ex(-0.8) translate([GRID * i0 - GRID / 2, GRID * j0 - GRID / 2, -TILE_H]) tile(nx, ny);
@@ -193,24 +194,37 @@ module asm_rack() {
     asm_p() ex(1.6) translate([1.5 * GRID, 0, 0]) rack_carriage(2, 1);
     at(1, -2) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) gear(20); }
 }
+// A 20 mm crank swings the carriage 40 mm: a 7 socket rail holds that travel in every size,
+// and reach 6 keeps the carriage and the rail's end clear of the crank gear's rim. A 30T,
+// as a 20T in M1 is too small for the crank's jaws.
 module asm_yoke() {
-    asm_tile(-1, -2, 8, 4);
-    rail_on_row(4);
-    px = 5 * GRID; c = px - 3 * GRID;
+    asm_tile(-1, -2, 13, 4);
+    rail_on_row(7);
+    px = 9 * GRID; c = px - 6 * GRID;
     asm_p() ex(1.6) translate([c, 0, 0]) carriage();
-    asm_p() ex(3) translate([c, 0, 0]) yoke(1, 20, 3);
-    at(5, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
+    asm_p() ex(3) translate([c, 0, 0]) yoke(1, 20, 6);
+    at(9, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(30); rotate(90) crank_on(1, 20, "bearing"); }
 }
-module asm_slider() {
-    asm_tile(-1, -2, 7, 4);
-    rail_on_row(4);
-    px = 4 * GRID; P = [px, 20]; c = px - sqrt(9 * GRID * GRID - 400);
+// Crank slider: the crank's 30T gear on level 2 runs above the rail, the carriage
+// and the tab knobs (a 20T is too small for a crank in M1); it sits three sockets
+// past the end of a 7-socket rail and a 7-hole link reaches the post, so in every
+// size the carriage keeps its whole stroke on the rail and the post and the tab
+// knobs stay clear of the crank. `phi` turns the crank (90: pin at +y).
+SL_RAIL = 7; SL_LINK = 7; SL_THROW = 20; SL_GEAR = 30;
+SL_CRANK = SL_RAIL + 2;     // the crank's socket along the row
+module asm_slider(phi = 120) {
+    px = SL_CRANK * GRID; LL = (SL_LINK - 1) * GRID;
+    P = [px + SL_THROW * cos(phi), SL_THROW * sin(phi)];
+    c = P[0] - sqrt(LL * LL - P[1] * P[1]);
+    asm_tile(-1, -2, 6, 5); asm_tile(5, -2, 6, 5);
+    rail_on_row(SL_RAIL);
     asm_p() ex(1.6) translate([c, 0, 0]) carriage();
-    asm_p() ex(3) translate([c, 0, 0]) slider_post(1);
-    at(4, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
-    asm_p() ex(6.5) link_between(P, [c, 0], 3) link(4);
-    translate([c, 0, 0]) { ex(6.6) translate([0, 0, lvl_z(3)]) hw_bearing(); post_cap(lvl_z(3) + BEARING[2], 8); }
+    asm_p() ex(3) translate([c, 0, 0]) slider_post(2);
+    at(SL_CRANK, 0) { std_pin([2]); asm_p() ex(4) translate([0, 0, gz(2)]) rotate(phi) gear(SL_GEAR); rotate(phi) crank_on(2, SL_THROW, "bearing"); }
+    asm_p() ex(8.5) link_between(P, [c, 0], 4) link(SL_LINK);
+    translate([c, 0, 0]) { ex(8.6) translate([0, 0, lvl_z(4)]) hw_bearing(); post_cap(lvl_z(4) + BEARING[2], 10); }
 }
+
 // The cam on level 2, pinned to the 30T under it that turns it (the cam is too
 // small for the jaws); the follower on level 2 two sockets away, its output post's
 // bearing on level 3; a rubber band from the tail to a pin two sockets back and

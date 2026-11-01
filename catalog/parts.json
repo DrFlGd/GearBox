@@ -895,6 +895,20 @@
       }
     },
     {
+      "name": "L7",
+      "title": "Link, 7 holes",
+      "group": "link",
+      "params": {
+        "part": "link",
+        "holes": 7
+      },
+      "expect": {
+        "M2": [148, 28, 8],
+        "M1.5": [113, 23, 7],
+        "M1": [80, 20, 6]
+      }
+    },
+    {
       "name": "RATCHET",
       "title": "Ratchet wheel",
       "group": "addon",
@@ -1027,6 +1041,20 @@
       }
     },
     {
+      "name": "RAIL7",
+      "title": "Slider rail over 7 sockets",
+      "group": "rail",
+      "params": {
+        "part": "rail",
+        "rail_n": 7
+      },
+      "expect": {
+        "M2": [138, 37, 5.32],
+        "M1.5": [105, 28, 4.32],
+        "M1": [73, 19.5, 3.41]
+      }
+    },
+    {
       "name": "CARRIAGE",
       "title": "Carriage with a plug pocket",
       "group": "rail",
@@ -1100,9 +1128,26 @@
         "flip": true
       },
       "expect": {
-        "M2": [81.25, 63.5, 27.5],
-        "M1.5": [61.25, 58.5, 25],
-        "M1": [42.25, 55.5, 22.6]
+        "M2": [82.25, 73.5, 27.5],
+        "M1.5": [61.75, 67.5, 25],
+        "M1": [42.25, 63.5, 22.6]
+      }
+    },
+    {
+      "name": "YOKE20R6",
+      "title": "Scotch yoke for a 20 mm crank on level 1, reach 6",
+      "group": "rail",
+      "params": {
+        "part": "yoke",
+        "level": 1,
+        "throw": 20,
+        "reach": 6,
+        "flip": true
+      },
+      "expect": {
+        "M2": [142.25, 73.5, 27.5],
+        "M1.5": [106.75, 67.5, 25],
+        "M1": [72.25, 63.5, 22.6]
       }
     },
     {
@@ -1117,9 +1162,9 @@
         "flip": true
       },
       "expect": {
-        "M2": [101.25, 83.5, 27.5],
-        "M1.5": [76.25, 78.5, 25],
-        "M1": [52.25, 75.5, 22.6]
+        "M2": [102.25, 93.5, 27.5],
+        "M1.5": [76.75, 87.5, 25],
+        "M1": [52.25, 83.5, 22.6]
       }
     },
     {
@@ -2163,11 +2208,11 @@
     "yoke": {
       "title": "Scotch yoke",
       "parts": [
-        "RAIL4",
+        "RAIL7",
         "CARRIAGE",
-        "YOKE20R3",
+        "YOKE20R6",
         "CRANK20",
-        "G20",
+        "G30",
         "K",
         "K",
         "K",
@@ -2188,26 +2233,29 @@
     "slider": {
       "title": "Crank slider",
       "parts": [
-        "RAIL4",
+        "RAIL7",
         "CARRIAGE",
-        "SLPOST",
+        "SLPOST-L2",
         "CAP",
         "CRANK20",
-        "L4",
-        "G20",
+        "L7",
+        "G30",
         "K",
         "K",
         "K",
-        "BS"
+        "BS",
+        "S10"
       ],
       "hardware": [
-        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "2 bolts (1-level length) and 2 nuts for the rail",
+        "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
         "1 dowel pin for the cap"
       ],
       "hardware_pins": [
-        "3 bolts (1-level length) and 3 nuts for the rail and the crank gear",
+        "2 bolts (1-level length) and 2 nuts for the rail",
+        "1 bolt (2-level length) and 1 nut for the crank gear, which sits on level 2",
         "1 bolt as the crank post (M8 x 25 for M2, M6 x 20 for M1.5, M5 x 20 for M1) and 1 nut",
         "3 bearings",
         "3 short dowel pins (3 x 6 mm for M2, 2 x 4 mm for M1.5 and M1) for the crank, 1 dowel pin for the cap"

@@ -307,7 +307,7 @@ export default function LayoutMode({ size, profile, overrides, joint, render, en
                         <select value={selFix.carriage.throw} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), throw: Number(e.target.value) } }))}>{[20, 30, 40].map(n => <option key={n} value={n}>{n} mm</option>)}</select>
                       </label>
                       <label className="field"><span className="field-label">Reach</span>
-                        <select value={selFix.carriage.reach} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), reach: Number(e.target.value) } }))}>{[2, 3, 4, 5].map(n => <option key={n} value={n}>{n} steps</option>)}</select>
+                        <select value={selFix.carriage.reach} onChange={e => updateRail(selFix.id, x => ({ ...x, carriage: { ...(x.carriage as Carriage & { kind: "yoke" }), reach: Number(e.target.value) } }))}>{[2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} steps</option>)}</select>
                       </label>
                     </>
                   )}

@@ -321,7 +321,7 @@ export const PART_KINDS: PartKind[] = [
     params: [
       { key: "level", label: "Crank gear on level", type: "select", options: [1, 2].map(v => ({ value: v, label: `level ${v}` })) },
       { key: "throw", label: "Crank throw (mm)", type: "select", options: [20, 30, 40].map(v => ({ value: v, label: `${v} mm` })) },
-      { key: "reach", label: "Reach (grid steps)", type: "number", min: 2, max: 5, step: 1 },
+      { key: "reach", label: "Reach (grid steps)", type: "number", min: 2, max: 6, step: 1 },
       flipOption("Print-ready (upside down)"),
     ],
     defaults: { level: 1, throw: 20, reach: 3, flip: "true" },

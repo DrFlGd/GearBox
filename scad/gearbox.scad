@@ -54,7 +54,7 @@ flip_pawl = false; // pawl for a ratchet that locks the other way
 /* [Mechanisms] */
 rail_n = 4;        // [2:1:8] rail: sockets it spans
 rack_len = 2;      // [2:1:4] rack: length in grid steps
-reach = 3;         // [2:1:5] yoke: grid steps from the carriage centre to the crank pin
+reach = 3;         // [2:1:6] yoke: grid steps from the carriage centre to the crank pin
 cam = "eccentric"; // [eccentric, heart, snail]
 slots = 6;         // [6, 8] geneva: slots in the wheel
 keep = "half";     // [half, quarter] partial gear: how much of the rim has teeth

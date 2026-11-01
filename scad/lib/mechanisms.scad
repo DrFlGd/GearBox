@@ -102,13 +102,15 @@ function rack_top(level) = lvl_z(level) + GEAR_T;
 // the arm runs at level + 2 where the crank post's bearing rides in the slot.
 // Prints upside down (arm on the bed).
 SLOT_W = BEARING[1] + 0.5;
+YOKE_WALL = sz(5, 4.5, 4);          // solid frame around the slot: sides and both ends
 function yoke_z(level) = lvl_z(level + 2) + 1;
 function yoke_top(level) = yoke_z(level) + GEAR_T + 4;
 module yoke(level = 1, throw = 20, reach = 3) {
     assert(level >= 1 && level <= 2, "yoke: crank gear on level 1 or 2");
     za = yoke_z(level); h = GEAR_T + 4;
-    SL = 2 * throw + SLOT_W + 1;
-    AW = SLOT_W + 8;
+    SL = 2 * throw + SLOT_W + 1;     // the slot
+    AW = SLOT_W + 2 * YOKE_WALL;      // the frame
+    FL = SL + 2 * YOKE_WALL;
     X = reach * GRID;
     assert(X - AW / 2 > PLUG_W / 2 + 2, "yoke: reach too short");
     difference() {
@@ -116,7 +118,7 @@ module yoke(level = 1, throw = 20, reach = 3) {
             plug();
             translate([-PLUG_W / 2, -RAIL_W / 2, BASE_TOP - EPS]) cube([PLUG_W, RAIL_W, za + h - BASE_TOP]);
             translate([-PLUG_W / 2, -RAIL_W / 2, za]) cube([X - AW / 2 + PLUG_W / 2 + EPS, RAIL_W, h]);
-            translate([X, 0, za]) linear_extrude(h) hull() { translate([0, -SL / 2 + 2]) square([AW, 4], center = true); translate([0, SL / 2 - 2]) square([AW, 4], center = true); }
+            translate([X, 0, za]) linear_extrude(h) offset(r = 2) offset(delta = -2) square([AW, FL], center = true);
         }
         translate([X, 0, za - 1]) linear_extrude(h + 2) hull() { translate([0, -SL / 2 + SLOT_W / 2]) circle(d = SLOT_W); translate([0, SL / 2 - SLOT_W / 2]) circle(d = SLOT_W); }
     }
