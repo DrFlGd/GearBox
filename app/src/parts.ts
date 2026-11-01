@@ -215,12 +215,17 @@ export const PART_KINDS: PartKind[] = [
   },
   {
     id: "bevel", title: "Bevel gear on a pin", group: "Drives",
-    blurb: "A 20T or 40T spur gear with a tall hub and a 20T bevel on top; it fills its pin on level 1, and its mate on the bracket's shaft sits two sockets away. Prints teeth up.",
+    blurb: "A 20T or 40T spur gear with a tall hub and a 20T bevel on top; it fills its pin on level 1. On a 20T it sits two sockets before the bracket (mate BEVEL-S); a 40T's teeth would run into the bracket's housing there, so it sits three sockets before it (mate BEVEL-S3). Prints teeth up.",
     params: [{ key: "teeth", label: "Spur teeth", type: "select", options: [20, 40].map(v => ({ value: v, label: `${v} teeth` })) }],
     defaults: { teeth: 20 },
     name: p => (Number(p.teeth) === 40 ? "BEVEL40" : "BEVEL"),
   },
-  { id: "bevel_shaft", title: "Bevel gear on the shaft", group: "Drives", blurb: "The mate, with a hub back to the first housing and a nut pocket that keys and clamps it to the shaft bolt. Prints hub down.", params: [], defaults: {}, name: () => "BEVEL-S" },
+  {
+    id: "bevel_shaft", title: "Bevel gear on the shaft", group: "Drives",
+    blurb: "The mate, with a hub back to the first housing and a nut pocket that keys and clamps it to the shaft bolt. Its hub length sets how far the bevel pin sits before the bracket: two sockets for a bevel on a 20T, three for one on a 40T. Prints hub down.",
+    params: [{ key: "bevel_reach", label: "Bevel pin before the bracket", type: "select", options: [{ value: 2, label: "2 sockets (20T spur)" }, { value: 3, label: "3 sockets (40T spur)" }] }],
+    defaults: { bevel_reach: 2 }, name: p => (Number(p.bevel_reach) === 3 ? "BEVEL-S3" : "BEVEL-S"),
+  },
   {
     id: "worm", title: "Worm", group: "Drives",
     blurb: "Single-start worm the length of the gap between the housings, keyed to the shaft by a nut in its hub. Turns a 20T worm gear two rows from the shaft or a 40T three rows out, one tooth per turn. Prints standing; slow with cooling.",
@@ -450,7 +455,7 @@ export type Size = (typeof SIZES)[number];
 export type Standard = { title: string; module: number; grid: number; level: number; gear_thickness: number; bolt: string; bearing: string; nut: string; knob_d: number; dial_r: number; spacer_od: number; tile_h: number; plate_t: number; bolt_lengths: Record<string, number>;
   /** Hardware beyond the bolts: dowel pin sizes, the clamp screw, magnets, post bolt lengths (mm), the pin circle, the smallest
    *  radius that has screw holes and the smallest that has room for the jaws. */
-  hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; follower_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; pin_r: number; screw_min_r: number; jaw_min_r: number };
+  hardware: { pin: string; pin_hub: string; screw: string; magnet: string; crank_bolt: number; follower_bolt: number; handle_bolt: number; lever_bolt: number; shaft_bolt: number; shaft_bolt3: number; pin_r: number; screw_min_r: number; jaw_min_r: number };
   /** Bolt lengths for a pin whose dial knob stands over a jaw gear (it is taller than a knob). */
   dial_bolt_lengths: Record<string, number>;
 };

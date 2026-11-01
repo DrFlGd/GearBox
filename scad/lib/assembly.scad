@@ -313,8 +313,9 @@ module asm_planetary() {
     }
 }
 module asm_shaft() {
-    asm_tile(-1, -1, 8, 5);
-    bx = 2 * GRID; L = bracket_len(4);
+    // the bevel's 40T spur would reach into the first housing two sockets away: three
+    asm_tile(-1, -1, 9, 5);
+    reach = 3; bx = bevel_d(reach); L = bracket_len(4);
     std_pin([1], knob = "none", bolt = false);
     asm_p() ex(2) translate([0, 0, gz(1)]) bevel_pin(40);
     ex(1) translate([0, 0, -PLATE_T - NUT_H]) hw_nut();
@@ -323,13 +324,14 @@ module asm_shaft() {
         for (k = [1 : 3]) translate([k * GRID, 0, 0]) { ex(2) translate([0, 0, 0.7]) hw_bolt_up(stock_bolt(1)); ex(-1.5) translate([0, 0, -PLATE_T - NUT_H]) hw_nut(); }
         for (u = [0, L]) ex(3) translate([u + (u == 0 ? -HOUSING_T / 2 : HOUSING_T / 2 - BEARING[2]), 0, SHAFT_H]) rotate([0, 90, 0]) translate([0, 0, 0]) hw_bearing();
         asm_p() ex(4) translate([HOUSING_T / 2 + 0.5, 0, SHAFT_H]) rotate([0, 90, 0]) worm_part(4);
-        sl = ceil((L + HOUSING_T + 0.5 + NUT_H + 1) / 10) * 10;
+        // the shaft runs on through the bevel's hub, stopping short of its cone
+        sl = floor((L + HOUSING_T / 2 + bx - gear_pr(BEVEL_T)) / 10) * 10;
         ex(6) translate([L + HOUSING_T / 2, 0, SHAFT_H]) rotate([0, 90, 0]) hw_bolt(sl);       // head outside the far housing
         ex(4.8) translate([HOUSING_T / 2 + 0.75, 0, SHAFT_H]) rotate([0, 90, 0]) hw_nut();      // keys the worm
     }
-    ex(2.6) translate([BEVEL_D - HOUSING_T / 2 - 0.75, 0, SHAFT_H]) rotate([0, -90, 0]) hw_nut();  // keys the bevel's hub
-    asm_p() ex(3.5) translate([gear_pr(BEVEL_T), 0, SHAFT_H]) rotate([0, -90, 0]) bevel_shaft();
-    at(4, 3) { std_pin([4]); asm_p() ex(8) translate([0, 0, gz(4)]) worm_gear_part(40); }
+    ex(2.6) translate([bx - HOUSING_T / 2 - 0.75, 0, SHAFT_H]) rotate([0, -90, 0]) hw_nut();  // keys the bevel's hub
+    asm_p() ex(3.5) translate([gear_pr(BEVEL_T), 0, SHAFT_H]) rotate([0, -90, 0]) bevel_shaft(reach);
+    at(reach + 2, 3) { std_pin([4]); asm_p() ex(8) translate([0, 0, gz(4)]) worm_gear_part(40); }
 }
 module asm_flywheel() {
     asm_tile(-1, -1, 3, 3);

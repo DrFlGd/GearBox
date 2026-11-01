@@ -30,6 +30,7 @@
         "handle_bolt": 40,
         "lever_bolt": 25,
         "shaft_bolt": 100,
+        "shaft_bolt3": 120,
         "pin_r": 14.3,
         "screw_min_r": 23.85,
         "jaw_min_r": 17.15
@@ -71,6 +72,7 @@
         "handle_bolt": 35,
         "lever_bolt": 20,
         "shaft_bolt": 80,
+        "shaft_bolt3": 90,
         "pin_r": 10.8,
         "screw_min_r": 18.06,
         "jaw_min_r": 12.75
@@ -112,6 +114,7 @@
         "handle_bolt": 30,
         "lever_bolt": 20,
         "shaft_bolt": 60,
+        "shaft_bolt3": 60,
         "pin_r": 9.3,
         "screw_min_r": 15.48,
         "jaw_min_r": 13.4
@@ -1638,6 +1641,20 @@
       }
     },
     {
+      "name": "BEVEL-S3",
+      "title": "Bevel gear 20T on the shaft, pin 3 sockets back (for BEVEL40)",
+      "group": "shaft",
+      "params": {
+        "part": "bevel_shaft",
+        "bevel_reach": 3
+      },
+      "expect": {
+        "M2": [46, 46, 43.18],
+        "M1.5": [34.5, 34.5, 31.76],
+        "M1": [23, 23, 20.33]
+      }
+    },
+    {
       "name": "WORM",
       "title": "Worm for the shaft bracket",
       "group": "shaft",
@@ -2443,7 +2460,7 @@
       "parts": [
         "BRACKET",
         "BEVEL40",
-        "BEVEL-S",
+        "BEVEL-S3",
         "WORM",
         "WG40",
         "K",
@@ -2454,7 +2471,7 @@
         "S10"
       ],
       "hardware": [
-        "1 bolt as the shaft (M8 x 100 for M2, M6 x 80 for M1.5, M5 x 60 for M1), 2 nuts for it",
+        "1 bolt as the shaft (M8 x 120 for M2, M6 x 90 for M1.5, M5 x 60 for M1), 2 nuts for it",
         "3 bolts (1-level length) and 3 nuts for the bracket",
         "1 bolt (4-level length) and 1 nut for the worm gear pin, 1 bolt (3-level length) and 1 nut for the bevel pin",
         "4 bearings"
