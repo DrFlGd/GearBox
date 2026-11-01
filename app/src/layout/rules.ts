@@ -3,7 +3,7 @@
 // motions of phase 4b), what the fixtures do, and what to print.
 import {
   ARM_W, MAGF_N, ringBolt, MAG_COUPLE_MIN, PLN, hasJaws, hasPins, hasScrews, magPoles, magnetSize, SHAFT_LEVEL, bearingOD, bracketDims, crankLinkLevel, escDims, extraLevels, followerA, gearAt, genevaDims, itemR, kindOf, levelsUsed, meshes, motorLegs,
-  motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
+  motorType, pinById, pitchR, planetaryDims, pointerReach, railDims, railFrame, slotW, yokeWall, socketPos, springMinTeeth, std, teethOf, tipR, topLevel,
   type Band, type Fixture, type Gear, type Joint, type Layout, type Pin,
 } from "./model";
 import { escapeAngle, gateE, genevaAngle, rangeOver, sliderX, yokeX } from "./motion";
@@ -135,10 +135,10 @@ export function fixtureBoxes(l: Layout, f: Fixture, info?: FixtureInfo): Fixture
   } else {
     out.push(box(lo - r.carL / 2, hi + r.carL / 2, -r.w / 2, r.w / 2, 1, 1, "carriage"));
     if (c.kind === "yoke") {
-      const sw = slotW(l.size), aw = sw + 8, sl = 2 * c.throw + sw + 1;
+      const sw = slotW(l.size), wall = yokeWall(l.size), aw = sw + 2 * wall, sl = 2 * c.throw + sw + 1;
       out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.w / 2, r.w / 2, 2, c.level + 2, "carriage"));                      // tower
       out.push({ ...box(lo - r.plugW / 2, hi + c.reach * g - aw / 2, -r.w / 2, r.w / 2, c.level + 2, c.level + 2, "carriage"), drive: true });    // beam
-      out.push({ ...box(lo + c.reach * g - aw / 2, hi + c.reach * g + aw / 2, -sl / 2 - 4, sl / 2 + 4, c.level + 2, c.level + 2, "carriage"), drive: true }); // slot plate
+      out.push({ ...box(lo + c.reach * g - aw / 2, hi + c.reach * g + aw / 2, -sl / 2 - wall, sl / 2 + wall, c.level + 2, c.level + 2, "carriage"), drive: true }); // slot plate
     } else out.push(box(lo - r.plugW / 2, hi + r.plugW / 2, -r.plugW / 2, r.plugW / 2, 2, c.level + 2, "carriage"));            // post
   }
   return out;

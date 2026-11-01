@@ -118,6 +118,8 @@ export function escDims(size: Size) {
   return { C, R, alpha, n: 15, depth: 0.22 * R, bar: 2.5 * std(size).grid };
 }
 export const slotW = (size: Size) => bearingOD(size) + 0.5;
+/** Frame wall around the scotch yoke slot (sides and ends), as YOKE_WALL in mechanisms.scad. */
+export const yokeWall = (size: Size) => sz(size, 5, 4.5, 4);
 export const springWallR = (size: Size) => sz(size, 8, 6.5, 5) + 4.5 * sz(size, 3.2, 2.5, 2) + 2.5 + 2;
 export const springMinTeeth = (size: Size) => sz(size, 30, 40, 50);
 export const winchR = (size: Size) => std(size).grid + 2;
