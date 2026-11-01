@@ -194,13 +194,16 @@ module asm_rack() {
     asm_p() ex(1.6) translate([1.5 * GRID, 0, 0]) rack_carriage(2, 1);
     at(1, -2) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) gear(20); }
 }
+// A 20 mm crank swings the carriage 40 mm: a 7 socket rail holds that travel in every size,
+// and reach 6 keeps the carriage and the rail's end clear of the crank gear's rim. A 30T,
+// as a 20T in M1 is too small for the crank's jaws.
 module asm_yoke() {
-    asm_tile(-1, -2, 8, 4);
-    rail_on_row(4);
-    px = 5 * GRID; c = px - 3 * GRID;
+    asm_tile(-1, -2, 13, 4);
+    rail_on_row(7);
+    px = 9 * GRID; c = px - 6 * GRID;
     asm_p() ex(1.6) translate([c, 0, 0]) carriage();
-    asm_p() ex(3) translate([c, 0, 0]) yoke(1, 20, 3);
-    at(5, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(20); rotate(90) crank_on(1, 20, "bearing"); }
+    asm_p() ex(3) translate([c, 0, 0]) yoke(1, 20, 6);
+    at(9, 0) { std_pin([1]); asm_p() ex(2) translate([0, 0, gz(1)]) rotate(90) gear(30); rotate(90) crank_on(1, 20, "bearing"); }
 }
 // Crank slider: the crank's 30T gear on level 2 runs above the rail, the carriage
 // and the tab knobs (a 20T is too small for a crank in M1); it sits three sockets

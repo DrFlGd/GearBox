@@ -182,7 +182,10 @@ bolts to the board and carries a sliding carriage.
   and a beam carry a slotted plate two levels above the crank's gear; the
   crank post's bearing rides in the slot. The crank sits on the rail's own
   row past its end. The carriage moves with a pure sine motion of twice the
-  throw.
+  throw. The slot has a solid wall of 5 / 4.5 / 4 mm (M2 / M1.5 / M1) all
+  round. The kit (`RAIL7`, `YOKE20R6`, a 30T crank gear on the rail's row
+  two sockets past its end) keeps the 40 mm travel on the rail and the
+  carriage clear of the gear in every size.
 - **Crank slider.** `SLPOST` plugs into the carriage and puts a post at the
   crank's link level; a link from the crank post to it is the classic
   piston drive. The kit puts the crank on a 30T gear on level 2, where it
